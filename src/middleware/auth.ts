@@ -1,0 +1,2 @@
+import type {MiddlewareHandler} from "hono";import type {Env} from "../types";import {bad} from "../utils/http";
+export const auth:MiddlewareHandler<{Bindings:Env}>=async(c,n)=>{const a=new TextEncoder().encode((c.req.header("authorization")||"").replace(/^Bearer /,"")),b=new TextEncoder().encode(c.env.ADMIN_PASSWORD||"");if(!b.length||a.length!==b.length)return bad("管理员认证失败",401);let d=0;for(let i=0;i<a.length;i++)d|=a[i]^b[i];if(d)return bad("管理员认证失败",401);await n()};
