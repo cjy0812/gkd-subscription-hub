@@ -35,18 +35,35 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Check deployment secrets
+        id: deploy_gate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$ADMIN_PASSWORD" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deployment skipped. Configure CLOUDFLARE_API_TOKEN and ADMIN_PASSWORD in GitHub Actions secrets."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.deploy_gate.outputs.ready == 'true'
       - uses: oven-sh/setup-bun@v2
+        if: steps.deploy_gate.outputs.ready == 'true'
         with:
           bun-version: 1.4.5
       - name: Install dependencies
+        if: steps.deploy_gate.outputs.ready == 'true'
         run: bun install --frozen-lockfile
       - name: Prepare deployment secrets
+        if: steps.deploy_gate.outputs.ready == 'true'
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); await Bun.write(".secrets.json", JSON.stringify({ ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }))'
       - name: Build and deploy isolated Worker
+        if: steps.deploy_gate.outputs.ready == 'true'
         run: bun run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
