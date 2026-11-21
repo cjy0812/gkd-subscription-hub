@@ -2,7 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gkd-subscription-hub",
   "main": "src/index.ts",
-  "compatibility_date": "2026-11-21",
+  "compatibility_date": "2026-11-22",
+  "workers_dev": true,
+  "preview_urls": false,
   "assets": {
     "directory": "./apps/admin/dist",
     "binding": "ASSETS",
@@ -10,17 +12,18 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "ADMIN_HOST": "manage.example.com",
-    "SUBSCRIPTION_DOMAIN": "gkd.example.com"
+    "SUBSCRIPTION_BASE_URL": "https://gkd-subscription-hub.cjy081219.workers.dev/s"
   },
   "kv_namespaces": [
     {
       "binding": "STATE",
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+      "id": "215fd3c9c2c74481bc521feadedd83e8"
     }
   ],
   "triggers": {
-    "crons": ["0 */6 * * *"]
+    "crons": [
+      "0 */6 * * *"
+    ]
   },
   "observability": {
     "enabled": true,

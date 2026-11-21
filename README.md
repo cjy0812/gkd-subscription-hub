@@ -1,6 +1,6 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配子域名，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配独立路径，提供管理 API、目录页、原始文件分发和浏览器预览。
 
 ## 功能
 
@@ -12,7 +12,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
 - Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
-- 项目元数据目前保存在 KV，订阅文件按需从 GitHub raw 获取。
+- 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
 
 ## 管理端响应式设计
 
@@ -28,14 +28,14 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 ## URL 行为
 
-假设订阅 ID 为 `667`，订阅域名为 `gkd.example.com`：
+订阅服务部署在 `https://gkd-subscription-hub.cjy081219.workers.dev`，假设订阅 ID 为 `667`：
 
 | URL                            | 浏览器         | GKD / 非 HTML 客户端 |
 | ------------------------------ | -------------- | -------------------- |
-| `https://667.gkd.example.com/` | dist 文件目录  | HTML 目录            |
-| `/gkd.json5`                   | JSON5 代码预览 | 原始 JSON5           |
-| `/README.md`                   | Markdown 渲染  | 原始 Markdown        |
-| `/gkd.json5?raw=1`             | 原始 JSON5     | 原始 JSON5           |
+| `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/` | dist 文件目录 | HTML 目录 |
+| `/s/667/gkd.json5` | JSON5 代码预览 | 原始 JSON5 |
+| `/s/667/README.md` | Markdown 渲染 | 原始 Markdown |
+| `/s/667/gkd.json5?raw=1` | 原始 JSON5 | 原始 JSON5 |
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
@@ -104,14 +104,13 @@ bunx wrangler kv namespace create STATE
 
 修改 `wrangler.jsonc` 中的：
 
-- `ADMIN_HOST`：管理站完整域名，如 `manage.example.com`
-- `SUBSCRIPTION_DOMAIN`：订阅域名后缀，如 `gkd.example.com`
+- `管理站域名`：管理站完整域名，如 `manage.example.com`
+- `SUBSCRIPTION_BASE_URL`：订阅基础 URL，如 `https://gkd-subscription-hub.cjy081219.workers.dev/s`
 - KV namespace ID
 
 在 Cloudflare DNS 中配置代理记录和 Worker Routes：
 
-- `manage.example.com/*`
-- `*.gkd.example.com/*`
+初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route；后续可另行绑定独立自定义域名。
 
 TLS 证书必须覆盖对应主机名。二级子域名的证书覆盖范围要单独核实。
 
@@ -149,7 +148,7 @@ Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangl
 
 ### 6. 检查与部署
 
-当前 GitHub Actions 配置为 CI：对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。Cloudflare CD 尚未配置；生产部署仍需在确认 Worker 名称、域名路由及 GitHub Actions Secrets 后启用。
+GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `gkd-subscription-hub`。也可通过 workflow_dispatch 手动部署。
 
 ```bash
 bun run lint
@@ -163,7 +162,7 @@ bun run deploy
 
 ### 7. 注册订阅
 
-访问管理站，输入管理员密码，添加公开仓库 URL，例如：
+访问管理站 `https://gkd-subscription-hub.cjy081219.workers.dev/`，输入管理员密码，添加公开仓库 URL，例如：
 
 `https://github.com/Lin-arm/GKD_subscription`。
 
