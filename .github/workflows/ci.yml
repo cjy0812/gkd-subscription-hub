@@ -16,7 +16,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
-      - run: if [ -f bun.lock ]; then bun install --frozen-lockfile; else bun install; fi
+      - run: test -f bun.lock
+      - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
