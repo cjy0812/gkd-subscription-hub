@@ -1,6 +1,12 @@
 export const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 export const bad=(message:string,status=400)=>json({ok:false,error:message},status);
 export function escapeHtml(s:string){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!))}
-export function wantsHtml(req:Request){if(new URL(req.url).searchParams.get("raw")==="1")return false;return(req.headers.get("accept")||"").toLowerCase().includes("text/html")}
+export function wantsHtml(req:Request){
+ const url=new URL(req.url);if(url.searchParams.get("raw")==="1")return false;if(url.searchParams.get("view")==="1")return true;
+ const mode=req.headers.get("sec-fetch-mode")?.toLowerCase(),dest=req.headers.get("sec-fetch-dest")?.toLowerCase();
+ if(mode==="navigate"&&dest==="document")return true;
+ if(mode==="cors"||mode==="no-cors"||dest==="empty")return false;
+ return(req.headers.get("accept")||"").toLowerCase().includes("text/html");
+}
 export function documentPage(title:string,body:string){return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>body{font:16px/1.65 system-ui;max-width:960px;margin:32px auto;padding:0 18px}pre{overflow:auto;padding:16px;background:#8882;border-radius:9px}table{border-collapse:collapse}td,th{border:1px solid #8888;padding:6px 10px}img{max-width:100%}blockquote{border-left:3px solid #888;padding-left:14px}</style></head><body>${body}</body></html>`}
 export function mime(path:string){const ext=path.split(".").pop()?.toLowerCase();return ({json:"application/json; charset=utf-8",json5:"application/json5; charset=utf-8",md:"text/markdown; charset=utf-8",txt:"text/plain; charset=utf-8",yaml:"text/yaml; charset=utf-8",yml:"text/yaml; charset=utf-8",xml:"application/xml; charset=utf-8",js:"text/javascript; charset=utf-8",ts:"text/plain; charset=utf-8",css:"text/css; charset=utf-8",html:"text/html; charset=utf-8",svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp"} as Record<string,string>)[ext||""]||"application/octet-stream"}
