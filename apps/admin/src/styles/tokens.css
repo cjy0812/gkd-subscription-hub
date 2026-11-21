@@ -1,0 +1,38 @@
+:root {
+  color-scheme: light;
+
+  /* Single source of truth: Fluent-inspired design tokens */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-pressed: #1e40af;
+  --color-text: #1b1b1f;
+  --color-text-secondary: #62636a;
+  --color-muted: #85868d;
+  --color-border: #e4e6eb;
+  --color-border-strong: #d5d8df;
+  --color-canvas: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f8f9fb;
+  --color-sidebar: #fbfcfe;
+  --color-success: #16834a;
+  --color-warning: #a15c00;
+  --color-danger: #c4314b;
+
+  --radius-control: 4px;
+  --radius-container: 8px;
+  --radius-overlay: 8px;
+  --radius-large: 12px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 5%), 0 4px 12px rgb(16 24 40 / 3%);
+  --shadow-overlay: 0 12px 32px rgb(16 24 40 / 14%);
+  --content-max-width: 1440px;
+}

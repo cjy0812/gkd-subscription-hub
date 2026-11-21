@@ -1,9 +1,18 @@
 {
-  "$schema":"node_modules/wrangler/config-schema.json",
-  "name":"gkd-subscription-hub",
-  "main":"src/index.ts",
-  "compatibility_date":"2026-11-21",
-  "vars":{"ADMIN_HOST":"manage.example.com","SUBSCRIPTION_DOMAIN":"gkd.example.com"},
-  "kv_namespaces":[{"binding":"STATE","id":"REPLACE_WITH_KV_NAMESPACE_ID"}],
-  "triggers":{"crons":["0 */6 * * *"]}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gkd-subscription-hub",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-21",
+  "assets": {
+    "directory": "./apps/admin/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": {
+    "ADMIN_HOST": "manage.example.com",
+    "SUBSCRIPTION_DOMAIN": "gkd.example.com"
+  },
+  "kv_namespaces": [{ "binding": "STATE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }],
+  "triggers": { "crons": ["0 */6 * * *"] },
+  "observability": { "enabled": true, "traces": { "enabled": true } }
 }
