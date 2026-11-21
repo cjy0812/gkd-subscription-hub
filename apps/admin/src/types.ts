@@ -12,6 +12,8 @@ export interface Project {
   branch: string
   group?: string
   commitSha?: string
+  group?: string
+  commitSha?: string
   repoUrl: string
   distFiles: Array<{ path: string; sha: string; size: number }>
   distHash: string

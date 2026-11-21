@@ -4,7 +4,7 @@ import { useMessage, type DataTableColumns } from 'naive-ui'
 import {
   NButton, NCard, NDataTable, NDrawer, NDrawerContent, NEmpty, NForm, NFormItem,
   NGrid, NGridItem, NInput, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider,
-  NMenu, NModal, NSpace, NSpin, NStatistic, NTag, NText,
+  NMenu, NModal, NSpace, NSpin, NStatistic, NTag, NText, NText,
 } from 'naive-ui'
 import { api } from '../api'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
@@ -14,6 +14,16 @@ const token = ref(sessionStorage.getItem('gkdtoken') || '')
 const password = ref('')
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
+const groupName = ref('默认分组')
+const subscriptionDomain = ref('')
+const groupedProjects = computed(() => {
+  const groups = new Map<string, Project[]>()
+  for (const project of projects.value) {
+    const name = project.group || '默认分组'
+    groups.set(name, [...(groups.get(name) || []), project])
+  }
+  return [...groups.entries()].map(([name, items]) => ({ name, items }))
+})
 const loading = ref(false)
 const submitting = ref(false)
 const authenticated = ref(false)
@@ -49,8 +59,12 @@ const columns: DataTableColumns<Project> = [
 async function loadProjects() {
   loading.value = true
   try {
-    const result = await api<ProjectsResponse>('/api/projects', token.value)
+    const [result, config] = await Promise.all([
+      api<ProjectsResponse>('/api/projects', token.value),
+      api<{ subscriptionDomain: string }>('/api/config', token.value),
+    ])
     projects.value = result.projects
+    subscriptionDomain.value = config.subscriptionDomain
     authenticated.value = true
     sessionStorage.setItem('gkdtoken', token.value)
   } catch (error) {
@@ -86,10 +100,11 @@ async function addProject() {
   submitting.value = true
   try {
     const result = await api<ProjectResponse>('/api/projects', token.value, {
-      method: 'POST', body: JSON.stringify({ url: repositoryUrl.value.trim() }),
+      method: 'POST', body: JSON.stringify({ url: repositoryUrl.value.trim(), group: groupName.value.trim() || '默认分组' }),
     })
     projects.value = [...projects.value, result.project].sort((a, b) => a.id - b.id)
     repositoryUrl.value = ''
+    groupName.value = '默认分组'
     showAdd.value = false
     message.success(`已添加订阅 ID ${result.project.id}`)
   } catch (error) {
@@ -181,24 +196,28 @@ onMounted(() => {
               <n-button secondary :loading="loading" @click="loadProjects">刷新列表</n-button>
             </div>
             <n-spin :show="loading">
-              <div v-if="projects.length" class="desktop-table">
-                <n-data-table :columns="columns" :data="projects" :row-key="row => row.id" />
-              </div>
-              <div v-if="projects.length" class="mobile-project-list">
-                <article v-for="project in projects" :key="project.id" class="mobile-project-card">
-                  <div class="mobile-project-title">
-                    <strong>ID {{ project.id }}</strong>
-                    <n-tag size="small" :bordered="false" type="success">{{ project.distFiles.length }} 个文件</n-tag>
-                  </div>
-                  <p>{{ project.owner }}/{{ project.repo }}</p>
-                  <small>分支：{{ project.branch }}</small>
-                  <small>最近检查：{{ project.lastCheckedAt ? new Date(project.lastCheckedAt).toLocaleString() : '尚未检查' }}</small>
-                  <n-space>
-                    <n-button size="small" secondary @click="refreshProject(project.id)">立即刷新</n-button>
-                    <n-button size="small" tertiary type="error" @click="removeProject(project.id)">删除</n-button>
-                  </n-space>
-                </article>
-              </div>
+              <section v-for="group in groupedProjects" :key="group.name" class="project-group">
+                <div class="group-heading"><h3>{{ group.name }}</h3><n-tag size="small" :bordered="false">{{ group.items.length }} 个项目</n-tag></div>
+                <div class="desktop-table"><n-data-table :columns="columns" :data="group.items" :row-key="row => row.id" /></div>
+                <div class="mobile-project-list">
+                  <article v-for="project in group.items" :key="project.id" class="mobile-project-card">
+                    <div class="mobile-project-title">
+                      <strong>ID {{ project.id }}</strong>
+                      <n-tag size="small" :bordered="false" type="success">{{ project.distFiles.length }} 个文件</n-tag>
+                    </div>
+                    <p>{{ project.owner }}/{{ project.repo }}</p>
+                    <small>分支：{{ project.branch }}</small>
+                    <small>最近检查：{{ project.lastCheckedAt ? new Date(project.lastCheckedAt).toLocaleString() : '尚未检查' }}</small>
+                    <small v-if="project.prediction?.nextCheckAt">预计检查：{{ new Date(project.prediction.nextCheckAt).toLocaleString() }}</small>
+                    <n-text v-if="project.lastError" type="error">{{ project.lastError }}</n-text>
+                    <n-space>
+                      <n-button size="small" secondary @click="refreshProject(project.id)">立即刷新</n-button>
+                      <n-button size="small" @click="window.open('https://' + project.id + '.' + subscriptionDomain, '_blank')">打开订阅</n-button>
+                      <n-button size="small" tertiary type="error" @click="removeProject(project.id)">删除</n-button>
+                    </n-space>
+                  </article>
+                </div>
+              </section>
               <n-empty v-else-if="!loading" description="还没有订阅源，添加一个 GitHub 仓库开始使用。" />
             </n-spin>
           </n-card>
@@ -217,6 +236,9 @@ onMounted(() => {
         <n-form-item label="GitHub 仓库地址">
           <n-input v-model:value="repositoryUrl" placeholder="https://github.com/owner/repo"
             clearable @keyup.enter="addProject" />
+        </n-form-item>
+        <n-form-item label="所属分组">
+          <n-input v-model:value="groupName" placeholder="例如：常用订阅、测试订阅" maxlength="40" />
         </n-form-item>
         <p class="muted form-hint">仅支持公开、未归档且包含 dist/ 的 GitHub 仓库。</p>
         <n-space justify="end">
@@ -252,6 +274,9 @@ onMounted(() => {
 .stat-card, .projects-card { border: 1px solid var(--color-border); border-radius: var(--radius-container); box-shadow: var(--shadow-card); }
 .section-heading { justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .section-heading h2 { margin: 0 0 4px; font-size: 17px; }
+.group-heading { display:flex; align-items:center; gap:10px; margin:18px 0 10px; }
+.group-heading h3 { margin:0; font-size:14px; font-weight:650; }
+.project-group + .project-group { margin-top:24px; }
 .section-heading p { margin: 0; }
 .repo-cell { display: grid; gap: 3px; }
 .repo-cell span { color: var(--color-text-secondary); font-size: 12px; }
