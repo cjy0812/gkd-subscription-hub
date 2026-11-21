@@ -4,7 +4,7 @@ import { useMessage, type DataTableColumns } from 'naive-ui'
 import {
   NButton, NCard, NDataTable, NDrawer, NDrawerContent, NEmpty, NForm, NFormItem,
   NGrid, NGridItem, NInput, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider,
-  NMenu, NModal, NSpace, NSpin, NStatistic, NTag, NText, NText,
+  NMenu, NModal, NSpace, NSpin, NStatistic, NTag, NText,
 } from 'naive-ui'
 import { api } from '../api'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
@@ -31,6 +31,9 @@ const showAdd = ref(false)
 const showMobileNav = ref(false)
 const menuOptions = [{ label: '订阅源管理', key: 'projects' }]
 const totalFiles = computed(() => projects.value.reduce((sum, item) => sum + item.distFiles.length, 0))
+function openSubscription(id: number) {
+  if (subscriptionDomain.value) window.open('https://' + id + '.' + subscriptionDomain.value, '_blank', 'noopener,noreferrer')
+}
 
 const columns: DataTableColumns<Project> = [
   {
@@ -212,7 +215,7 @@ onMounted(() => {
                     <n-text v-if="project.lastError" type="error">{{ project.lastError }}</n-text>
                     <n-space>
                       <n-button size="small" secondary @click="refreshProject(project.id)">立即刷新</n-button>
-                      <n-button size="small" @click="window.open('https://' + project.id + '.' + subscriptionDomain, '_blank')">打开订阅</n-button>
+                      <n-button size="small" @click="openSubscription(project.id)">打开订阅</n-button>
                       <n-button size="small" tertiary type="error" @click="removeProject(project.id)">删除</n-button>
                     </n-space>
                   </article>
