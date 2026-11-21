@@ -6,30 +6,16 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
-      - name: Bootstrap lockfile once
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          if [ ! -f bun.lock ]; then
-            bun install
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bun.lock
-            git commit -m "build: 提交 Bun 依赖锁文件"
-            git push origin "HEAD:${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
-          fi
       - name: Require reproducible install
         run: |
           test -f bun.lock
