@@ -79,7 +79,7 @@ wrangler.jsonc
 ### 环境要求
 
 - Bun（建议使用稳定版）
-- Cloudflare 账号，以及托管在 Cloudflare DNS 的域名
+- Cloudflare 账号（初次部署使用 workers.dev，不要求自定义域名）
 - GitHub 公开仓库
 
 ### 1. 安装依赖
@@ -92,19 +92,11 @@ bun install
 
 仓库已提交 `bun.lock`，使用 `bun install --frozen-lockfile` 保证依赖解析可复现。
 
-### 2. 创建 KV
+### 2. Cloudflare 资源
 
-```bash
-bunx wrangler kv namespace create STATE
-```
+已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。现有 ID 667 的项目元数据已复制到新 KV，旧 Worker 与旧 KV 保持不变。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route。
 
-将返回的 ID 填入 `wrangler.jsonc` 的 `kv_namespaces[0].id`。
-
-### 3. Cloudflare 资源
-
-已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。它不复用旧 Worker 的 KV。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route，也不会修改旧 Worker。
-
-### 4. 配置 GitHub Actions Secrets
+### 3. 配置 GitHub Actions Secrets
 
 在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
 
@@ -113,7 +105,7 @@ bunx wrangler kv namespace create STATE
 
 不要把这两个值发到聊天或提交到 Git。部署工作流通过临时 secrets 文件将 `ADMIN_PASSWORD` 作为 Worker Secret 一并上传，完成后删除临时文件。
 
-### 5. 本地开发
+### 4. 本地开发
 
 分别启动 Worker 和 Vue 开发服务器：
 
@@ -131,7 +123,7 @@ bun run dev:admin
 
 Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangler Worker（`http://127.0.0.1:8787`）。本地 Worker 使用独立的本地 KV 数据，不要误连生产数据。
 
-### 6. 检查与部署
+### 5. 检查与部署
 
 GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `gkd-subscription-hub`。也可通过 workflow_dispatch 手动部署。
 
@@ -145,7 +137,7 @@ bun run deploy
 
 部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
-### 7. 注册订阅
+### 6. 注册订阅
 
 访问管理站 `https://gkd-subscription-hub.cjy081219.workers.dev/`，输入管理员密码，添加公开仓库 URL，例如：
 
