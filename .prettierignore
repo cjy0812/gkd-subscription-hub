@@ -1,0 +1,4 @@
+node_modules/
+apps/admin/dist/
+coverage/
+worker-configuration.d.ts
