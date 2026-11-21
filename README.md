@@ -143,7 +143,7 @@ bun run deploy
 
 `https://github.com/Lin-arm/GKD_subscription`。
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。
+服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/gkd.json5`），不要使用目录页 URL。
 
 ## 管理 API
 
