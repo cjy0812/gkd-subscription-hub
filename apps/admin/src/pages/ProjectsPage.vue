@@ -34,7 +34,7 @@ const password = ref('')
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
 const groupName = ref('默认分组')
-const subscriptionBaseUrl = ref('')
+const subscriptionDomain = ref('')
 const groupedProjects = computed(() => {
   const groups = new Map<string, Project[]>()
   for (const project of projects.value) {
@@ -57,12 +57,12 @@ function openSubscription(id: number) {
   const file = project?.distFiles.find(
     (item) => item.path.toLowerCase().split('/').at(-1) === 'gkd.json5',
   )
-  if (!file || !subscriptionBaseUrl.value) {
+  if (!file || !subscriptionDomain.value) {
     message.error('该项目没有找到 gkd.json5 订阅文件')
     return
   }
   const path = file.path.split('/').map(encodeURIComponent).join('/')
-  window.open(`${subscriptionBaseUrl.value}/${id}/${path}`, '_blank', 'noopener,noreferrer')
+  window.open(`https://${id}.${subscriptionDomain.value}/${path}`, '_blank', 'noopener,noreferrer')
 }
 
 const columns: DataTableColumns<Project> = [
@@ -126,10 +126,10 @@ async function loadProjects() {
   try {
     const [result, config] = await Promise.all([
       api<ProjectsResponse>('/api/projects', token.value),
-      api<{ subscriptionBaseUrl: string }>('/api/config', token.value),
+      api<{ subscriptionDomain: string }>('/api/config', token.value),
     ])
     projects.value = result.projects
-    subscriptionBaseUrl.value = config.subscriptionBaseUrl
+    subscriptionDomain.value = config.subscriptionDomain
     authenticated.value = true
     sessionStorage.setItem('gkdtoken', token.value)
   } catch (error) {
