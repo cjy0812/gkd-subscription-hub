@@ -152,7 +152,7 @@ onMounted(() => {
         <n-tag :bordered="false" type="success">Worker 在线管理</n-tag>
         <n-button quaternary size="small" @click="logout">退出</n-button>
       </div>
-      <n-button class="mobile-menu-button" quaternary @click="showMobileNav = true">菜单</n-button>
+      <div class="mobile-actions"><n-button quaternary size="small" @click="showMobileNav = true">菜单</n-button><n-button quaternary size="small" @click="logout">退出</n-button></div>
     </n-layout-header>
 
     <n-layout has-sider class="workspace">
@@ -169,7 +169,7 @@ onMounted(() => {
             <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
           </header>
 
-          <n-grid :cols="3" :x-gap="12" :y-gap="12" responsive="screen" class="stats-grid">
+          <n-grid cols="2 m:3" :x-gap="12" :y-gap="12" responsive="screen" class="stats-grid">
             <n-grid-item><n-card class="stat-card" :bordered="false"><n-statistic label="已注册项目" :value="projects.length" /></n-card></n-grid-item>
             <n-grid-item><n-card class="stat-card" :bordered="false"><n-statistic label="已索引文件" :value="totalFiles" /></n-card></n-grid-item>
             <n-grid-item><n-card class="stat-card" :bordered="false"><n-statistic label="自动检查周期" :value="6" suffix="小时" /></n-card></n-grid-item>
@@ -255,7 +255,7 @@ onMounted(() => {
 .section-heading p { margin: 0; }
 .repo-cell { display: grid; gap: 3px; }
 .repo-cell span { color: var(--color-text-secondary); font-size: 12px; }
-.mobile-project-list, .mobile-menu-button { display: none; }
+.mobile-project-list, .mobile-actions { display: none; }
 .add-modal { width: min(560px, calc(100vw - 32px)); }
 .form-hint { margin: -4px 0 18px; font-size: 12px; }
 .login-page { display: grid; min-height: 100vh; place-items: center; padding: 20px; background: radial-gradient(ellipse at 15% 15%, rgb(37 99 235 / 9%), transparent 42%), var(--color-canvas); }
@@ -266,12 +266,10 @@ onMounted(() => {
 @media (max-width: 760px) {
   .topbar { height: 58px; padding: 0 16px; }
   .topbar-actions, .desktop-sidebar { display: none; }
-  .mobile-menu-button { display: inline-flex; }
+  .mobile-actions { display: flex; gap: 4px; }
   .workspace { min-height: calc(100vh - 58px); }
   .page-heading { align-items: flex-start; flex-direction: column; }
   .page-heading h1 { font-size: 23px; }
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .stats-grid > :last-child { grid-column: 1 / -1; }
   .desktop-table { display: none; }
   .mobile-project-list { display: grid; gap: 12px; }
   .mobile-project-card { display: grid; gap: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-container); background: var(--color-surface-secondary); padding: 14px; }
