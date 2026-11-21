@@ -6,4 +6,3 @@ node_modules/
 coverage/
 *.log
 worker-configuration.d.ts
-bun.lock
