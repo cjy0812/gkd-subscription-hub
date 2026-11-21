@@ -30,12 +30,12 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 订阅服务部署在 `https://gkd-subscription-hub.cjy081219.workers.dev`，假设订阅 ID 为 `667`：
 
-| URL                            | 浏览器         | GKD / 非 HTML 客户端 |
-| ------------------------------ | -------------- | -------------------- |
-| `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/` | dist 文件目录 | HTML 目录 |
-| `/s/667/gkd.json5` | JSON5 代码预览 | 原始 JSON5 |
-| `/s/667/README.md` | Markdown 渲染 | 原始 Markdown |
-| `/s/667/gkd.json5?raw=1` | 原始 JSON5 | 原始 JSON5 |
+| URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
+| ----------------------------------------------------------- | -------------- | -------------------- |
+| `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/` | dist 文件目录  | HTML 目录            |
+| `/s/667/gkd.json5`                                          | JSON5 代码预览 | 原始 JSON5           |
+| `/s/667/README.md`                                          | Markdown 渲染  | 原始 Markdown        |
+| `/s/667/gkd.json5?raw=1`                                    | 原始 JSON5     | 原始 JSON5           |
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 

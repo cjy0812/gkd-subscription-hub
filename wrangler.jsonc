@@ -21,9 +21,7 @@
     }
   ],
   "triggers": {
-    "crons": [
-      "0 */6 * * *"
-    ]
+    "crons": ["0 */6 * * *"]
   },
   "observability": {
     "enabled": true,
@@ -33,8 +31,6 @@
   },
   "account_id": "084099361afdf1265c20c09fb3834a6f",
   "secrets": {
-    "required": [
-      "ADMIN_PASSWORD"
-    ]
+    "required": ["ADMIN_PASSWORD"]
   }
 }
