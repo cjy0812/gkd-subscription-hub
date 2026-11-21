@@ -5,3 +5,5 @@ node_modules/
 .env.*
 coverage/
 *.log
+worker-configuration.d.ts
+bun.lock
