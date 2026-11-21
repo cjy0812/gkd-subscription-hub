@@ -221,7 +221,7 @@ onMounted(() => {
                   </article>
                 </div>
               </section>
-              <n-empty v-else-if="!loading" description="还没有订阅源，添加一个 GitHub 仓库开始使用。" />
+              <n-empty v-if="!projects.length && !loading" description="还没有订阅源，添加一个 GitHub 仓库开始使用。" />
             </n-spin>
           </n-card>
         </div>
