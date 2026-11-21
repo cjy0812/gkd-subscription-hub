@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -22,20 +23,51 @@ jobs:
         run: |
           test -f bun.lock
           bun install --frozen-lockfile
-      - name: Apply formatters
-        run: bun run format
-      - name: Commit formatting changes
-        if: github.event_name == 'pull_request'
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "style: apply automatic formatting"
-            git push
-          fi
       - run: bun run format:check
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build:admin
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check deployment secrets
+        id: deploy_gate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$ADMIN_PASSWORD" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deployment skipped. Configure CLOUDFLARE_API_TOKEN and ADMIN_PASSWORD in GitHub Actions secrets."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.deploy_gate.outputs.ready == 'true'
+      - uses: oven-sh/setup-bun@v2
+        if: steps.deploy_gate.outputs.ready == 'true'
+        with:
+          bun-version: 1.4.5
+      - name: Install dependencies
+        if: steps.deploy_gate.outputs.ready == 'true'
+        run: bun install --frozen-lockfile
+      - name: Prepare deployment secrets
+        if: steps.deploy_gate.outputs.ready == 'true'
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); await Bun.write(".secrets.json", JSON.stringify({ ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }))'
+      - name: Build and deploy isolated Worker
+        if: steps.deploy_gate.outputs.ready == 'true'
+        run: bun run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
+      - name: Remove temporary secrets file
+        if: always()
+        run: rm -f .secrets.json

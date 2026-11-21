@@ -1,6 +1,6 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配子域名，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配独立路径，提供管理 API、目录页、原始文件分发和浏览器预览。
 
 ## 功能
 
@@ -12,7 +12,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
 - Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
-- 项目元数据目前保存在 KV，订阅文件按需从 GitHub raw 获取。
+- 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
 
 ## 管理端响应式设计
 
@@ -28,14 +28,14 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 ## URL 行为
 
-假设订阅 ID 为 `667`，订阅域名为 `gkd.example.com`：
+订阅服务部署在 `https://gkd-subscription-hub.cjy081219.workers.dev`，假设订阅 ID 为 `667`：
 
-| URL                            | 浏览器         | GKD / 非 HTML 客户端 |
-| ------------------------------ | -------------- | -------------------- |
-| `https://667.gkd.example.com/` | dist 文件目录  | HTML 目录            |
-| `/gkd.json5`                   | JSON5 代码预览 | 原始 JSON5           |
-| `/README.md`                   | Markdown 渲染  | 原始 Markdown        |
-| `/gkd.json5?raw=1`             | 原始 JSON5     | 原始 JSON5           |
+| URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
+| ----------------------------------------------------------- | -------------- | -------------------- |
+| `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/` | dist 文件目录  | HTML 目录            |
+| `/s/667/gkd.json5`                                          | JSON5 代码预览 | 原始 JSON5           |
+| `/s/667/README.md`                                          | Markdown 渲染  | 原始 Markdown        |
+| `/s/667/gkd.json5?raw=1`                                    | 原始 JSON5     | 原始 JSON5           |
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
@@ -79,7 +79,7 @@ wrangler.jsonc
 ### 环境要求
 
 - Bun（建议使用稳定版）
-- Cloudflare 账号，以及托管在 Cloudflare DNS 的域名
+- Cloudflare 账号（初次部署使用 workers.dev，不要求自定义域名）
 - GitHub 公开仓库
 
 ### 1. 安装依赖
@@ -92,44 +92,20 @@ bun install
 
 仓库已提交 `bun.lock`，使用 `bun install --frozen-lockfile` 保证依赖解析可复现。
 
-### 2. 创建 KV
+### 2. Cloudflare 资源
 
-```bash
-bunx wrangler kv namespace create STATE
-```
+已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。现有 ID 667 的项目元数据已复制到新 KV，旧 Worker 与旧 KV 保持不变。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route。
 
-将返回的 ID 填入 `wrangler.jsonc` 的 `kv_namespaces[0].id`。
+### 3. 配置 GitHub Actions Secrets
 
-### 3. 配置域名
+在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
 
-修改 `wrangler.jsonc` 中的：
+- `CLOUDFLARE_API_TOKEN`：Cloudflare API Token，使用 **Edit Cloudflare Workers** 模板，并限制到本 Cloudflare 账号。
+- `ADMIN_PASSWORD`：你自行设置的管理端登录密码。
 
-- `ADMIN_HOST`：管理站完整域名，如 `manage.example.com`
-- `SUBSCRIPTION_DOMAIN`：订阅域名后缀，如 `gkd.example.com`
-- KV namespace ID
+不要把这两个值发到聊天或提交到 Git。部署工作流通过临时 secrets 文件将 `ADMIN_PASSWORD` 作为 Worker Secret 一并上传，完成后删除临时文件。
 
-在 Cloudflare DNS 中配置代理记录和 Worker Routes：
-
-- `manage.example.com/*`
-- `*.gkd.example.com/*`
-
-TLS 证书必须覆盖对应主机名。二级子域名的证书覆盖范围要单独核实。
-
-### 4. 设置 Secret
-
-```bash
-bunx wrangler secret put ADMIN_PASSWORD
-```
-
-可选 GitHub Token（提高 API 速率限制）：
-
-```bash
-bunx wrangler secret put GITHUB_TOKEN
-```
-
-不要将 Secret、Token 或 `.dev.vars` 提交到 Git。
-
-### 5. 本地开发
+### 4. 本地开发
 
 分别启动 Worker 和 Vue 开发服务器：
 
@@ -147,9 +123,9 @@ bun run dev:admin
 
 Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangler Worker（`http://127.0.0.1:8787`）。本地 Worker 使用独立的本地 KV 数据，不要误连生产数据。
 
-### 6. 检查与部署
+### 5. 检查与部署
 
-当前 GitHub Actions 配置为 CI：对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。Cloudflare CD 尚未配置；生产部署仍需在确认 Worker 名称、域名路由及 GitHub Actions Secrets 后启用。
+GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `gkd-subscription-hub`。也可通过 workflow_dispatch 手动部署。
 
 ```bash
 bun run lint
@@ -159,11 +135,11 @@ bun run build:admin
 bun run deploy
 ```
 
-部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
+部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
-### 7. 注册订阅
+### 6. 注册订阅
 
-访问管理站，输入管理员密码，添加公开仓库 URL，例如：
+访问管理站 `https://gkd-subscription-hub.cjy081219.workers.dev/`，输入管理员密码，添加公开仓库 URL，例如：
 
 `https://github.com/Lin-arm/GKD_subscription`。
 

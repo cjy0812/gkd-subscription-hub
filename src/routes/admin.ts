@@ -10,7 +10,7 @@ const app = new Hono<{ Bindings: Env }>()
 app.get('/admin', (c) => c.redirect('/'))
 app.use('/api/*', auth)
 app.get('/api/config', async (c) =>
-  json({ ok: true, subscriptionDomain: c.env.SUBSCRIPTION_DOMAIN }),
+  json({ ok: true, subscriptionBaseUrl: c.env.SUBSCRIPTION_BASE_URL }),
 )
 app.get('/api/projects', async (c) => json({ ok: true, projects: await all(c.env) }))
 app.post('/api/projects', async (c) => {

@@ -6,3 +6,4 @@ node_modules/
 coverage/
 *.log
 worker-configuration.d.ts
+.secrets.json

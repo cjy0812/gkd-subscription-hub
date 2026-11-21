@@ -5,9 +5,9 @@ import { get, ids, save } from './storage/projects'
 import type { Env } from './types'
 export default {
   async fetch(req: Request, env: Env) {
-    return new URL(req.url).hostname.toLowerCase() === env.ADMIN_HOST.toLowerCase()
-      ? admin.fetch(req, env)
-      : subscription.fetch(req, env)
+    return new URL(req.url).pathname.startsWith('/s/')
+      ? subscription.fetch(req, env)
+      : admin.fetch(req, env)
   },
   async scheduled(_c: ScheduledController, e: Env, ctx: ExecutionContext) {
     ctx.waitUntil(

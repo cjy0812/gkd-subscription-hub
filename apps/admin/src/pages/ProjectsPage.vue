@@ -34,7 +34,7 @@ const password = ref('')
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
 const groupName = ref('默认分组')
-const subscriptionDomain = ref('')
+const subscriptionBaseUrl = ref('')
 const groupedProjects = computed(() => {
   const groups = new Map<string, Project[]>()
   for (const project of projects.value) {
@@ -53,8 +53,8 @@ const totalFiles = computed(() =>
   projects.value.reduce((sum, item) => sum + item.distFiles.length, 0),
 )
 function openSubscription(id: number) {
-  if (subscriptionDomain.value)
-    window.open('https://' + id + '.' + subscriptionDomain.value, '_blank', 'noopener,noreferrer')
+  if (subscriptionBaseUrl.value)
+    window.open(`${subscriptionBaseUrl.value}/${id}/`, '_blank', 'noopener,noreferrer')
 }
 
 const columns: DataTableColumns<Project> = [
@@ -80,13 +80,18 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 250,
     render: (row) =>
       h(
         NSpace,
         { size: 8 },
         {
           default: () => [
+            h(
+              NButton,
+              { size: 'small', tertiary: true, onClick: () => openSubscription(row.id) },
+              { default: () => '打开订阅' },
+            ),
             h(
               NButton,
               { size: 'small', secondary: true, onClick: () => refreshProject(row.id) },
@@ -113,10 +118,10 @@ async function loadProjects() {
   try {
     const [result, config] = await Promise.all([
       api<ProjectsResponse>('/api/projects', token.value),
-      api<{ subscriptionDomain: string }>('/api/config', token.value),
+      api<{ subscriptionBaseUrl: string }>('/api/config', token.value),
     ])
     projects.value = result.projects
-    subscriptionDomain.value = config.subscriptionDomain
+    subscriptionBaseUrl.value = config.subscriptionBaseUrl
     authenticated.value = true
     sessionStorage.setItem('gkdtoken', token.value)
   } catch (error) {
