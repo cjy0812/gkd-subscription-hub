@@ -53,8 +53,16 @@ const totalFiles = computed(() =>
   projects.value.reduce((sum, item) => sum + item.distFiles.length, 0),
 )
 function openSubscription(id: number) {
-  if (subscriptionBaseUrl.value)
-    window.open(`${subscriptionBaseUrl.value}/${id}/`, '_blank', 'noopener,noreferrer')
+  const project = projects.value.find((item) => item.id === id)
+  const file = project?.distFiles.find(
+    (item) => item.path.toLowerCase().split('/').at(-1) === 'gkd.json5',
+  )
+  if (!file || !subscriptionBaseUrl.value) {
+    message.error('该项目没有找到 gkd.json5 订阅文件')
+    return
+  }
+  const path = file.path.split('/').map(encodeURIComponent).join('/')
+  window.open(`${subscriptionBaseUrl.value}/${id}/${path}`, '_blank', 'noopener,noreferrer')
 }
 
 const columns: DataTableColumns<Project> = [
