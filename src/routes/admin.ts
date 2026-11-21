@@ -9,13 +9,15 @@ import { all, get, save, remove } from "../storage/projects"
 const app = new Hono<{ Bindings: Env }>()
 app.get("/admin", c => c.redirect("/"))
 app.use("/api/*", auth)
+app.get("/api/config", async c => json({ ok: true, subscriptionDomain: c.env.SUBSCRIPTION_DOMAIN }))
 app.get("/api/projects", async c => json({ ok: true, projects: await all(c.env) }))
 app.post("/api/projects", async c => {
   try {
-    const body = await c.req.json<{ url?: string; branch?: string }>()
+    const body = await c.req.json<{ url?: string; branch?: string; group?: string }>()
     if (!body.url) return bad("缺少仓库 URL")
     const { owner, repo } = parseRepo(body.url)
     const project = await scan(c.env, owner, repo, body.branch)
+    project.group = body.group?.trim().slice(0, 40) || "默认分组"
     const existing = await get(c.env, project.id)
     if (existing) return bad(`ID ${project.id} 已被 ${existing.owner}/${existing.repo} 占用`, 409)
     project.lastRuns = await runs(c.env, project)

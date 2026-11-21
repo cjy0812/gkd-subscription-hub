@@ -10,6 +10,8 @@ export interface Project {
   owner: string
   repo: string
   branch: string
+  group?: string
+  commitSha?: string
   repoUrl: string
   distFiles: Array<{ path: string; sha: string; size: number }>
   distHash: string

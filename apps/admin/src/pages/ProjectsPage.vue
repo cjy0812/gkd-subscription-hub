@@ -4,7 +4,7 @@ import { useMessage, type DataTableColumns } from 'naive-ui'
 import {
   NButton, NCard, NDataTable, NDrawer, NDrawerContent, NEmpty, NForm, NFormItem,
   NGrid, NGridItem, NInput, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider,
-  NMenu, NModal, NSpace, NSpin, NStatistic, NTag,
+  NMenu, NModal, NSpace, NSpin, NStatistic, NTag, NText,
 } from 'naive-ui'
 import { api } from '../api'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
