@@ -12,7 +12,7 @@ function directory(p: Project) {
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f) => {
       const h = f.path.split('/').map(encodeURIComponent).join('/')
-      return `<li><a href="/s/${p.id}/${h}">${escapeHtml(f.path)}</a> <small>${f.size.toLocaleString()} bytes</small></li>`
+      return `<li><a href="/${h}">${escapeHtml(f.path)}</a> <small>${f.size.toLocaleString()} bytes</small></li>`
     })
     .join('')
   return documentPage(
@@ -25,12 +25,12 @@ app.all('*', async (c) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return bad('Method not allowed', 405)
   const match = new URL(req.url).pathname.match(/^\/s\/(\d+)(?:\/(.*))?$/)
   const id = match?.[1]
-  if (!id) return bad('Unknown subscription path', 404)
+  if (!id) return bad('Unknown subscription host or path', 404)
   const p = await get(c.env, Number(id))
   if (!p) return bad('Subscription not registered', 404)
   let path: string
   try {
-    path = decodeURIComponent(match?.[2] || '')
+    path = decodeURIComponent(hostId ? url.pathname.replace(/^\\//, '') : legacyMatch?.[2] || '')
   } catch {
     return bad('Bad path', 400)
   }
