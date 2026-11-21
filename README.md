@@ -11,7 +11,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
-- Vue 管理端支持登录、新增、刷新、删除项目，桌面端使用数据表格，手机端切换为卡片列表。
+- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
 - 项目元数据目前保存在 KV，订阅文件按需从 GitHub raw 获取。
 
 ## 管理端响应式设计
@@ -37,7 +37,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 | `/README.md` | Markdown 渲染 | 原始 Markdown |
 | `/gkd.json5?raw=1` | 原始 JSON5 | 原始 JSON5 |
 
-以 `Accept` 请求头协商表示形式，不依赖 User-Agent。若某个客户端发送 `Accept: text/html`，可加 `?raw=1` 强制原文。
+优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
 ## 技术栈
 
