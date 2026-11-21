@@ -100,33 +100,18 @@ bunx wrangler kv namespace create STATE
 
 将返回的 ID 填入 `wrangler.jsonc` 的 `kv_namespaces[0].id`。
 
-### 3. 配置域名
+### 3. Cloudflare 资源
 
-修改 `wrangler.jsonc` 中的：
+已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。它不复用旧 Worker 的 KV。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route，也不会修改旧 Worker。
 
-- `管理站域名`：管理站完整域名，如 `manage.example.com`
-- `SUBSCRIPTION_BASE_URL`：订阅基础 URL，如 `https://gkd-subscription-hub.cjy081219.workers.dev/s`
-- KV namespace ID
+### 4. 配置 GitHub Actions Secrets
 
-在 Cloudflare DNS 中配置代理记录和 Worker Routes：
+在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
 
-初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route；后续可另行绑定独立自定义域名。
+- `CLOUDFLARE_API_TOKEN`：Cloudflare API Token，使用 **Edit Cloudflare Workers** 模板，并限制到本 Cloudflare 账号。
+- `ADMIN_PASSWORD`：你自行设置的管理端登录密码。
 
-TLS 证书必须覆盖对应主机名。二级子域名的证书覆盖范围要单独核实。
-
-### 4. 设置 Secret
-
-```bash
-bunx wrangler secret put ADMIN_PASSWORD
-```
-
-可选 GitHub Token（提高 API 速率限制）：
-
-```bash
-bunx wrangler secret put GITHUB_TOKEN
-```
-
-不要将 Secret、Token 或 `.dev.vars` 提交到 Git。
+不要把这两个值发到聊天或提交到 Git。部署工作流通过临时 secrets 文件将 `ADMIN_PASSWORD` 作为 Worker Secret 一并上传，完成后删除临时文件。
 
 ### 5. 本地开发
 
@@ -158,7 +143,7 @@ bun run build:admin
 bun run deploy
 ```
 
-部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
+部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
 ### 7. 注册订阅
 

@@ -30,5 +30,11 @@
     "traces": {
       "enabled": true
     }
+  },
+  "account_id": "084099361afdf1265c20c09fb3834a6f",
+  "secrets": {
+    "required": [
+      "ADMIN_PASSWORD"
+    ]
   }
 }
