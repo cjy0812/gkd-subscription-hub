@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "workspaces": ["apps/admin"],
+  "workspaces": [
+    "apps/admin"
+  ],
   "scripts": {
     "dev": "wrangler dev --var ADMIN_HOST:localhost",
     "dev:admin": "bun run --filter @gkd-hub/admin dev",
@@ -13,7 +15,7 @@
     "typegen": "wrangler types --include-env=false",
     "typecheck:worker": "bun run typegen && tsc --noEmit",
     "typecheck": "bun run typecheck:worker && bun run --filter @gkd-hub/admin typecheck",
-    "lint": "biome check . && bun run --filter @gkd-hub/admin typecheck",
+    "lint": "biome lint . && bun run --filter @gkd-hub/admin typecheck",
     "format": "biome check --write .",
     "test": "vitest run",
     "deploy": "bun run build:admin && bun run typegen && wrangler deploy"
