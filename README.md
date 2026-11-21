@@ -18,11 +18,11 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 
 管理端使用 Vue 3 + Naive UI，采用 Desktop-first、Mobile-adaptive：
 
-| 屏幕 | 布局 |
-|---|---|
-| 桌面端（> 760px） | 侧边栏、统计卡片、完整项目表格 |
-| 平板/窄桌面（≤ 960px） | 压缩侧边栏与内容间距 |
-| 手机端（≤ 760px） | 抽屉导航、统计卡片重排、项目卡片列表 |
+| 屏幕                   | 布局                                 |
+| ---------------------- | ------------------------------------ |
+| 桌面端（> 760px）      | 侧边栏、统计卡片、完整项目表格       |
+| 平板/窄桌面（≤ 960px） | 压缩侧边栏与内容间距                 |
+| 手机端（≤ 760px）      | 抽屉导航、统计卡片重排、项目卡片列表 |
 
 Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive UI 主题和业务样式从同一组 CSS Variables 读取圆角、颜色和间距，避免各页面独立维护第二套设计参数。
 
@@ -30,12 +30,12 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 假设订阅 ID 为 `667`，订阅域名为 `gkd.example.com`：
 
-| URL | 浏览器 | GKD / 非 HTML 客户端 |
-|---|---|---|
-| `https://667.gkd.example.com/` | dist 文件目录 | HTML 目录 |
-| `/gkd.json5` | JSON5 代码预览 | 原始 JSON5 |
-| `/README.md` | Markdown 渲染 | 原始 Markdown |
-| `/gkd.json5?raw=1` | 原始 JSON5 | 原始 JSON5 |
+| URL                            | 浏览器         | GKD / 非 HTML 客户端 |
+| ------------------------------ | -------------- | -------------------- |
+| `https://667.gkd.example.com/` | dist 文件目录  | HTML 目录            |
+| `/gkd.json5`                   | JSON5 代码预览 | 原始 JSON5           |
+| `/README.md`                   | Markdown 渲染  | 原始 Markdown        |
+| `/gkd.json5?raw=1`             | 原始 JSON5     | 原始 JSON5           |
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
@@ -173,12 +173,12 @@ bun run deploy
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
-| 方法 | 路径 | 作用 |
-|---|---|---|
-| GET | `/api/projects` | 项目列表 |
-| POST | `/api/projects` | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
-| POST | `/api/projects/:id/refresh` | 立即刷新 |
-| DELETE | `/api/projects/:id` | 删除项目元数据 |
+| 方法   | 路径                        | 作用                                                      |
+| ------ | --------------------------- | --------------------------------------------------------- |
+| GET    | `/api/projects`             | 项目列表                                                  |
+| POST   | `/api/projects`             | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
+| POST   | `/api/projects/:id/refresh` | 立即刷新                                                  |
+| DELETE | `/api/projects/:id`         | 删除项目元数据                                            |
 
 ## 更新预测的边界
 

@@ -1,3 +1,18 @@
-import type {Env} from "../types";
-export async function gh<T>(env:Env,path:string):Promise<T>{const r=await fetch("https://api.github.com"+path,{headers:{Accept:"application/vnd.github+json","User-Agent":"gkd-subscription-hub","X-GitHub-Api-Version":"2022-11-28",...(env.GITHUB_TOKEN?{Authorization:`Bearer ${env.GITHUB_TOKEN}`}:{})}});if(!r.ok)throw Error(`GitHub API ${r.status}${r.status===403?" (可能触发速率限制)":""}`);return r.json() as Promise<T>}
-export function decode(file:{content:string;encoding:string}){if(file.encoding!=="base64")throw Error("GitHub 文件编码异常");const b=atob(file.content.replace(/\s/g,""));return new TextDecoder().decode(Uint8Array.from(b,c=>c.charCodeAt(0)))}
+import type { Env } from '../types'
+export async function gh<T>(env: Env, path: string): Promise<T> {
+  const r = await fetch('https://api.github.com' + path, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'gkd-subscription-hub',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+    },
+  })
+  if (!r.ok) throw Error(`GitHub API ${r.status}${r.status === 403 ? ' (可能触发速率限制)' : ''}`)
+  return r.json() as Promise<T>
+}
+export function decode(file: { content: string; encoding: string }) {
+  if (file.encoding !== 'base64') throw Error('GitHub 文件编码异常')
+  const b = atob(file.content.replace(/\s/g, ''))
+  return new TextDecoder().decode(Uint8Array.from(b, (c) => c.charCodeAt(0)))
+}
