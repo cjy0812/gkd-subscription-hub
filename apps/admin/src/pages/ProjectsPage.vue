@@ -62,11 +62,7 @@ function openSubscription(id: number) {
     return
   }
   const path = file.path.split('/').map(encodeURIComponent).join('/')
-  window.open(
-    `${subscriptionBaseUrl.value}/${id}/${path}`,
-    '_blank',
-    'noopener,noreferrer',
-  )
+  window.open(`${subscriptionBaseUrl.value}/${id}/${path}`, '_blank', 'noopener,noreferrer')
 }
 
 const columns: DataTableColumns<Project> = [
