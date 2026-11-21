@@ -18,11 +18,11 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 
 管理端使用 Vue 3 + Naive UI，采用 Desktop-first、Mobile-adaptive：
 
-| 屏幕 | 布局 |
-|---|---|
-| 桌面端（> 760px） | 侧边栏、统计卡片、完整项目表格 |
-| 平板/窄桌面（≤ 960px） | 压缩侧边栏与内容间距 |
-| 手机端（≤ 760px） | 抽屉导航、统计卡片重排、项目卡片列表 |
+| 屏幕                   | 布局                                 |
+| ---------------------- | ------------------------------------ |
+| 桌面端（> 760px）      | 侧边栏、统计卡片、完整项目表格       |
+| 平板/窄桌面（≤ 960px） | 压缩侧边栏与内容间距                 |
+| 手机端（≤ 760px）      | 抽屉导航、统计卡片重排、项目卡片列表 |
 
 Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive UI 主题和业务样式从同一组 CSS Variables 读取圆角、颜色和间距，避免各页面独立维护第二套设计参数。
 
@@ -30,12 +30,12 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 假设订阅 ID 为 `667`，订阅域名为 `gkd.example.com`：
 
-| URL | 浏览器 | GKD / 非 HTML 客户端 |
-|---|---|---|
-| `https://667.gkd.example.com/` | dist 文件目录 | HTML 目录 |
-| `/gkd.json5` | JSON5 代码预览 | 原始 JSON5 |
-| `/README.md` | Markdown 渲染 | 原始 Markdown |
-| `/gkd.json5?raw=1` | 原始 JSON5 | 原始 JSON5 |
+| URL                            | 浏览器         | GKD / 非 HTML 客户端 |
+| ------------------------------ | -------------- | -------------------- |
+| `https://667.gkd.example.com/` | dist 文件目录  | HTML 目录            |
+| `/gkd.json5`                   | JSON5 代码预览 | 原始 JSON5           |
+| `/README.md`                   | Markdown 渲染  | 原始 Markdown        |
+| `/gkd.json5?raw=1`             | 原始 JSON5     | 原始 JSON5           |
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
@@ -44,10 +44,10 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
 - **前端**：Vue 3、Vite、Naive UI、Vue Router、Pinia。
 - **后端**：Cloudflare Workers、Hono、KV。
-- **质量工具**：Biome（JS/TS/JSON 等支持范围）、vue-tsc（Vue SFC 类型检查）、Vitest。
+- **质量工具**：Biome（TypeScript/JavaScript/JSON/CSS 等支持范围）、Prettier（Vue SFC 格式化）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it。
 
-Biome 不负责 Vue SFC 的完整语义检查；Vue 组件类型检查由 vue-tsc 承担。
+Biome 不负责 Vue SFC 的格式化和完整语义检查；Vue SFC 由 Prettier 格式化、vue-tsc 类型检查。
 
 ## 项目结构
 
@@ -90,7 +90,7 @@ wrangler.jsonc
 bun install
 ```
 
-首次安装会生成 `bun.lock`，请将其提交到 Git。之后可使用 `bun install --frozen-lockfile` 保证依赖解析可复现。
+仓库已提交 `bun.lock`，使用 `bun install --frozen-lockfile` 保证依赖解析可复现。
 
 ### 2. 创建 KV
 
@@ -149,6 +149,8 @@ Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangl
 
 ### 6. 检查与部署
 
+当前 GitHub Actions 配置为 CI：对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。Cloudflare CD 尚未配置；生产部署仍需在确认 Worker 名称、域名路由及 GitHub Actions Secrets 后启用。
+
 ```bash
 bun run lint
 bun run typecheck
@@ -171,12 +173,12 @@ bun run deploy
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
-| 方法 | 路径 | 作用 |
-|---|---|---|
-| GET | `/api/projects` | 项目列表 |
-| POST | `/api/projects` | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
-| POST | `/api/projects/:id/refresh` | 立即刷新 |
-| DELETE | `/api/projects/:id` | 删除项目元数据 |
+| 方法   | 路径                        | 作用                                                      |
+| ------ | --------------------------- | --------------------------------------------------------- |
+| GET    | `/api/projects`             | 项目列表                                                  |
+| POST   | `/api/projects`             | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
+| POST   | `/api/projects/:id/refresh` | 立即刷新                                                  |
+| DELETE | `/api/projects/:id`         | 删除项目元数据                                            |
 
 ## 更新预测的边界
 
@@ -188,4 +190,4 @@ KV 保存项目索引和元数据；订阅文件从公开 GitHub raw 按需读�
 
 ## License
 
-MIT，见 [LICENSE](./LICENSE)。
+本项目采用 GNU General Public License v3.0 or later（GPL-3.0-or-later），见 [LICENSE](./LICENSE)。

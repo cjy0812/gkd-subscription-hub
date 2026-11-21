@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "workspaces": [
     "apps/admin"
   ],
@@ -16,9 +16,10 @@
     "typecheck:worker": "bun run typegen && tsc --noEmit",
     "typecheck": "bun run typecheck:worker && bun run --filter @gkd-hub/admin typecheck",
     "lint": "biome lint . && bun run --filter @gkd-hub/admin typecheck",
-    "format": "biome check --write .",
+    "format": "biome check --write . && bunx --yes prettier@3.6.2 --write \"apps/admin/**/*.vue\"",
     "test": "vitest run",
-    "deploy": "bun run build:admin && bun run typegen && wrangler deploy"
+    "deploy": "bun run build:admin && bun run typegen && wrangler deploy",
+    "format:check": "biome ci . && bunx --yes prettier@3.6.2 --check \"apps/admin/**/*.vue\""
   },
   "dependencies": {
     "hono": "^4.10.6",
