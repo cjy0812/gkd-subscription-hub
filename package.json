@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "workspaces": [
     "apps/admin"
   ],
@@ -16,9 +16,10 @@
     "typecheck:worker": "bun run typegen && tsc --noEmit",
     "typecheck": "bun run typecheck:worker && bun run --filter @gkd-hub/admin typecheck",
     "lint": "biome lint . && bun run --filter @gkd-hub/admin typecheck",
-    "format": "biome check --write .",
+    "format": "biome format --write .",
     "test": "vitest run",
-    "deploy": "bun run build:admin && bun run typegen && wrangler deploy"
+    "deploy": "bun run build:admin && bun run typegen && wrangler deploy",
+    "format:check": "biome format ."
   },
   "dependencies": {
     "hono": "^4.10.6",

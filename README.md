@@ -149,6 +149,8 @@ Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangl
 
 ### 6. 检查与部署
 
+当前 GitHub Actions 配置为 CI：对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。Cloudflare CD 尚未配置；生产部署仍需在确认 Worker 名称、域名路由及 GitHub Actions Secrets 后启用。
+
 ```bash
 bun run lint
 bun run typecheck
@@ -188,4 +190,4 @@ KV 保存项目索引和元数据；订阅文件从公开 GitHub raw 按需读�
 
 ## License
 
-MIT，见 [LICENSE](./LICENSE)。
+本项目采用 GNU General Public License v3.0 or later（GPL-3.0-or-later），见 [LICENSE](./LICENSE)。

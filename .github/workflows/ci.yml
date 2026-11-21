@@ -20,6 +20,7 @@ jobs:
         run: |
           test -f bun.lock
           bun install --frozen-lockfile
+      - run: bun run format:check
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
