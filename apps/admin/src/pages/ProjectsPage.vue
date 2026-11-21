@@ -54,7 +54,9 @@ const totalFiles = computed(() =>
 )
 function openSubscription(id: number) {
   const project = projects.value.find((item) => item.id === id)
-  const file = project?.distFiles.find((item) => item.path.toLowerCase().split('/').at(-1) === 'gkd.json5')
+  const file = project?.distFiles.find(
+    (item) => item.path.toLowerCase().split('/').at(-1) === 'gkd.json5',
+  )
   if (!file || !subscriptionBaseUrl.value) {
     message.error('该项目没有找到 gkd.json5 订阅文件')
     return
