@@ -20,8 +20,8 @@ export interface BatchOptions<T> {
 }
 
 /**
- * Run a batch sequentially to avoid bursting upstream API quotas.
- * Failures are collected and do not stop later items unless shouldStop says so.
+ * 顺序执行批处理，避免集中请求耗尽上游 API 配额。
+ * 单项失败会被记录并继续；只有 shouldStop 判定为终止错误时才停止。
  */
 export async function runSequentialBatch<T, R>(
   items: readonly T[],
@@ -32,8 +32,7 @@ export async function runSequentialBatch<T, R>(
   const failed: BatchFailure<T>[] = []
   const skipped: T[] = []
 
-  for (let index = 0; index < items.length; index++) {
-    const item = items[index]
+  for (const [index, item] of items.entries()) {
     try {
       const value = await task(item)
       succeeded.push({ item, value })
