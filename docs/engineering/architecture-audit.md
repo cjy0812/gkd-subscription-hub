@@ -27,9 +27,9 @@ ProjectsPage.vue 约 775 行；ExplorerPage.vue 约 472 行，包含筛选、批
 
 src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInfo、WorkflowRun；Prediction / ProjectPrediction 命名不同。评估只共享 API DTO，不共享 Worker Env/内部类型。
 
-### A-03（高）：Explorer 使用宽泛类型
+### A-03（进行中，PR #26）：Explorer 使用宽泛类型
 
-src/services/explorer.ts 的 Candidate 使用 Record<string, any>，解析 GitHub 搜索结果时也多处使用 any；页面端已使用 ExplorerRepository 类型。建议在 GitHub API 边界建立最小 DTO 和运行时守卫，逐步收窄候选仓库与订阅解析数据。
+基线代码中 src/services/explorer.ts 的 Candidate 使用 Record<string, any>，GitHub Search、Commit、Tree 和 Rate Limit 响应也直接使用 any。PR #26 已改为 unknown + 运行时类型守卫并补测试，当前 CI 通过；仍待 PR 合并后从基线移除此项。
 
 ### A-04（高）：Pinia 可能未使用
 

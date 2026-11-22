@@ -3,6 +3,7 @@
 本目录保存长期有效的工程约定，不复制源代码，也不把每次排错过程堆进 Agent 提示词。
 
 - [工程标准](./engineering-standards.md)：架构、技术选型、质量门禁。
+- [需求工程规范](./requirements.md)：FR/NFR、验收标准、需求追踪和变更控制。
 - [架构概览](./architecture-overview.md)：Worker、Admin、KV 与外部服务的数据流。
 - [架构审计](./architecture-audit.md)：有证据的现状、问题等级和改进顺序。
 - [文档规范](./documentation.md)：README、设计文档、ADR、路线图。

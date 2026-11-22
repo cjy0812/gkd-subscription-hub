@@ -108,7 +108,7 @@ wrangler.jsonc
 
 ### 环境要求
 
-- Bun（建议使用稳定版）
+- Bun 1.4.5（与 packageManager 和 CI 锁定版本一致）
 - Cloudflare 账号（初次部署使用 workers.dev，不要求自定义域名）
 - GitHub 公开仓库
 
@@ -117,7 +117,7 @@ wrangler.jsonc
 在仓库根目录执行：
 
 ```bash
-bun install
+bun install --frozen-lockfile
 ```
 
 仓库已提交 `bun.lock`，使用 `bun install --frozen-lockfile` 保证依赖解析可复现。
