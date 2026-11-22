@@ -75,6 +75,10 @@ const someFilteredSelected = computed(
     filteredProjects.value.some((project) => selectedIds.value.includes(project.id)) &&
     !allFilteredSelected.value,
 )
+const selectedOutsideFilterCount = computed(() => {
+  const visibleIds = new Set(filteredProjects.value.map((project) => project.id))
+  return selectedProjects.value.filter((project) => !visibleIds.has(project.id)).length
+})
 const expandedGroups = ref<string[]>([])
 watch(
   groupedProjects,
@@ -172,8 +176,21 @@ async function batchRefresh() {
         shouldStop: (error) => error instanceof ApiError && error.status === 401,
       },
     )
-    const refreshed = new Map(result.succeeded.map(({ item, value }) => [item.id, value]))
-    projects.value = projects.value.map((project) => refreshed.get(project.id) ?? project)
+    const refreshed = new Map(
+      result.succeeded.map(({ item, value }) => [item.id, value] as const),
+    )
+    const failed = new Map(
+      result.failed.map(({ item, error }) => [
+        item.id,
+        error instanceof Error ? error.message : '刷新失败',
+      ]),
+    )
+    projects.value = projects.value.map((project) => {
+      const updated = refreshed.get(project.id)
+      if (updated) return updated
+      const error = failed.get(project.id)
+      return error ? { ...project, lastError: error } : project
+    })
     selectedIds.value = selectedIds.value.filter((id) => !refreshed.has(id))
     reportBatchResult('批量刷新', result)
   } finally {
@@ -301,7 +318,7 @@ const columns: DataTableColumns<Project> = [
           default: () => [
             h(
               NButton,
-              { size: 'small', tertiary: true, onClick: () => openSubscription(row.id) },
+              { size: 'small', tertiary: true, disabled: batchBusy.value, onClick: () => openSubscription(row.id) },
               { default: () => '打开订阅' },
             ),
             h(
@@ -310,6 +327,7 @@ const columns: DataTableColumns<Project> = [
                 size: 'small',
                 secondary: true,
                 loading: refreshingIds.value.has(row.id),
+                disabled: batchBusy.value,
                 onClick: () => refreshProject(row.id),
               },
               { default: () => '刷新' },
@@ -320,6 +338,7 @@ const columns: DataTableColumns<Project> = [
                 size: 'small',
                 tertiary: true,
                 type: 'error',
+                disabled: batchBusy.value,
                 onClick: () => removeProject(row.id),
               },
               { default: () => '删除' },
@@ -379,7 +398,7 @@ async function addProject() {
 }
 
 async function refreshProject(id: number) {
-  if (refreshingIds.value.has(id)) return
+  if (batchBusy.value || refreshingIds.value.has(id)) return
   refreshingIds.value = new Set(refreshingIds.value).add(id)
   try {
     const result = await api<ProjectResponse>(`/api/projects/${id}/refresh`, token.value, {
@@ -397,6 +416,7 @@ async function refreshProject(id: number) {
 }
 
 async function removeProject(id: number) {
+  if (batchBusy.value) return
   if (!window.confirm(`确定删除订阅 ID ${id} 的项目元数据吗？`)) return
   try {
     await api(`/api/projects/${id}`, token.value, { method: 'DELETE' })
@@ -478,6 +498,9 @@ onMounted(() => {
         <div v-if="selectedProjects.length" class="batch-toolbar">
           <div class="batch-summary">
             <strong>已选 {{ selectedProjects.length }} 项</strong>
+            <span v-if="selectedOutsideFilterCount">
+              其中 {{ selectedOutsideFilterCount }} 项不在当前筛选结果中
+            </span>
             <span v-if="batchBusy">
               处理中 {{ batchProgress.completed }}/{{ batchProgress.total }}
             </span>
