@@ -17,10 +17,10 @@ jobs:
     steps:
       - name: Verify root redirect
         env:
-          BASE_URL: https://gkd.chenge.eu.org
+          BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
-          getent ahosts gkd.chenge.eu.org
+          getent ahosts gkd-subscription-hub.cjy081219.workers.dev
           status=$(curl --connect-timeout 10 --max-time 20 --retry 2 --retry-delay 2 --retry-all-errors -sS -o /tmp/root.body -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/" || echo CURL_ERROR)
           echo "ROOT_HTTP_STATUS=$status"
           cat /tmp/root.headers || true
@@ -29,7 +29,7 @@ jobs:
 
       - name: Verify admin SPA and protected API
         env:
-          BASE_URL: https://gkd.chenge.eu.org
+          BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
           curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/admin/" -o /tmp/admin.html
@@ -39,7 +39,7 @@ jobs:
 
       - name: Verify registered subscription and version metadata
         env:
-          BASE_URL: https://gkd.chenge.eu.org
+          BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
           curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.json5" -o /tmp/gkd.json5
@@ -50,7 +50,7 @@ jobs:
 
       - name: Verify temporary legacy endpoint and explicit 404
         env:
-          BASE_URL: https://gkd.chenge.eu.org
+          BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
           curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/gkd.json5" -o /tmp/legacy.json5
