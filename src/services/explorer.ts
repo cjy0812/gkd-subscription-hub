@@ -106,7 +106,9 @@ function repositoryData(repository: Candidate) {
     'subscribers_count', 'network_count',
   ]
   const data = Object.fromEntries(
-    allowed.filter((field) => repository[field] !== undefined).map((field) => [field, repository[field]]),
+    allowed
+      .filter((field) => repository[field] !== undefined)
+      .map((field) => [field, repository[field]]),
   )
   if (data.parent && typeof data.parent === 'object') {
     data.parent = (data.parent as any).full_name || null
@@ -133,7 +135,12 @@ function countRules(value: unknown): number {
   visit(value, 0)
   return count
 }
-function parseSubscription(source: string, path: string, sha: string, size: number): Subscription | null {
+function parseSubscription(
+  source: string,
+  path: string,
+  sha: string,
+  size: number,
+): Subscription | null {
   try {
     const data = parseJson5(source) as any
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null
@@ -145,7 +152,13 @@ function parseSubscription(source: string, path: string, sha: string, size: numb
         : ''
     const apps = Array.isArray(data.apps) ? data.apps : []
     const globalGroups = Array.isArray(data.globalGroups) ? data.globalGroups : []
-    if (!Number.isSafeInteger(id) || id <= 0 || !name || !version || (!apps.length && !globalGroups.length)) {
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      !name ||
+      !version ||
+      (!apps.length && !globalGroups.length)
+    ) {
       return null
     }
     const standardFields = new Set([
@@ -193,7 +206,7 @@ async function github<T>(env: Env, path: string): Promise<T> {
         (reset ? '，预计重置：' + new Date(Number(reset) * 1000).toISOString() : ''),
     )
   }
-  if (!response.ok) throw new Error('GitHub API HTTP ' + response.status)
+  if (!response.ok) throw new Error(`GitHub API HTTP ${response.status}`)
   return response.json() as Promise<T>
 }
 async function verify(
@@ -229,13 +242,13 @@ async function verify(
     }
   }
   const treeSha = commit.commit?.tree?.sha
-  if (!treeSha) throw new Error('无法读取 Git Tree SHA：' + repository)
+  if (!treeSha) throw new Error(`无法读取 Git Tree SHA：${repository}`)
 
   const tree = await github<any>(
     env,
     '/repos/' + repository + '/git/trees/' + treeSha + '?recursive=1',
   )
-  if (tree.truncated) throw new Error('Git Tree 被截断：' + repository)
+  if (tree.truncated) throw new Error(`Git Tree 被截断：${repository}`)
 
   const files = (tree.tree || [])
     .filter(
@@ -324,7 +337,10 @@ export async function stepExplorer(env: Env) {
 
       job.incomplete ||= data.incomplete_results === true
       job.incomplete ||= search.kind === 'code' && Number(data.total_count || 0) > items.length
-      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000
+      job.incomplete ||=
+        search.kind === 'repositories' &&
+        job.page >= 10 &&
+        Number(data.total_count || 0) > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
