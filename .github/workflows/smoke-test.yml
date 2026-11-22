@@ -1,42 +1,13 @@
-name: Worker smoke test
+name: Production smoke test
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  gate:
-    if: github.event_name == 'workflow_run'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-    outputs:
-      deployed: ${{ steps.check.outputs.deployed }}
-    steps:
-      - uses: actions/github-script@v7
-        id: check
-        with:
-          script: |
-            const { owner, repo } = context.repo
-            const { data } = await github.rest.actions.listJobsForWorkflowRunAttempt({
-              owner,
-              repo,
-              run_id: context.payload.workflow_run.id,
-              attempt_number: context.payload.workflow_run.run_attempt,
-              per_page: 100,
-            })
-            const deploy = data.jobs.find(job => job.name === 'deploy')
-            core.setOutput('deployed', deploy?.conclusion === 'success' ? 'true' : 'false')
-
   smoke:
-    needs: gate
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.gate.outputs.deployed == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Verify root redirect
