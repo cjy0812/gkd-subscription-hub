@@ -70,6 +70,7 @@ All Explorer API routes remain under the existing authenticated admin API:
 
 - `GET /api/explorer/catalog`: cached, verified subscription repositories.
 - `GET /api/explorer/status`: current discovery progress and last run summary.
+- `GET /api/explorer/quota`: live `core`, `search`, and `code_search` quota buckets for the Worker's configured GitHub token, via GitHub's `GET /rate_limit` endpoint.
 - `POST /api/explorer/discover`: start or resume a discovery job.
 - `POST /api/explorer/discover/step`: process a bounded search/verification batch.
 
@@ -91,10 +92,10 @@ Discovery is resumable. Search pages and candidate validation are processed in s
 Add an Explorer page under the existing admin SPA with:
 
 - full-text search across repository name, owner, subscription name, author, ID, topics, and custom metadata;
-- filters for Fork/non-Fork, archived status, topic, author, and subscription count;
+- filters for Fork/non-Fork, archived status, topic, and author;
 - sorting by last push/update, stars, forks, name, and rule count;
 - pagination and clear-filter action;
-- visible scan progress, last scan time, and incomplete-result / rate-limit warnings;
+- visible scan progress, last scan time, live GitHub core/search/code-search quota snapshot, and incomplete-result / rate-limit warnings;
 - repository rows showing direct Fork source;
 - detail drawer showing GitHub metadata, all subscription metadata, and arbitrary custom fields.
 
