@@ -3,9 +3,9 @@
 ## 自动流程
 
 - 任意分支 push：执行格式、Lint、类型检查、测试和管理端构建，不部署。
-- 同仓库 PR 创建、更新或重新打开：完整 CI 通过后创建或更新该 PR 的 Preview Worker，并执行 Smoke Test。
+- 同仓库 PR 创建、更新或重新打开：运行完整 CI；自动 Preview 暂时停用，等待确认安全认证策略。
 - Fork PR：只运行不需要 Secrets 的 CI，不部署 Preview。
-- PR 关闭或合并：删除对应 Preview Worker。
+- PR 关闭或合并：删除对应 Preview Worker（若曾手动创建）。
 - main push：CI 通过后部署生产 Worker。
 - 手动 workflow_dispatch：选择 verify、preview、delete-preview 或 release。
 
@@ -18,7 +18,7 @@ PR Preview 不会部署到生产 Worker，也不会修改生产 KV。Preview Wor
 - Preview Worker 使用专用 KV Namespace：`gkd-subscription-hub-preview`。
 - 所有 PR Preview Worker 共用该 Preview KV；它与生产 KV 完全分离，但不同 PR 之间不隔离数据。
 - PR 关闭时删除 Preview Worker，不删除共享 Preview KV。
-- Preview 复用 GitHub Actions production Environment 中的 `ADMIN_PASSWORD` 和 `CLOUDFLARE_API_TOKEN`，不要求维护另一份管理员密码。
+- 手动 Preview 当前复用 GitHub Actions production Environment 中的 `ADMIN_PASSWORD` 和 `CLOUDFLARE_API_TOKEN`，不要求维护另一份管理员密码；仅应对已审查、可信的代码手动触发。
 - 当前工作流不复制 Cloudflare 生产 Worker 中的 `GITHUB_TOKEN`：Cloudflare 不提供读取 Secret 明文的 API，而现有生产部署工作流也没有把它传给 GitHub Actions。Preview 的 GitHub API 请求因此使用未认证公开 API，额度会低于配置 Token 的生产环境。若以后确实需要同一个 Token，应通过受控的凭据同步方式处理，不要在仓库写入明文。
 
 ## 一次性配置要求
@@ -33,7 +33,7 @@ PR Preview 不会部署到生产 Worker，也不会修改生产 KV。Preview Wor
 在 GitHub Actions 选择 CI → Run workflow：
 
 - `verify`：只做质量检查和构建，不部署。
-- `preview`：创建手动 Preview Worker，默认名称 `gkd-subscription-hub-manual`。
+- `preview`：手动创建 Preview Worker，默认名称 `gkd-subscription-hub-manual`。该动作会把生产管理员密码配置到 Preview Worker，仅在确认 PR 代码可信后执行。
 - `delete-preview`：删除指定名称的手动 Preview Worker。
 - `release`：仅当选择的分支为 `main` 时部署生产；其他分支不会部署生产。
 
