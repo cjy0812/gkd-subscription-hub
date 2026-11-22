@@ -26,5 +26,7 @@
 - [OpenAI Codex Prompting Guide](https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide)
 - [OpenAI：Rethinking skills and prompts](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)
 - [GitHub README 指南](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
+- [Vue 工具链指南](https://vuejs.org/guide/scaling-up/tooling.html)
+- [eslint-plugin-vue 配置指南](https://eslint.vuejs.org/user-guide/)
 - [Vue 官方测试指南](https://vuejs.org/guide/scaling-up/testing.html)
 - [Cloudflare Workers Best Practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)

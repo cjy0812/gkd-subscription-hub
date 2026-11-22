@@ -37,7 +37,7 @@ Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 de
 
 ### A-05（高）：Vue SFC 检查缺口
 
-ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。移除页面例外，补 Vue 模板/脚本 Lint。
+ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。Vue 官方工具指南建议 Vite 项目使用 ESLint + eslint-plugin-vue 做 SFC 专属 Lint；vue-tsc 负责模板/脚本类型检查，不能替代 Lint。移除页面例外并补 Vue 模板/脚本 Lint。
 
 ### A-06（已修复）：质量脚本重复
 
@@ -81,7 +81,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 1. [ ] 取消 ProjectsPage 格式检查例外。
 2. [x] 分离 format/lint/typecheck，避免重复执行（提交 66a8aa3）。
-3. [ ] 固定 Prettier 依赖并补 Vue SFC Lint。
+3. [ ] 固定 Prettier 依赖；引入 ESLint + eslint-plugin-vue（优先 flat config）覆盖 Vue SFC。
 4. [x] 全量 CI 已通过（Run #45084606662）。
 
 ### P1：契约与边界
