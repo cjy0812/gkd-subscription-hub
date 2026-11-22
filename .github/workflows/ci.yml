@@ -1,4 +1,5 @@
-name: CI
+name: CI - Quality Checks
+run-name: CI - Quality Checks / ${{ github.ref_name }}
 
 on:
   push:
@@ -16,18 +17,26 @@ concurrency:
 
 jobs:
   verify:
+    name: Quality checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
-      - name: Require reproducible install
+      - name: Install dependencies with frozen lockfile
         run: |
           test -f bun.lock
           bun install --frozen-lockfile
-      - run: bun run format:check
-      - run: bun run lint
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build:admin
+      - name: Check formatting
+        run: bun run format:check
+      - name: Run linter
+        run: bun run lint
+      - name: Type-check
+        run: bun run typecheck
+      - name: Run tests
+        run: bun run test
+      - name: Build admin app
+        run: bun run build:admin
