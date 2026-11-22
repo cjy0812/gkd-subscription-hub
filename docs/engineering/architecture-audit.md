@@ -39,9 +39,9 @@ Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 de
 
 ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。移除页面例外，补 Vue 模板/脚本 Lint。
 
-### A-06（中）：质量脚本重复
+### A-06（已修复）：质量脚本重复
 
-format:check 使用 biome ci（同时运行 Formatter 和 Linter），后续 lint 再运行 biome lint；lint 还重复执行 Admin typecheck，而 typecheck 已执行 Worker + Admin typecheck。拆分 Formatter、Linter、Typecheck，避免重复。
+原先 format:check 使用 biome ci（同时运行 Formatter 和 Linter），后续 lint 再运行 biome lint；lint 还重复执行 Admin typecheck，而 typecheck 已执行 Worker + Admin typecheck。现已拆分为 biome format、biome lint 和独立 typecheck。修复提交 66a8aa3；CI Run #45084403707 与 #45084606662 均通过。
 
 ### A-07（中）：Prettier 未作为锁定依赖
 
@@ -49,7 +49,7 @@ Prettier 用 bunx --yes prettier@3.6.2 临时执行，未列为 devDependency。
 
 ### A-08（中）：GitHub API 类型过宽
 
-Scanner/Actions 多处 gh<any>，外部 API 数据缺少窄 DTO。增加 DTO 与运行时守卫。
+Scanner/Actions 仍有多处 gh<any>，外部 API 数据缺少窄 DTO。Explorer 服务的 any 已由 PR #26 改为 unknown + 类型守卫，仍需后续收窄 Scanner/Actions。
 
 ### A-09（中）：KV 多键并发语义
 
@@ -79,14 +79,14 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### P0：质量门禁可信
 
-1. 取消 ProjectsPage 格式检查例外。
-2. 分离 lint/typecheck，避免重复执行。
-3. 固定 Prettier 依赖并补 Vue SFC Lint。
-4. 运行全量 CI。
+1. [ ] 取消 ProjectsPage 格式检查例外。
+2. [x] 分离 format/lint/typecheck，避免重复执行（提交 66a8aa3）。
+3. [ ] 固定 Prettier 依赖并补 Vue SFC Lint。
+4. [x] 全量 CI 已通过（Run #45084606662）。
 
 ### P1：契约与边界
 
-1. 收窄 Explorer GitHub Repository 类型与 Worker GitHub DTO。
+1. [~] 收窄 Explorer GitHub API DTO（PR #26）；后续继续处理 Scanner/Actions。
 2. 评估共享 API DTO。
 3. 补 API 输入校验和异常测试。
 4. 审查 KV 多键并发语义。
