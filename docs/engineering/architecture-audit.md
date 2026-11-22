@@ -29,7 +29,7 @@ src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInf
 
 ### A-03（高）：Explorer 使用宽泛类型
 
-ExplorerPage 的 repository 使用 Record<string, any>。建立最小 GitHub Repository DTO。
+src/services/explorer.ts 的 Candidate 使用 Record<string, any>，解析 GitHub 搜索结果时也多处使用 any；页面端已使用 ExplorerRepository 类型。建议在 GitHub API 边界建立最小 DTO 和运行时守卫，逐步收窄候选仓库与订阅解析数据。
 
 ### A-04（高）：Pinia 可能未使用
 
