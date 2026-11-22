@@ -1,6 +1,7 @@
 name: Worker smoke test
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -19,7 +20,8 @@ jobs:
           BASE_URL: https://gkd.chenge.eu.org
         run: |
           set -euo pipefail
-          status=$(curl --retry 5 --retry-delay 2 --retry-all-errors -sS -o /dev/null -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/")
+          getent ahosts gkd.chenge.eu.org
+          status=$(curl --retry 10 --retry-delay 3 --retry-all-errors -sS -o /dev/null -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/")
           test "$status" = "302"
           grep -Eiq '^location: https://gkd\.chenge\.eu\.org/admin/' /tmp/root.headers
 
