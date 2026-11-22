@@ -2,9 +2,9 @@ import type { Env } from '../types'
 import { parseJson5 } from './json5'
 
 const PREFIX = 'explorer:'
-const SEARCH_QUERIES = ['topic:gkd-subscription', 'topic:gkd', 'defineGkdSubscription in:file']
-const PAGE_SIZE = 30
-const VERIFY_PER_STEP = 3
+const SEARCH_QUERIES = [{ kind: 'repositories', query: 'topic:gkd-subscription' }, { kind: 'repositories', query: 'topic:gkd' }, { kind: 'code', query: 'defineGkdSubscription in:file' }]
+const PAGE_SIZE = 100
+const VERIFY_PER_STEP = 4
 
 type Candidate = Record<string, any> & { id: number; full_name: string }
 type Subscription = {
@@ -121,19 +121,25 @@ async function github<T>(env: Env, path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 async function verify(env: Env, candidate: Candidate, sources: string[]): Promise<Entry | null> {
+  let full = candidate
+  if (candidate.fork && !candidate.parent) {
+    try { full = await github<any>(env, `/repos/${candidate.full_name}`) } catch { /* parent remains unknown */ }
+  }
   const repo = candidate.full_name
   const branch = candidate.default_branch
   if (!branch || candidate.visibility === 'private') return null
   const commit = await github<any>(env, `/repos/${repo}/commits/${encodeURIComponent(branch)}`)
   const sha = commit.sha
-  const tree = await github<any>(env, `/repos/${repo}/git/trees/${sha}?recursive=1`)
+  const treeSha = commit.commit?.tree?.sha
+  if (!treeSha) throw new Error('无法读取 Git Tree SHA：' + repo)
+  const tree = await github<any>(env, `/repos/${repo}/git/trees/${treeSha}?recursive=1`)
   if (tree.truncated) throw new Error('Git Tree 被截断：' + repo)
   const files = (tree.tree || []).filter((f: any) =>
-    f.type === 'blob' && /^dist\/.*\.json5?$/i.test(f.path) && f.size <= 2_000_000
+    f.type === 'blob' && /^dist\/.*\.json5?$/i.test(f.path) && f.size <= 512_000
   ).sort((a: any, b: any) => {
     const rank = (p: string) => /(^|\/)gkd\.json5?$/i.test(p) ? 0 : /gkd.*\.json5?$/i.test(p) ? 1 : 2
     return rank(a.path) - rank(b.path)
-  }).slice(0, 12)
+  }).slice(0, 3)
   const subscriptions: Subscription[] = []
   for (const file of files) {
     const raw = await fetch(`https://raw.githubusercontent.com/${repo}/${sha}/${file.path.split('/').map(encodeURIComponent).join('/')}`)
@@ -144,9 +150,9 @@ async function verify(env: Env, candidate: Candidate, sources: string[]): Promis
   }
   if (!subscriptions.length) return null
   return {
-    repository: { ...repositoryData(candidate), commitSha: sha },
+    repository: { ...repositoryData(full), commitSha: sha },
     fork: candidate.fork === true,
-    parent: candidate.parent?.full_name || null,
+    parent: full.parent?.full_name || null,
     subscriptions,
     discoveredBy: sources,
     verifiedAt: now(),
@@ -165,23 +171,25 @@ export async function startExplorer(env: Env) {
 }
 export async function stepExplorer(env: Env) {
   const job = await explorerStatus(env)
+  if (job.status === 'paused' || job.status === 'error') { job.status = 'searching'; job.error = null }
   if (!['searching','verifying'].includes(job.status)) return job
   try {
     if (job.candidateIndex >= job.candidates.length && job.queryIndex < SEARCH_QUERIES.length) {
-      const query = SEARCH_QUERIES[job.queryIndex]
-      const data = await github<any>(env, `/search/repositories?q=${encodeURIComponent(query)}&per_page=${PAGE_SIZE}&page=${job.page}`)
-      const items: Candidate[] = data.items || []
+      const search = SEARCH_QUERIES[job.queryIndex]
+      const endpoint = search.kind === 'code' ? 'code' : 'repositories'
+      const data = await github<any>(env, `/search/${endpoint}?q=${encodeURIComponent(search.query)}&per_page=${PAGE_SIZE}&page=${job.page}`)
+      const items: Candidate[] = (data.items || []).map((item: any) => search.kind === 'code' ? item.repository : item).filter((item: any) => item?.id && item?.full_name)
       job.incomplete ||= data.incomplete_results === true
       job.scannedPages++
       const known = new Set(job.seen)
       const fresh = items.filter(r => !known.has(Number(r.id)))
       for (const r of fresh) {
-        r.__source = query
+        r.__source = search.query
         job.seen.push(Number(r.id))
       }
       job.candidates = fresh
       job.candidateIndex = 0
-      if (items.length < PAGE_SIZE || job.page >= 10) {
+      if (items.length < PAGE_SIZE || job.page >= (search.kind === 'code' ? 1 : 10)) {
         job.queryIndex++
         job.page = 1
       } else job.page++
