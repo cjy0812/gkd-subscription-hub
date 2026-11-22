@@ -115,6 +115,7 @@ bun install
 
 - `CLOUDFLARE_API_TOKEN`：Cloudflare API Token，使用 **Edit Cloudflare Workers** 模板，并限制到本 Cloudflare 账号。
 - `ADMIN_PASSWORD`：你自行设置的管理端登录密码。
+- `NOTIFY_TOKEN`（可选）：Webhook 入口的 Bearer Token；配置后才能调用 `POST /hooks/notify`。建议使用高熵随机值。
 
 不要把这两个值发到聊天或提交到 Git。部署工作流通过临时 secrets 文件将 `ADMIN_PASSWORD` 作为 Worker Secret 一并上传，完成后删除临时文件。
 
