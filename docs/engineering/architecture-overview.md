@@ -8,7 +8,7 @@
 - **Admin SPA**：Vue 3 + Vite + Naive UI，通过 Worker Static Assets 托管在 /admin/。
 - **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照和 Webhook 冷却键。
 - **GitHub API**：读取公开仓库元数据、Git Ref/Commit/Tree、Actions 工作流与运行记录。
-- **GitHub Raw**：按已登记项目的固定 commit SHA 读取订阅文件。
+- **GitHub Raw**：新登记项目按固定 commit SHA 读取订阅文件；兼容缺少 commitSha 的历史记录时会回退到分支名。
 
 ## 请求入口分流
 
@@ -56,9 +56,9 @@ Worker 入口位于 src/index.ts：
 1. 请求 /{id}/...，从 KV 读取 project:{id}。
 2. 根路径展示当前已索引的 dist 文件目录。
 3. 文件路径必须通过路径校验，并且存在于项目 distFiles 索引中。
-4. 上游 URL 使用已扫描的 commit SHA，而不是浮动分支名。
+4. 新登记项目的上游 URL 使用已扫描的 commit SHA；兼容缺少 commitSha 的历史记录时，回退使用已登记分支名。
 5. 非浏览器请求获取原始内容；浏览器可将 Markdown 渲染为 HTML，或预览 JSON5。
-6. 目录页和预览页不代表上游仓库实时状态；实际内容仍依赖固定 SHA 对应的 GitHub Raw 可用性。
+6. 目录页和预览页不代表上游仓库实时状态；固定 SHA 路径依赖对应 GitHub Raw 可用性，历史分支回退路径可能随分支更新而变化。
 
 ## Explorer 数据流
 
