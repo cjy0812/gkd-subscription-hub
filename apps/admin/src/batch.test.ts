@@ -20,7 +20,11 @@ describe('runSequentialBatch', () => {
     expect(result.failed).toHaveLength(1)
     expect(result.failed[0]?.item).toBe(2)
     expect(result.skipped).toEqual([])
-    expect(progress.mock.calls).toEqual([[1, 3], [2, 3], [3, 3]])
+    expect(progress.mock.calls).toEqual([
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ])
   })
 
   it('stops after a terminal error and reports remaining items as skipped', async () => {
