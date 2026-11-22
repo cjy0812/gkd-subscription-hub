@@ -1,74 +1,42 @@
-name: CI
+name: CI - Quality Checks
+run-name: CI - Quality Checks / ${{ github.ref_name }}
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
+    name: Quality checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - uses: oven-sh/setup-bun@v2
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
-      - name: Require reproducible install
+      - name: Install dependencies with frozen lockfile
         run: |
           test -f bun.lock
           bun install --frozen-lockfile
-      - run: bun run format:check
-      - run: bun run lint
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build:admin
-
-  deploy:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: verify
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Check deployment secrets
-        id: deploy_gate
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: |
-          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$ADMIN_PASSWORD" ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Deployment skipped. Configure CLOUDFLARE_API_TOKEN and ADMIN_PASSWORD in GitHub Actions secrets."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v4
-        if: steps.deploy_gate.outputs.ready == 'true'
-      - uses: oven-sh/setup-bun@v2
-        if: steps.deploy_gate.outputs.ready == 'true'
-        with:
-          bun-version: 1.4.5
-      - name: Install dependencies
-        if: steps.deploy_gate.outputs.ready == 'true'
-        run: bun install --frozen-lockfile
-      - name: Prepare deployment secrets
-        if: steps.deploy_gate.outputs.ready == 'true'
-        env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
-        run: |
-          bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
-      - name: Build and deploy isolated Worker
-        if: steps.deploy_gate.outputs.ready == 'true'
-        run: bun run deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
-      - name: Remove temporary secrets file
-        if: always()
-        run: rm -f .secrets.json
+      - name: Check formatting
+        run: bun run format:check
+      - name: Run linter
+        run: bun run lint
+      - name: Type-check
+        run: bun run typecheck
+      - name: Run tests
+        run: bun run test
+      - name: Build admin app
+        run: bun run build:admin
