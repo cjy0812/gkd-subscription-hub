@@ -1,10 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gkd-subscription-hub",
+  "name": "gkd-subscription-hub-preview",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-22",
   "workers_dev": true,
-  "preview_urls": true,
   "assets": {
     "directory": "./apps/admin/dist",
     "binding": "ASSETS",
@@ -12,34 +11,16 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "SUBSCRIPTION_DOMAIN": "gkd.chenge.eu.org"
+    "SUBSCRIPTION_DOMAIN": "preview.invalid"
   },
   "kv_namespaces": [
     {
       "binding": "STATE",
-      "id": "215fd3c9c2c74481bc521feadedd83e8"
+      "id": "fc091077968342c1b73b22a310412947"
     }
   ],
-  "previews": {
-    "vars": {
-      "ENVIRONMENT": "preview",
-      "SUBSCRIPTION_DOMAIN": "preview.invalid"
-    },
-    "kv_namespaces": [
-      {
-        "binding": "STATE",
-        "id": "fc091077968342c1b73b22a310412947"
-      }
-    ],
-    "observability": {
-      "enabled": true
-    }
-  },
   "observability": {
-    "enabled": true,
-    "traces": {
-      "enabled": true
-    }
+    "enabled": true
   },
   "account_id": "084099361afdf1265c20c09fb3834a6f",
   "secrets": {
