@@ -172,7 +172,7 @@ export async function startExplorer(env: Env) {
 export async function stepExplorer(env: Env) {
   const job = await explorerStatus(env)
   if (job.status === 'paused' || job.status === 'error') { job.status = 'searching'; job.error = null }
-  if (!['searching','verifying'].includes(job.status)) return job
+  if (!['searching','verifying'].includes(job.status)) return explorerStatus(env)
   try {
     if (job.candidateIndex >= job.candidates.length && job.queryIndex < SEARCH_QUERIES.length) {
       const search = SEARCH_QUERIES[job.queryIndex]
