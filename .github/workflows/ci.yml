@@ -10,7 +10,7 @@ on:
       mode:
         description: "手动运行模式"
         type: choice
-        options: [verify, preview, release]
+        options: [verify, preview, delete-preview, release]
         required: true
         default: verify
       preview_name:
@@ -100,7 +100,7 @@ jobs:
       - name: Deploy isolated Cloudflare Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: bunx --yes wrangler@4.48.0 deploy --config .wrangler.preview.generated.jsonc --name "$PREVIEW_WORKER" --secrets-file .preview-secrets.json
+        run: bunx wrangler deploy --config .wrangler.preview.generated.jsonc --name "$PREVIEW_WORKER" --secrets-file .preview-secrets.json
       - name: Smoke test Preview
         env:
           PREVIEW_URL: ${{ format('https://{0}.cjy081219.workers.dev', env.PREVIEW_WORKER) }}
@@ -154,7 +154,7 @@ jobs:
         run: rm -f .preview-secrets.json .wrangler.preview.generated.jsonc
 
   cleanup_preview:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.mode == 'delete-preview')
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -171,7 +171,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
         run: |
           set -euo pipefail
-          worker="gkd-subscription-hub-pr-${{ github.event.pull_request.number }}"
+          worker="${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual') }}"
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker"
           status="$(curl --connect-timeout 10 --max-time 30 -sS -o /tmp/worker.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api")"
           if [[ "$status" == "404" ]]; then
