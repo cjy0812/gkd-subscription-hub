@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  base: '/admin/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -12,9 +13,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      '/admin/api': {
         target: 'http://127.0.0.1:8787',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/admin/, ''),
       },
     },
   },
