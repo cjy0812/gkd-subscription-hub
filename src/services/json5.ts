@@ -1,11 +1,20 @@
 /** A bounded JSON5 parser for subscription metadata. Never evaluates source code. */
 export function parseJson5(source: string): unknown {
-  if (source.length > 2_000_000) throw new Error('订阅文件超过 2 MB，跳过解析')
+  if (source.length > 2_000_000) {
+    throw new Error('订阅文件超过 2 MB，跳过解析')
+  }
+
   let i = 0
-  const fail = (): never => { throw new Error(`JSON5 语法错误，位置 ${i}`) }
-  const ws = () => {
+  const fail = (): never => {
+    throw new Error('JSON5 语法错误，位置 ' + i)
+  }
+
+  const whitespace = () => {
     while (i < source.length) {
-      if (/\s/.test(source[i])) { i++; continue }
+      if (/\s/.test(source[i])) {
+        i++
+        continue
+      }
       if (source[i] === '/' && source[i + 1] === '/') {
         i += 2
         while (i < source.length && source[i] !== '\n') i++
@@ -21,89 +30,165 @@ export function parseJson5(source: string): unknown {
       break
     }
   }
-  const string = (): string => {
+
+  const readString = (): string => {
     const quote = source[i++]
-    let out = ''
+    let output = ''
     while (i < source.length) {
-      const c = source[i++]
-      if (c === quote) return out
-      if (c === '\\') {
+      const character = source[i++]
+      if (character === quote) return output
+      if (character === '\\') {
         if (i >= source.length) fail()
-        const e = source[i++]
-        if (e === '\n') continue
-        if (e === '\r') { if (source[i] === '\n') i++; continue }
-        const simple: Record<string, string> = { "'": "'", '"': '"', '\\': '\\', '/': '/', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '0': '\0' }
-        if (e === 'u') {
+        const escaped = source[i++]
+        if (escaped === '\n') continue
+        if (escaped === '\r') {
+          if (source[i] === '\n') i++
+          continue
+        }
+        const simple: Record<string, string> = {
+          "'": "'",
+          '"': '"',
+          '\\': '\\',
+          '/': '/',
+          b: '\b',
+          f: '\f',
+          n: '\n',
+          r: '\r',
+          t: '\t',
+          v: '\v',
+          '0': '\0',
+        }
+        if (escaped === 'u') {
           const hex = source.slice(i, i + 4)
           if (!/^[0-9a-fA-F]{4}$/.test(hex)) fail()
-          out += String.fromCharCode(parseInt(hex, 16)); i += 4
-        } else if (e === 'x') {
+          output += String.fromCharCode(parseInt(hex, 16))
+          i += 4
+        } else if (escaped === 'x') {
           const hex = source.slice(i, i + 2)
           if (!/^[0-9a-fA-F]{2}$/.test(hex)) fail()
-          out += String.fromCharCode(parseInt(hex, 16)); i += 2
-        } else out += simple[e] ?? e
+          output += String.fromCharCode(parseInt(hex, 16))
+          i += 2
+        } else {
+          output += simple[escaped] ?? escaped
+        }
       } else {
-        if (c === '\n' || c === '\r') fail()
-        out += c
+        if (character === '\n' || character === '\r') fail()
+        output += character
       }
     }
     return fail()
   }
-  const identifier = (): string => {
+
+  const readIdentifier = (): string => {
     const start = i
     if (!/[$_\p{ID_Start}]/u.test(source[i] || '')) fail()
     i++
-    while (/[$_\p{ID_Continue}]/u.test(source[i] || '') || source[i] === '\u200C' || source[i] === '\u200D') i++
+    while (
+      /[$_\p{ID_Continue}]/u.test(source[i] || '') ||
+      source[i] === '\u200C' ||
+      source[i] === '\u200D'
+    ) {
+      i++
+    }
     return source.slice(start, i)
   }
-  const value = (depth: number): unknown => {
+
+  const readValue = (depth: number): unknown => {
     if (depth > 64) fail()
-    ws()
-    const c = source[i]
-    if (c === '{') {
-      i++; ws()
-      const obj: Record<string, unknown> = Object.create(null)
-      if (source[i] === '}') { i++; return obj }
+    whitespace()
+    const character = source[i]
+
+    if (character === '{') {
+      i++
+      whitespace()
+      const object: Record<string, unknown> = Object.create(null)
+      if (source[i] === '}') {
+        i++
+        return object
+      }
       while (i < source.length) {
-        ws()
-        const key = source[i] === '"' || source[i] === "'" ? string() : identifier()
-        ws()
+        whitespace()
+        const property =
+          source[i] === '"' || source[i] === "'"
+            ? readString()
+            : readIdentifier()
+        whitespace()
         if (source[i++] !== ':') fail()
-        obj[key] = value(depth + 1)
-        ws()
-        if (source[i] === '}') { i++; return obj }
+        object[property] = readValue(depth + 1)
+        whitespace()
+        if (source[i] === '}') {
+          i++
+          return object
+        }
         if (source[i++] !== ',') fail()
-        ws()
-        if (source[i] === '}') { i++; return obj }
+        whitespace()
+        if (source[i] === '}') {
+          i++
+          return object
+        }
       }
       return fail()
     }
-    if (c === '[') {
-      i++; ws()
-      const arr: unknown[] = []
-      if (source[i] === ']') { i++; return arr }
+
+    if (character === '[') {
+      i++
+      whitespace()
+      const array: unknown[] = []
+      if (source[i] === ']') {
+        i++
+        return array
+      }
       while (i < source.length) {
-        arr.push(value(depth + 1)); ws()
-        if (source[i] === ']') { i++; return arr }
+        array.push(readValue(depth + 1))
+        whitespace()
+        if (source[i] === ']') {
+          i++
+          return array
+        }
         if (source[i++] !== ',') fail()
-        ws()
-        if (source[i] === ']') { i++; return arr }
+        whitespace()
+        if (source[i] === ']') {
+          i++
+          return array
+        }
       }
       return fail()
     }
-    if (c === '"' || c === "'") return string()
-    if (source.startsWith('true', i)) { i += 4; return true }
-    if (source.startsWith('false', i)) { i += 5; return false }
-    if (source.startsWith('null', i)) { i += 4; return null }
-    if (source.startsWith('Infinity', i)) { i += 8; return Infinity }
-    if (source.startsWith('NaN', i)) { i += 3; return NaN }
-    const match = source.slice(i).match(/^[+-]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/)
+
+    if (character === '"' || character === "'") return readString()
+    if (source.startsWith('true', i)) {
+      i += 4
+      return true
+    }
+    if (source.startsWith('false', i)) {
+      i += 5
+      return false
+    }
+    if (source.startsWith('null', i)) {
+      i += 4
+      return null
+    }
+    if (source.startsWith('Infinity', i)) {
+      i += 8
+      return Infinity
+    }
+    if (source.startsWith('NaN', i)) {
+      i += 3
+      return NaN
+    }
+
+    const match = source
+      .slice(i)
+      .match(/^[+-]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/)
     if (!match) return fail()
     i += match[0].length
-    return /^[-+]?0[xX]/.test(match[0]) ? parseInt(match[0], 16) : Number(match[0])
+    return /^[-+]?0[xX]/.test(match[0])
+      ? parseInt(match[0], 16)
+      : Number(match[0])
   }
-  const result = value(0)
-  ws()
+
+  const result = readValue(0)
+  whitespace()
   if (i !== source.length) fail()
   return result
 }
