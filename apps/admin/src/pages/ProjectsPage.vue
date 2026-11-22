@@ -94,6 +94,12 @@ const columns: DataTableColumns<Project> = [
   { title: '文件数', key: 'files', width: 90, render: (row) => row.distFiles.length },
   { title: '状态', key: 'status', width: 100, render: (row) => h(NTag, { size: 'small', bordered: false, type: projectStatus(row) === 'error' ? 'error' : projectStatus(row) === 'normal' ? 'success' : 'default' }, { default: () => projectStatus(row) === 'error' ? '检查异常' : projectStatus(row) === 'normal' ? '正常' : '未检查' }) },
   {
+    title: '最近错误',
+    key: 'lastError',
+    minWidth: 180,
+    render: (row) => row.lastError ? h(NText, { type: 'error', depth: 1, style: 'max-width: 220px; display: block', depth: 1 }, { default: () => row.lastError }) : '—',
+  },
+  {
     title: '最近检查',
     key: 'lastCheckedAt',
     minWidth: 160,
