@@ -30,6 +30,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
+      - name: Reject release from non-main branches
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'release' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::正式发布只允许从 main 分支触发"
+          exit 1
       - name: Require reproducible install
         run: |
           test -f bun.lock
@@ -157,8 +162,11 @@ jobs:
     if: (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.mode == 'delete-preview')
     runs-on: ubuntu-latest
     environment: production
+    env:
+      PREVIEW_WORKER: ${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual') }}
+      CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
     concurrency:
-      group: preview-${{ github.event.pull_request.number }}
+      group: preview-${{ github.event.pull_request.number || inputs.preview_name || 'manual' }}
       cancel-in-progress: false
     steps:
       - name: Delete Preview Worker
@@ -167,7 +175,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
         run: |
           set -euo pipefail
-          worker="${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual') }}"
+          worker="$PREVIEW_WORKER"
+          [[ "$worker" =~ ^gkd-subscription-hub-[a-z0-9-]{1,40}$ ]] || { echo "::error::Preview Worker 名称不合法"; exit 1; }
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker"
           status="$(curl --connect-timeout 10 --max-time 30 -sS -o /tmp/worker.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api")"
           if [[ "$status" == "404" ]]; then
