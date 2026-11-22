@@ -21,11 +21,9 @@
 
 Search multiple independent GitHub indexes, then verify candidates by content:
 
-1. Repository search: `topic:gkd-subscription`.
-2. Repository search: `topic:gkd`.
-3. Repository search: GKD subscription terms in repository name, description, or README.
-4. Code search: `defineGkdSubscription`.
-5. Optional targeted code search for generated subscription filenames when the first four channels do not provide enough recall.
+1. Repository search: `topic:gkd-subscription`, `topic:gkd-rules`, and `topic:gkd`, each with `fork:true`.
+2. Repository search: `gkd-subscription in:name`, also with `fork:true`.
+3. Code search: `defineGkdSubscription in:file` once for non-forks and once with `is:fork`, because GitHub excludes forks from search results by default.
 
 Deduplicate by immutable GitHub repository ID, not `owner/repo`, so renames do not create duplicate records. Merge all discovery-source labels into the repository record. Search results are candidate discovery only, never proof that a repository is a GKD subscription.
 
