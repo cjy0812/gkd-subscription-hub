@@ -169,7 +169,27 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
-        run: bunx --yes wrangler@4.48.0 delete --config wrangler.preview.jsonc --name "gkd-subscription-hub-pr-${{ github.event.pull_request.number }}" --force
+        run: |
+          set -euo pipefail
+          worker="gkd-subscription-hub-pr-${{ github.event.pull_request.number }}"
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker"
+          status="$(curl --connect-timeout 10 --max-time 30 -sS -o /tmp/worker.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api")"
+          if [[ "$status" == "404" ]]; then
+            echo "Preview Worker 不存在，跳过清理"
+            exit 0
+          fi
+          if [[ "$status" != "200" ]]; then
+            cat /tmp/worker.json
+            echo "::error::无法读取 Preview Worker，HTTP $status"
+            exit 1
+          fi
+          status="$(curl --connect-timeout 10 --max-time 30 -sS -o /tmp/delete.json -w '%{http_code}' -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api")"
+          if [[ "$status" != "200" ]]; then
+            cat /tmp/delete.json
+            echo "::error::删除 Preview Worker 失败，HTTP $status"
+            exit 1
+          fi
+          cat /tmp/delete.json | jq -e '.success == true' >/dev/null
 
   deploy:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'))
