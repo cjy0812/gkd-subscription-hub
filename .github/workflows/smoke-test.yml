@@ -25,7 +25,7 @@ jobs:
           echo "ROOT_HTTP_STATUS=$status"
           cat /tmp/root.headers || true
           if [ "$status" != "302" ]; then cat /tmp/root.body || true; exit 1; fi
-          grep -Eiq '^location: https://gkd\.chenge\.eu\.org/admin/' /tmp/root.headers
+          grep -Eiq '^location: https://gkd-subscription-hub\.cjy081219\.workers\.dev/admin/' /tmp/root.headers
 
       - name: Verify admin SPA and protected API
         env:
