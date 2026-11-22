@@ -75,7 +75,11 @@ app.all('*', async (c) => {
     const text = await r.text(),
       body = path.toLowerCase().endsWith('.md')
         ? md.render(text)
-        : '<h1>' + escapeHtml(path) + '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' + escapeHtml(text) + '</code></pre>',
+        : '<h1>' +
+          escapeHtml(path) +
+          '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' +
+          escapeHtml(text) +
+          '</code></pre>',
       out = new Response(documentPage(path, body), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
