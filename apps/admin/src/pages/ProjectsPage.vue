@@ -218,18 +218,22 @@ onMounted(() => {
       <p class="eyebrow">SUBSCRIPTION HUB</p>
       <h1>管理中心</h1>
       <p class="muted">登录后管理订阅源、检查上游更新。</p>
-      <n-form @submit.prevent="login">
-        <n-form-item label="管理员密码">
-          <n-input
-            v-model:value="password"
-            type="password"
-            show-password-on="click"
-            placeholder="输入 ADMIN_PASSWORD"
-            @keyup.enter="login"
-          />
-        </n-form-item>
-        <n-button type="primary" block :loading="loading" @click="login">登录</n-button>
-      </n-form>
+      <form class="login-form" @submit.prevent="login">
+        <label class="login-label" for="admin-password">管理员密码</label>
+        <input
+          id="admin-password"
+          v-model="password"
+          class="login-password"
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="输入 ADMIN_PASSWORD"
+          required
+        />
+        <button class="login-submit" type="submit" :disabled="loading">
+          {{ loading ? '登录中…' : '登录' }}
+        </button>
+      </form>
     </n-card>
   </main>
 
@@ -563,6 +567,48 @@ onMounted(() => {
 }
 .login-card .muted {
   margin: 0 0 24px;
+}
+.login-form {
+  display: grid;
+  gap: 10px;
+}
+.login-label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.login-password {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--color-text);
+  padding: 9px 12px;
+  outline: none;
+}
+.login-password:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+.login-submit {
+  min-height: 40px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-submit:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.login-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 @media (max-width: 960px) {
   .desktop-sidebar {
