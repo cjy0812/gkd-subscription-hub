@@ -212,14 +212,18 @@ const columns: DataTableColumns<Entry> = [
 async function load() {
   loading.value = true
   try {
-    const [catalog, status, quotaResult] = await Promise.all([
+    const [catalog, status] = await Promise.all([
       api<{ entries: Entry[] }>('/api/explorer/catalog', token),
       api<{ status: Job }>('/api/explorer/status', token),
-      api<{ quota: Quota }>('/api/explorer/quota', token),
     ])
     entries.value = catalog.entries
     job.value = status.status
-    quota.value = quotaResult.quota
+    try {
+      const quotaResult = await api<{ quota: Quota }>('/api/explorer/quota', token)
+      quota.value = quotaResult.quota
+    } catch {
+      quota.value = null
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : '读取 Explorer 数据失败')
   } finally {
