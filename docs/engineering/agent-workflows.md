@@ -4,15 +4,13 @@
 
 ## 指令分层
 
-| 机制 | 适合放什么 |
-| --- | --- |
-| AGENTS.md | 跨 Agent 项目事实、硬约束、命令、验收规则 |
-| CLAUDE.md | Claude Code 入口、导入 AGENTS、Claude 专属工作流 |
-| 嵌套 AGENTS.md | 子目录独有的构建、安全、测试约束 |
-| .claude/rules | Claude 路径级、主题级规则 |
-| Skills | 按需调用的多步骤流程和检查清单 |
-| Hooks / CI | 必须自动执行的格式、测试和禁止操作前置检查 |
-| Prompt | 本次任务目标、背景、范围、优先级、验收和交付 |
+- **AGENTS.md**：跨 Agent 项目事实、硬约束、命令、验收规则。
+- **CLAUDE.md**：Claude Code 入口、导入 AGENTS、Claude 专属工作流。
+- **嵌套 AGENTS.md**：子目录独有的构建、安全、测试约束。
+- **.claude/rules**：Claude 路径级、主题级规则。
+- **Skills**：按需调用的多步骤流程和检查清单。
+- **Hooks / CI**：必须自动执行的格式、测试和禁止操作前置检查。
+- **Prompt**：本次任务目标、背景、范围、优先级、验收和交付。
 
 根 AGENTS 是跨工具事实源。Claude 专属规则不得与其冲突。路径规则只在确有不同约束时添加。
 
@@ -30,6 +28,7 @@
 当前 CLAUDE.md 通过 @AGENTS.md 导入通用规则，保持单一事实源。
 
 按需采用：
+
 - .claude/rules/frontend.md：匹配 apps/admin/**。
 - .claude/rules/worker.md：匹配 src/**。
 - .claude/rules/testing.md：匹配测试文件。
@@ -40,7 +39,7 @@
 
 ## 任务提示词模板
 
-~~~text
+```text
 目标：
 要解决的用户问题和预期结果。
 
@@ -66,7 +65,7 @@
 
 交付：
 改动摘要、关键决策、测试证据、未执行项、风险、文档更新。
-~~~
+```
 
 ### Bug 修复
 写清复现条件、实际/预期结果、日志和回归测试。优先先写失败测试再修复。不得通过删断言、放宽测试或吞异常来“修复”。

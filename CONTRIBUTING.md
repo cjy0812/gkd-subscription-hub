@@ -17,14 +17,14 @@
 
 ## 本地验证
 
-~~~bash
+```bash
 bun install --frozen-lockfile
 bun run format:check
 bun run lint
 bun run typecheck
 bun run test
 bun run build:admin
-~~~
+```
 
 以当前 package scripts 为准。命令失败时判断代码、环境或脚本问题；不得把未执行说成通过。
 

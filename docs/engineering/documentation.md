@@ -2,16 +2,14 @@
 
 ## 文档分层
 
-| 文档 | 读者 | 回答的问题 |
-| --- | --- | --- |
-| README | 使用者、评估者、贡献者 | 项目用途、能力、快速开始、部署、求助 |
-| CONTRIBUTING | 贡献者、Agent | 开发、测试、PR 流程 |
-| AGENTS.md | 所有编码代理 | 仓库事实、硬约束、命令、完成定义 |
-| CLAUDE.md | Claude Code | Claude 加载入口和专属约定 |
-| docs/engineering | 维护者 | 工程标准、审计、文档、Agent 体系 |
-| docs/*-design.md | 领域维护者 | 模型、流程、API、失败模式 |
-| docs/adr | 决策参与者 | 为什么选方案、放弃什么 |
-| docs/*-roadmap.md | 项目参与者 | 计划、优先级、状态、验收 |
+- **README**：面向使用者、评估者和贡献者，回答项目用途、能力、快速开始、部署和求助方式。
+- **CONTRIBUTING**：面向贡献者和 Agent，说明开发、测试和 PR 流程。
+- **AGENTS.md**：面向所有编码代理，说明仓库事实、硬约束、命令和完成定义。
+- **CLAUDE.md**：Claude Code 加载入口和专属约定。
+- **docs/engineering**：维护者使用的工程标准、审计、文档和 Agent 体系。
+- **领域设计文档**：领域模型、流程、API 和失败模式。
+- **docs/adr**：记录架构决策及被放弃的方案。
+- **Roadmap**：记录计划、优先级、状态和验收。
 
 ## README 规则
 
@@ -34,7 +32,7 @@
 
 建议目录 docs/adr/，文件名 NNNN-short-title.md，编号递增不复用。
 
-~~~markdown
+```markdown
 # ADR-NNNN: 标题
 - 状态：Proposed
 - 日期：YYYY-MM-DD
@@ -45,7 +43,7 @@
 ## 影响与代价
 ## 安全 / 性能 / 运维
 ## 回滚与迁移
-~~~
+```
 
 只记录影响多个模块、长期成本、安全边界、数据结构或部署拓扑的决策。被替代时保留原 ADR 并标记 Superseded。
 
@@ -59,16 +57,14 @@
 
 ## 变更同步矩阵
 
-| 变更 | 检查/更新 |
-| --- | --- |
-| 用户可见功能 | README、路线图 |
-| API/请求响应 | 设计文档、README API、Admin/Worker 类型与测试 |
-| 环境变量/Secrets | README、CI/CD、dev vars 示例、部署配置 |
-| 部署/Preview | README、CI/CD、AGENTS/CLAUDE |
-| 架构/技术选型 | 工程标准、架构概览；重大决策 ADR |
-| 测试/质量门禁 | AGENTS、README 命令、CI |
-| Agent 协作 | AGENTS、CLAUDE、Agent 工作流 |
-| 内部重构 | 审查架构文档是否仍准确 |
+- **用户可见功能**：README、路线图。
+- **API/请求响应**：设计文档、README API、Admin/Worker 类型与测试。
+- **环境变量/Secrets**：README、CI/CD、dev vars 示例、部署配置。
+- **部署/Preview**：README、CI/CD、AGENTS/CLAUDE。
+- **架构/技术选型**：工程标准、架构概览；重大决策写 ADR。
+- **测试/质量门禁**：AGENTS、README 命令、CI。
+- **Agent 协作**：AGENTS、CLAUDE、Agent 工作流。
+- **内部重构**：审查架构文档是否仍准确。
 
 ## 文档检查
 

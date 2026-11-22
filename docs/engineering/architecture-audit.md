@@ -4,7 +4,7 @@
 
 ## 结构概览
 
-~~~text
+```text
 apps/admin/        Vue 3 + Vite + Naive UI
 src/               Cloudflare Worker + Hono
   middleware/      认证
@@ -15,23 +15,42 @@ src/               Cloudflare Worker + Hono
 test/              Vitest
 docs/              技术设计、CI/CD、路线图、工程规范
 .github/workflows/ CI 与手动生产 Smoke Test
-~~~
+```
 
 ## 已确认发现
 
-| ID | 级别 | 发现与证据 | 建议 |
-| --- | --- | --- | --- |
-| A-01 | 高 | ProjectsPage.vue 约 775 行；ExplorerPage.vue 约 472 行，包含筛选、批量操作、API 和展示逻辑 | 先补行为测试，再按业务边界抽 composable/component；不按行数机械拆分 |
-| A-02 | 高 | src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInfo、WorkflowRun；Prediction / ProjectPrediction 命名不同 | 评估只共享 API DTO，不共享 Worker Env/内部类型 |
-| A-03 | 高 | ExplorerPage 的 repository 使用 Record<string, any> | 建立最小 GitHub Repository DTO |
-| A-04 | 高 | Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 defineStore | 完整搜索后决定移除，不迁移状态来证明依赖有用 |
-| A-05 | 高 | ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC | 移除页面例外，补 Vue 模板/脚本 Lint |
-| A-06 | 中 | lint 执行 Admin typecheck，typecheck 又执行 Worker + Admin typecheck；CI 顺序运行二者 | 分离 Lint 与 Typecheck 责任 |
-| A-07 | 中 | Prettier 用 bunx --yes prettier@3.6.2 临时执行，未列为 devDependency | 固定工具依赖版本 |
-| A-08 | 中 | Scanner/Actions 多处 gh<any>，外部 API 数据缺少窄 DTO | 增加 DTO 与运行时守卫 |
-| A-09 | 中 | Storage 项目保存/删除使用多个 KV key 的读改写，没有跨键事务 | 明确并发风险，补幂等/并发测试 |
-| A-10 | 中 | Service 已分层，但部分文件职责密集且格式紧凑 | 仅在测试或需求暴露维护成本时拆分 |
-| A-11 | 中 | 功能分支 README 曾未同步主分支 CI/CD 改造 | 以单一 CI/CD 文档为部署事实源 |
+### A-01（高）：页面职责过重
+ProjectsPage.vue 约 775 行；ExplorerPage.vue 约 472 行，包含筛选、批量操作、API 和展示逻辑。建议先补行为测试，再按业务边界抽 composable/component；不按行数机械拆分。
+
+### A-02（高）：前后端类型重复
+src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInfo、WorkflowRun；Prediction / ProjectPrediction 命名不同。评估只共享 API DTO，不共享 Worker Env/内部类型。
+
+### A-03（高）：Explorer 使用宽泛类型
+ExplorerPage 的 repository 使用 Record<string, any>。建立最小 GitHub Repository DTO。
+
+### A-04（高）：Pinia 可能未使用
+Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 defineStore。完整搜索后决定移除，不迁移状态来证明依赖有用。
+
+### A-05（高）：Vue SFC 检查缺口
+ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。移除页面例外，补 Vue 模板/脚本 Lint。
+
+### A-06（中）：质量脚本重复
+lint 执行 Admin typecheck，typecheck 又执行 Worker + Admin typecheck；CI 顺序运行二者。分离 Lint 与 Typecheck 责任。
+
+### A-07（中）：Prettier 未作为锁定依赖
+Prettier 用 bunx --yes prettier@3.6.2 临时执行，未列为 devDependency。固定工具依赖版本。
+
+### A-08（中）：GitHub API 类型过宽
+Scanner/Actions 多处 gh<any>，外部 API 数据缺少窄 DTO。增加 DTO 与运行时守卫。
+
+### A-09（中）：KV 多键并发语义
+Storage 项目保存/删除使用多个 KV key 的读改写，没有跨键事务。明确并发风险，补幂等/并发测试。
+
+### A-10（中）：部分 Service 职责密集
+Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或需求暴露维护成本时拆分。
+
+### A-11（中）：部署文档漂移
+功能分支 README 曾未同步主分支 CI/CD 改造。以单一 CI/CD 文档为部署事实源。
 
 ## 未证实 / 待验证
 
