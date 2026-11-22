@@ -19,8 +19,10 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 
 当前管理端提供以下能力：
 
-- 管理员密码登录与退出；认证信息仅保存在当前浏览器会话的 `sessionStorage`。
-- 查看已登记订阅源、所属分组、分支、索引文件数和最近检查时间。
+- 管理员密码登录与退出；登录页独立于业务页面，认证信息保存在当前浏览器会话的 `sessionStorage`。
+- 订阅管理、仪表盘和 Explorer 共用 AdminLayout；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
+- 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
+- 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
 - 新增订阅源时可指定分支；留空时使用 GitHub 仓库默认分支。
 - 手动刷新单个订阅源，并查看最近检查错误。
@@ -68,7 +70,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ## 技术栈
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
-- **前端**：Vue 3、Vite、Naive UI、Vue Router、Pinia。
+- **前端**：Vue 3、Vite、Naive UI、Vue Router；Pinia 当前已安装并初始化，实际 Store 使用情况待审计确认。
 - **后端**：Cloudflare Workers、Hono、KV。
 - **质量工具**：Biome（TypeScript/JavaScript/JSON/CSS 等支持范围）、Prettier（Vue SFC 格式化）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it。
@@ -81,6 +83,7 @@ Biome 不负责 Vue SFC 的格式化和完整语义检查；Vue SFC 由 Prettier
 apps/
   admin/
     src/
+      layouts/           # 管理端共享布局
       pages/             # Vue 页面
       styles/            # Design Tokens 与全局样式
     index.html
@@ -208,6 +211,14 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 ## 安全与数据
 
 KV 保存项目索引和元数据；订阅文件从公开 GitHub raw 按需读取。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；通知只接受已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
+
+## 工程与贡献
+
+- [贡献指南](./CONTRIBUTING.md)
+- [工程手册](./docs/engineering/README.md)
+- [工程标准](./docs/engineering/engineering-standards.md)
+- [架构审计](./docs/engineering/architecture-audit.md)
+- [AI Agent 与提示词工程](./docs/engineering/agent-workflows.md)
 
 ## License
 
