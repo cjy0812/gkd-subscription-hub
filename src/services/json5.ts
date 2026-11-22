@@ -108,10 +108,7 @@ export function parseJson5(source: string): unknown {
       }
       while (i < source.length) {
         whitespace()
-        const property =
-          source[i] === '"' || source[i] === "'"
-            ? readString()
-            : readIdentifier()
+        const property = source[i] === '"' || source[i] === "'" ? readString() : readIdentifier()
         whitespace()
         if (source[i++] !== ':') fail()
         object[property] = readValue(depth + 1)
@@ -182,9 +179,7 @@ export function parseJson5(source: string): unknown {
       .match(/^[+-]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/)
     if (!match) return fail()
     i += match[0].length
-    return /^[-+]?0[xX]/.test(match[0])
-      ? parseInt(match[0], 16)
-      : Number(match[0])
+    return /^[-+]?0[xX]/.test(match[0]) ? parseInt(match[0], 16) : Number(match[0])
   }
 
   const result = readValue(0)
