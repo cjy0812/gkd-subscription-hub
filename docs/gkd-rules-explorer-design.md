@@ -30,6 +30,7 @@ Search multiple independent GitHub indexes, then verify candidates by content:
 Deduplicate by immutable GitHub repository ID, not `owner/repo`, so renames do not create duplicate records. Merge all discovery-source labels into the repository record. Search results are candidate discovery only, never proof that a repository is a GKD subscription.
 
 For every candidate:
+
 - Read the default-branch commit and recursive Git tree.
 - Locate plausible JSON5 subscription artifacts, prioritizing `dist/gkd.json5`, `dist/*gkd*.json5`, then other JSON5 files under `dist/`.
 - Fetch candidate artifacts from `raw.githubusercontent.com`, pinned to the commit SHA.
@@ -40,12 +41,14 @@ For every candidate:
 ## Subscription validation and metadata
 
 Required validation:
+
 - positive numeric `id`;
 - non-empty `name`;
 - a usable `version`;
 - at least one non-empty rule-bearing `apps` or `globalGroups` collection.
 
 Extract standard metadata when present:
+
 - `id`, `name`, `version`, `author`, `updateUrl`, `checkUpdateUrl`;
 - `categories`, app count, group count, rule count;
 - artifact path, blob SHA, artifact size, source commit SHA.
@@ -53,6 +56,7 @@ Extract standard metadata when present:
 Preserve unknown top-level JSON5 properties in `customFields`; do not silently discard project-specific metadata. Do not duplicate large rule bodies in the catalog. GitHub repository custom properties are optional and are shown only when the public repository API returns them; the feature must not require organization-only permissions.
 
 GitHub metadata should include, when returned:
+
 - immutable repository ID, full name, URL, owner/login/avatar;
 - description, homepage, topics, license, language, default branch;
 - created/updated/pushed timestamps, size;
@@ -63,6 +67,7 @@ GitHub metadata should include, when returned:
 ## API and job model
 
 All Explorer API routes remain under the existing authenticated admin API:
+
 - `GET /api/explorer/catalog`: cached, verified subscription repositories.
 - `GET /api/explorer/status`: current discovery progress and last run summary.
 - `POST /api/explorer/discover`: start or resume a discovery job.
@@ -84,6 +89,7 @@ Discovery is resumable. Search pages and candidate validation are processed in s
 ## UI
 
 Add an Explorer page under the existing admin SPA with:
+
 - full-text search across repository name, owner, subscription name, author, ID, topics, and custom metadata;
 - filters for Fork/non-Fork, archived status, topic, author, and subscription count;
 - sorting by last push/update, stars, forks, name, and rule count;
@@ -98,6 +104,7 @@ The catalog is read once and filtered locally in the browser. Changing filters m
 ## Quota and execution budget
 
 GitHub documented defaults used for planning (the actual remaining quota of the Worker's secret token is not readable during this repository review):
+
 - Authenticated REST core: typically 5,000 requests/hour.
 - Repository search: 30 requests/minute for authenticated requests.
 - Code search: 10 requests/minute.
@@ -107,6 +114,7 @@ GitHub documented defaults used for planning (the actual remaining quota of the 
 Cloudflare Worker execution limits depend on the account plan. The Free-plan reference values are 10 ms CPU time and 50 outgoing subrequests per invocation; KV Free-plan reference values are 100,000 reads/day and 1,000 writes/day. The deployed script reports the `standard` usage model, but that is not proof of the account's billing plan. Account plan and current usage were not independently verified in this audit.
 
 The implementation therefore uses a bounded step:
+
 - at most one search request per step;
 - at most four candidate repositories per verification step;
 - per candidate: commit lookup, tree lookup, at most one parent metadata lookup for a fork, and at most two raw artifact fetches;
