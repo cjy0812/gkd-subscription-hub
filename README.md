@@ -164,7 +164,11 @@ bun run deploy
 
 部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
-### 6. 注册订阅
+### CI/CD 与预览环境
+
+CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/CD 文档](./docs/CI-CD.md)。
+
+## 6. 注册订阅
 
 访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
 
