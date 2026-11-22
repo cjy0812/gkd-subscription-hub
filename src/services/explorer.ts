@@ -15,7 +15,66 @@ const VERIFY_PER_STEP = 4
 const MAX_ARTIFACTS_PER_REPO = 2
 const MAX_ARTIFACT_SIZE = 256_000
 
-type Candidate = Record<string, any> & { id: number; full_name: string }
+type JsonRecord = Record<string, unknown>
+type Candidate = JsonRecord & {
+  id: number
+  full_name: string
+  default_branch?: string
+  private?: boolean
+  visibility?: string
+  fork?: boolean
+  parent?: { full_name?: string } | null
+  __source?: string
+}
+type GitHubTreeBlob = { type: 'blob'; path: string; sha: string; size: number }
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isCandidate(value: unknown): value is Candidate {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'number' ||
+    !Number.isSafeInteger(value.id) ||
+    value.id <= 0 ||
+    typeof value.full_name !== 'string' ||
+    !value.full_name.trim()
+  ) {
+    return false
+  }
+  if (value.default_branch !== undefined && typeof value.default_branch !== 'string') return false
+  if (value.private !== undefined && typeof value.private !== 'boolean') return false
+  if (value.visibility !== undefined && typeof value.visibility !== 'string') return false
+  if (value.fork !== undefined && typeof value.fork !== 'boolean') return false
+  if (value.__source !== undefined && typeof value.__source !== 'string') return false
+  if (value.parent !== undefined && value.parent !== null) {
+    if (!isRecord(value.parent)) return false
+    if (value.parent.full_name !== undefined && typeof value.parent.full_name !== 'string') {
+      return false
+    }
+  }
+  return true
+}
+
+export function candidateFromSearchItem(
+  item: unknown,
+  kind: (typeof SEARCH_QUERIES)[number]['kind'],
+): Candidate | null {
+  if (!isRecord(item)) return null
+  const candidate = kind === 'code' ? item.repository : item
+  return isCandidate(candidate) ? candidate : null
+}
+
+function isTreeBlob(value: unknown): value is GitHubTreeBlob {
+  return (
+    isRecord(value) &&
+    value.type === 'blob' &&
+    typeof value.path === 'string' &&
+    typeof value.sha === 'string' &&
+    typeof value.size === 'number'
+  )
+}
 type Subscription = {
   id: number
   name: string
@@ -141,19 +200,20 @@ function repositoryData(repository: Candidate) {
       .filter((field) => repository[field] !== undefined)
       .map((field) => [field, repository[field]]),
   )
-  if (data.parent && typeof data.parent === 'object') {
-    data.parent = (data.parent as any).full_name || null
+  if (isRecord(data.parent)) {
+    data.parent = typeof data.parent.full_name === 'string' ? data.parent.full_name : null
   }
   return data
 }
-function countRules(value: unknown): number {
+export function countRules(value: unknown): number {
   let count = 0
-  const visit = (node: any, depth: number) => {
-    if (depth > 30 || !node || typeof node !== 'object') return
+  const visit = (node: unknown, depth: number) => {
+    if (depth > 30) return
     if (Array.isArray(node)) {
       for (const child of node) visit(child, depth + 1)
       return
     }
+    if (!isRecord(node)) return
     if (Array.isArray(node.matches)) {
       count += node.matches.length
     } else if (node.matches !== undefined && node.matches !== null) {
@@ -166,15 +226,15 @@ function countRules(value: unknown): number {
   visit(value, 0)
   return count
 }
-function parseSubscription(
+export function parseSubscription(
   source: string,
   path: string,
   sha: string,
   size: number,
 ): Subscription | null {
   try {
-    const data = parseJson5(source) as any
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+    const data: unknown = parseJson5(source)
+    if (!isRecord(data)) return null
     const id = Number(data.id)
     const name = typeof data.name === 'string' ? data.name.trim() : ''
     const version =
@@ -226,7 +286,7 @@ function parseSubscription(
     return null
   }
 }
-async function github<T>(env: Env, path: string): Promise<T> {
+async function github(env: Env, path: string): Promise<unknown> {
   const response = await fetch('https://api.github.com' + path, {
     headers: {
       Accept: 'application/vnd.github+json',
@@ -245,7 +305,7 @@ async function github<T>(env: Env, path: string): Promise<T> {
     )
   }
   if (!response.ok) throw new Error(`GitHub API HTTP ${response.status}`)
-  return response.json() as Promise<T>
+  return response.json() as Promise<unknown>
 }
 async function verify(
   env: Env,
@@ -257,12 +317,19 @@ async function verify(
   const branch = candidate.default_branch
   if (!branch || candidate.visibility === 'private' || candidate.private === true) return null
 
-  const commit = await github<any>(
-    env,
-    '/repos/' + repository + '/commits/' + encodeURIComponent(branch),
-  )
-  const commitSha = commit.sha
-  if (cached && (cached.repository as any).commitSha === commitSha) {
+  const commitData = await github(env, `/repos/${repository}/commits/${encodeURIComponent(branch)}`)
+  if (
+    !isRecord(commitData) ||
+    typeof commitData.sha !== 'string' ||
+    !isRecord(commitData.commit) ||
+    !isRecord(commitData.commit.tree) ||
+    typeof commitData.commit.tree.sha !== 'string'
+  ) {
+    throw new Error(`GitHub Commit 响应格式无效：${repository}`)
+  }
+  const commitSha = commitData.sha
+  const treeSha = commitData.commit.tree.sha
+  if (cached && cached.repository.commitSha === commitSha) {
     return {
       ...cached,
       repository: { ...cached.repository, ...repositoryData(candidate), commitSha },
@@ -274,28 +341,19 @@ async function verify(
   let full = candidate
   if (candidate.fork && !candidate.parent && !cached?.parent) {
     try {
-      full = await github<any>(env, '/repos/' + candidate.full_name)
+      const repositoryData = await github(env, `/repos/${candidate.full_name}`)
+      if (isCandidate(repositoryData)) full = repositoryData
     } catch {
       // Keep the fork; parent metadata is optional when GitHub cannot return it.
     }
   }
-  const treeSha = commit.commit?.tree?.sha
-  if (!treeSha) throw new Error(`无法读取 Git Tree SHA：${repository}`)
-
-  const tree = await github<any>(
-    env,
-    '/repos/' + repository + '/git/trees/' + treeSha + '?recursive=1',
-  )
-  if (tree.truncated) throw new Error(`Git Tree 被截断：${repository}`)
-
-  const files = (tree.tree || [])
-    .filter(
-      (file: any) =>
-        file.type === 'blob' &&
-        /^dist\/.*\.json5?$/i.test(file.path) &&
-        file.size <= MAX_ARTIFACT_SIZE,
-    )
-    .sort((a: any, b: any) => {
+  const treeData = await github(env, `/repos/${repository}/git/trees/${treeSha}?recursive=1`)
+  if (!isRecord(treeData)) throw new Error(`Git Tree 响应格式无效：${repository}`)
+  if (treeData.truncated === true) throw new Error(`Git Tree 被截断：${repository}`)
+  const files = (Array.isArray(treeData.tree) ? treeData.tree : [])
+    .filter(isTreeBlob)
+    .filter((file) => /^dist\/.*\.json5?$/i.test(file.path) && file.size <= MAX_ARTIFACT_SIZE)
+    .sort((a, b) => {
       const rank = (path: string) =>
         /(^|\/)gkd\.json5?$/i.test(path) ? 0 : /gkd.*\.json5?$/i.test(path) ? 1 : 2
       return rank(a.path) - rank(b.path)
@@ -364,25 +422,20 @@ export async function stepExplorer(env: Env) {
     if (job.candidateIndex >= job.candidates.length && job.queryIndex < SEARCH_QUERIES.length) {
       const search = SEARCH_QUERIES[job.queryIndex]
       const endpoint = search.kind === 'code' ? 'code' : 'repositories'
-      const data = await github<any>(
+      const data = await github(
         env,
-        '/search/' +
-          endpoint +
-          '?q=' +
-          encodeURIComponent(search.query) +
-          '&per_page=' +
-          PAGE_SIZE +
-          '&page=' +
-          job.page,
+        `/search/${endpoint}?q=${encodeURIComponent(search.query)}&per_page=${PAGE_SIZE}&page=${job.page}`,
       )
-      const items: Candidate[] = (data.items || [])
-        .map((item: any) => (search.kind === 'code' ? item.repository : item))
-        .filter((item: any) => item?.id && item?.full_name)
+      if (!isRecord(data)) throw new Error('GitHub Search 响应格式无效')
+      const rawItems: unknown[] = Array.isArray(data.items) ? data.items : []
+      const items: Candidate[] = rawItems
+        .map((item) => candidateFromSearchItem(item, search.kind))
+        .filter((item): item is Candidate => item !== null)
 
+      const totalCount = Number(data.total_count || 0)
       job.incomplete ||= data.incomplete_results === true
-      job.incomplete ||= search.kind === 'code' && Number(data.total_count || 0) > items.length
-      job.incomplete ||=
-        search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000
+      job.incomplete ||= search.kind === 'code' && totalCount > items.length
+      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && totalCount > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
@@ -405,7 +458,10 @@ export async function stepExplorer(env: Env) {
 
     const cachedEntries = await read<Entry[]>(env, 'catalog', [])
     const cacheById = new Map<number, Entry>(
-      cachedEntries.map((entry) => [Number((entry.repository as any).id), entry] as const),
+      cachedEntries.flatMap((entry) => {
+        const id = entry.repository.id
+        return typeof id === 'number' && Number.isSafeInteger(id) ? [[id, entry] as const] : []
+      }),
     )
     const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidates.length)
     for (; job.candidateIndex < end; job.candidateIndex++) {
@@ -414,7 +470,7 @@ export async function stepExplorer(env: Env) {
         const entry = await verify(
           env,
           candidate,
-          [candidate.__source],
+          candidate.__source ? [candidate.__source] : [],
           cacheById.get(Number(candidate.id)),
         )
         if (entry) job.entries.push(entry)
@@ -456,12 +512,12 @@ export async function explorerCatalog(env: Env) {
 }
 
 export async function explorerQuota(env: Env) {
-  const response = await github<any>(env, '/rate_limit')
-  const resources = response.resources || {}
+  const response = await github(env, '/rate_limit')
+  const resources = isRecord(response) && isRecord(response.resources) ? response.resources : {}
   const categories = ['core', 'search', 'code_search']
   return Object.fromEntries(
     categories.map((category) => {
-      const value = resources[category] || {}
+      const value = isRecord(resources[category]) ? resources[category] : {}
       return [
         category,
         {
