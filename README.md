@@ -11,7 +11,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
-- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。
+- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- GKD Rules Explorer 从公开 GitHub 搜索候选仓库，验证完整订阅文件，支持 Fork 来源、订阅元信息、自定义字段、搜索筛选和排序。
 - 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
 - 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
 
@@ -169,6 +169,16 @@ bun run deploy
 | POST   | `/admin/api/projects`             | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
 | POST   | `/admin/api/projects/:id/refresh` | 立即刷新                                                  |
 | DELETE | `/admin/api/projects/:id`         | 删除项目元数据                                            |
+
+## GKD Rules Explorer
+
+管理端访问 `/admin/explorer`。Explorer 与订阅分发项目列表隔离，使用 KV 的 `explorer:` 前缀保存发现任务和目录快照，不会把发现结果自动注册为订阅分发项目。
+
+发现过程使用公开仓库搜索、代码搜索作为候选入口，再读取默认分支的 Git Tree 并验证 `dist/` 下的 JSON5/JSON 订阅文件。只有通过订阅 ID、名称、版本和规则集合校验的仓库才进入目录。Fork 会保留，并展示直接 parent 仓库；不追溯更长的 Fork 链。订阅文件的未知顶层字段保存在自定义字段中。
+
+扫描采用手动推进、可恢复的批次任务。GitHub 搜索结果存在索引、分页和每查询最多 1,000 条等限制，代码搜索也存在独立配额，因此目录不保证覆盖所有公开仓库。遇到 GitHub 限流时任务会暂停；等待配额恢复后可继续。筛选、搜索和排序在浏览器本地执行，不会为每次筛选重新请求 GitHub。
+
+详细设计见 [GKD Rules Explorer 技术方案](./docs/gkd-rules-explorer-design.md)。
 
 ## 更新预测的边界
 
