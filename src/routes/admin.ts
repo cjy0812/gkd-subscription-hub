@@ -9,9 +9,13 @@ import explorer from './explorer'
 
 const app = new Hono<{ Bindings: Env }>()
 app.use('/api/*', auth)
-app.get('/api/config', async (c) =>
-  json({ ok: true, subscriptionDomain: c.env.SUBSCRIPTION_DOMAIN }),
-)
+app.get('/api/config', async (c) => {
+  const hostname = new URL(c.req.url).hostname
+  const subscriptionDomain = hostname.endsWith('.workers.dev')
+    ? hostname
+    : c.env.SUBSCRIPTION_DOMAIN
+  return json({ ok: true, subscriptionDomain })
+})
 app.get('/api/projects', async (c) => json({ ok: true, projects: await all(c.env) }))
 app.post('/api/projects', async (c) => {
   try {
