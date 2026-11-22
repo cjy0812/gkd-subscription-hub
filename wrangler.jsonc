@@ -4,7 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-22",
   "workers_dev": true,
-  "preview_urls": false,
+  "preview_urls": true,
   "assets": {
     "directory": "./apps/admin/dist",
     "binding": "ASSETS",
@@ -26,6 +26,20 @@
   "observability": {
     "enabled": true,
     "traces": {
+      "enabled": true
+    }
+  },
+  "previews": {
+    "vars": {
+      "SUBSCRIPTION_DOMAIN": "preview.invalid"
+    },
+    "kv_namespaces": [
+      {
+        "binding": "STATE",
+        "id": "fc091077968342c1b73b22a310412947"
+      }
+    ],
+    "observability": {
       "enabled": true
     }
   },
