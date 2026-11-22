@@ -33,12 +33,12 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 订阅服务使用 `https://<id>.gkd.example.com/`，例如订阅 ID 为 `12345`：
 
-| URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
-| ----------------------------------------------------------- | -------------- | -------------------- |
-| `https://<worker-name>.<account-subdomain>.workers.dev/s/12345/` | dist 文件目录  | HTML 目录            |
-| `/s/12345/gkd.json5`                                          | JSON5 代码预览 | 原始 JSON5           |
-| `/s/12345/README.md`                                          | Markdown 渲染  | 原始 Markdown        |
-| `/s/12345/gkd.json5?raw=1`                                    | 原始 JSON5     | 原始 JSON5           |
+### 示例订阅地址
+
+- 目录页：`https://12345.gkd.example.com/`（浏览器显示文件目录）
+- GKD 订阅：`https://12345.gkd.example.com/gkd.json5`（GKD 等非 HTML 客户端获取原始 JSON5）
+- Markdown：`https://12345.gkd.example.com/README.md`（浏览器渲染，非 HTML 客户端获取原文）
+- 原始文件：`https://12345.gkd.example.com/gkd.json5?raw=1`
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
