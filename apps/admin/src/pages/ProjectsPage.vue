@@ -21,6 +21,7 @@ import {
   NModal,
   NSpace,
   NSpin,
+  NSelect,
   NStatistic,
   NTag,
   NText,
@@ -33,11 +34,23 @@ const token = ref(sessionStorage.getItem('gkdtoken') || '')
 const password = ref('')
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
+const branchName = ref('')
+const searchQuery = ref('')
+const statusFilter = ref<'all' | 'normal' | 'error' | 'unknown'>('all')
+const refreshingIds = ref(new Set<number>())
 const groupName = ref('默认分组')
 const subscriptionDomain = ref('')
+const projectStatus = (project: Project) => project.lastError ? 'error' : project.lastCheckedAt ? 'normal' : 'unknown'
+const filteredProjects = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  return projects.value.filter((project) => {
+    const matchesQuery = !query || `${project.id} ${project.owner}/${project.repo} ${project.branch} ${project.group || ''}`.toLowerCase().includes(query)
+    return matchesQuery && (statusFilter.value === 'all' || projectStatus(project) === statusFilter.value)
+  })
+})
 const groupedProjects = computed(() => {
   const groups = new Map<string, Project[]>()
-  for (const project of projects.value) {
+  for (const project of filteredProjects.value) {
     const name = project.group || '默认分组'
     groups.set(name, [...(groups.get(name) || []), project])
   }
@@ -52,6 +65,7 @@ const menuOptions = [{ label: '订阅源管理', key: 'projects' }]
 const totalFiles = computed(() =>
   projects.value.reduce((sum, item) => sum + item.distFiles.length, 0),
 )
+const errorCount = computed(() => projects.value.filter((project) => projectStatus(project) === 'error').length)
 function openSubscription(id: number) {
   const project = projects.value.find((item) => item.id === id)
   const file = project?.distFiles.find(
@@ -76,8 +90,9 @@ const columns: DataTableColumns<Project> = [
         h('span', `${row.owner}/${row.repo}`),
       ]),
   },
-  { title: '分支', key: 'branch', width: 100 },
+  { title: '分支', key: 'branch', width: 120, ellipsis: { tooltip: true } },
   { title: '文件数', key: 'files', width: 90, render: (row) => row.distFiles.length },
+  { title: '状态', key: 'status', width: 100, render: (row) => h(NTag, { size: 'small', bordered: false, type: projectStatus(row) === 'error' ? 'error' : projectStatus(row) === 'normal' ? 'success' : 'default' }, { default: () => projectStatus(row) === 'error' ? '检查异常' : projectStatus(row) === 'normal' ? '正常' : '未检查' }) },
   {
     title: '最近检查',
     key: 'lastCheckedAt',
@@ -102,7 +117,7 @@ const columns: DataTableColumns<Project> = [
             ),
             h(
               NButton,
-              { size: 'small', secondary: true, onClick: () => refreshProject(row.id) },
+              { size: 'small', secondary: true, loading: refreshingIds.value.has(row.id), onClick: () => refreshProject(row.id) },
               { default: () => '刷新' },
             ),
             h(
@@ -168,11 +183,13 @@ async function addProject() {
       method: 'POST',
       body: JSON.stringify({
         url: repositoryUrl.value.trim(),
+        branch: branchName.value.trim() || undefined,
         group: groupName.value.trim() || '默认分组',
       }),
     })
     projects.value = [...projects.value, result.project].sort((a, b) => a.id - b.id)
     repositoryUrl.value = ''
+    branchName.value = ''
     groupName.value = '默认分组'
     showAdd.value = false
     message.success(`已添加订阅 ID ${result.project.id}`)
@@ -184,6 +201,8 @@ async function addProject() {
 }
 
 async function refreshProject(id: number) {
+  if (refreshingIds.value.has(id)) return
+  refreshingIds.value = new Set(refreshingIds.value).add(id)
   try {
     const result = await api<ProjectResponse>(`/api/projects/${id}/refresh`, token.value, {
       method: 'POST',
@@ -192,6 +211,10 @@ async function refreshProject(id: number) {
     message.success(`ID ${id} 已刷新`)
   } catch (error) {
     message.error(error instanceof Error ? error.message : '刷新失败')
+  } finally {
+    const next = new Set(refreshingIds.value)
+    next.delete(id)
+    refreshingIds.value = next
   }
 }
 
@@ -277,7 +300,7 @@ onMounted(() => {
             ></n-grid-item>
             <n-grid-item
               ><n-card class="stat-card" :bordered="false"
-                ><n-statistic label="自动检查周期" :value="6" suffix="小时" /></n-card
+                ><n-statistic label="检查异常" :value="errorCount" /></n-card
             ></n-grid-item>
           </n-grid>
 
@@ -287,7 +310,11 @@ onMounted(() => {
                 <h2>项目列表</h2>
                 <p class="muted">每个项目对应一个 GKD 订阅 ID。</p>
               </div>
-              <n-button secondary :loading="loading" @click="loadProjects">刷新列表</n-button>
+              <n-space align="center" wrap>
+                <n-input v-model:value="searchQuery" clearable placeholder="搜索 ID、仓库、分支或分组" class="project-search" />
+                <n-select v-model:value="statusFilter" :options="[{ label: '全部状态', value: 'all' }, { label: '正常', value: 'normal' }, { label: '检查异常', value: 'error' }, { label: '未检查', value: 'unknown' }]" class="status-filter" />
+                <n-button secondary :loading="loading" @click="loadProjects">刷新列表</n-button>
+              </n-space>
             </div>
             <n-spin :show="loading">
               <section v-for="group in groupedProjects" :key="group.name" class="project-group">
@@ -306,9 +333,8 @@ onMounted(() => {
                   >
                     <div class="mobile-project-title">
                       <strong>ID {{ project.id }}</strong>
-                      <n-tag size="small" :bordered="false" type="success"
-                        >{{ project.distFiles.length }} 个文件</n-tag
-                      >
+                      <n-tag size="small" :bordered="false" :type="projectStatus(project) === 'error' ? 'error' : projectStatus(project) === 'normal' ? 'success' : 'default'">{{ projectStatus(project) === 'error' ? '检查异常' : projectStatus(project) === 'normal' ? '正常' : '未检查' }}</n-tag>
+                      <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                     </div>
                     <p>{{ project.owner }}/{{ project.repo }}</p>
                     <small>分支：{{ project.branch }}</small>
@@ -326,7 +352,7 @@ onMounted(() => {
                     >
                     <n-text v-if="project.lastError" type="error">{{ project.lastError }}</n-text>
                     <n-space>
-                      <n-button size="small" secondary @click="refreshProject(project.id)"
+                      <n-button size="small" secondary :loading="refreshingIds.has(project.id)" @click="refreshProject(project.id)"
                         >立即刷新</n-button
                       >
                       <n-button size="small" @click="openSubscription(project.id)"
@@ -343,10 +369,8 @@ onMounted(() => {
                   </article>
                 </div>
               </section>
-              <n-empty
-                v-if="!projects.length && !loading"
-                description="还没有订阅源，添加一个 GitHub 仓库开始使用。"
-              />
+              <n-empty v-if="!projects.length && !loading" description="还没有订阅源，添加一个 GitHub 仓库开始使用。" />
+              <n-empty v-else-if="!filteredProjects.length && !loading" description="没有符合当前搜索和筛选条件的项目。" />
             </n-spin>
           </n-card>
         </div>
@@ -368,6 +392,9 @@ onMounted(() => {
             clearable
             @keyup.enter="addProject"
           />
+        </n-form-item>
+        <n-form-item label="分支（可选）">
+          <n-input v-model:value="branchName" placeholder="留空则使用仓库默认分支" clearable />
         </n-form-item>
         <n-form-item label="所属分组">
           <n-input
@@ -540,6 +567,8 @@ onMounted(() => {
 .add-modal {
   width: min(560px, calc(100vw - 32px));
 }
+.project-search { width: min(320px, 100%); }
+.status-filter { width: 130px; }
 .form-hint {
   margin: -4px 0 18px;
   font-size: 12px;
