@@ -3,11 +3,12 @@ import { parseJson5 } from './json5'
 
 const PREFIX = 'explorer:'
 const SEARCH_QUERIES = [
-  { kind: 'repositories', query: 'topic:gkd-subscription is:public' },
-  { kind: 'repositories', query: 'topic:gkd-rules is:public' },
-  { kind: 'repositories', query: 'topic:gkd is:public' },
-  { kind: 'repositories', query: 'gkd-subscription in:name is:public' },
+  { kind: 'repositories', query: 'topic:gkd-subscription is:public fork:true' },
+  { kind: 'repositories', query: 'topic:gkd-rules is:public fork:true' },
+  { kind: 'repositories', query: 'topic:gkd is:public fork:true' },
+  { kind: 'repositories', query: 'gkd-subscription in:name is:public fork:true' },
   { kind: 'code', query: 'defineGkdSubscription in:file is:public' },
+  { kind: 'code', query: 'defineGkdSubscription in:file is:public is:fork' },
 ] as const
 const PAGE_SIZE = 100
 const VERIFY_PER_STEP = 4
