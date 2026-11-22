@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ProjectsPage from './pages/ProjectsPage.vue'
 
 export default createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/admin/'),
   routes: [
     { path: '/', redirect: '/projects' },
     { path: '/projects', name: 'projects', component: ProjectsPage },
