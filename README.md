@@ -97,7 +97,7 @@ bun install
 
 ### 2. Cloudflare 资源
 
-已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
+为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
 
 ### 3. 配置 GitHub Actions Secrets
 
