@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import {
-  candidateFromSearchItem,
-  countRules,
-  parseSubscription,
-} from '../src/services/explorer'
+import { candidateFromSearchItem, countRules, parseSubscription } from '../src/services/explorer'
 
 describe('Explorer data guards', () => {
   it('accepts valid repository search results and rejects malformed items', () => {
-    expect(candidateFromSearchItem({ id: 12, full_name: 'owner/repo' }, 'repositories')).toMatchObject({
+    expect(
+      candidateFromSearchItem({ id: 12, full_name: 'owner/repo' }, 'repositories'),
+    ).toMatchObject({
       id: 12,
       full_name: 'owner/repo',
     })
     expect(
       candidateFromSearchItem({ repository: { id: 13, full_name: 'owner/code-repo' } }, 'code'),
     ).toMatchObject({ id: 13, full_name: 'owner/code-repo' })
-    expect(candidateFromSearchItem({ id: '12', full_name: 'owner/repo' }, 'repositories')).toBeNull()
+    expect(
+      candidateFromSearchItem({ id: '12', full_name: 'owner/repo' }, 'repositories'),
+    ).toBeNull()
     expect(candidateFromSearchItem({ repository: null }, 'code')).toBeNull()
   })
 
