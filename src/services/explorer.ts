@@ -2,7 +2,7 @@ import type { Env } from '../types'
 import { parseJson5 } from './json5'
 
 const PREFIX = 'explorer:'
-const SEARCH_QUERIES = [{ kind: 'repositories', query: 'topic:gkd-subscription is:public' }, { kind: 'repositories', query: 'topic:gkd is:public' }, { kind: 'code', query: 'defineGkdSubscription in:file is:public' }]
+const SEARCH_QUERIES = [\n  { kind: 'repositories', query: 'topic:gkd-subscription is:public' },\n  { kind: 'repositories', query: 'topic:gkd-rules is:public' },\n  { kind: 'repositories', query: 'topic:gkd is:public' },\n  { kind: 'repositories', query: 'gkd-subscription in:name is:public' },\n  { kind: 'code', query: 'defineGkdSubscription in:file is:public' },\n]
 const PAGE_SIZE = 100
 const VERIFY_PER_STEP = 4
 
@@ -159,7 +159,7 @@ async function verify(env: Env, candidate: Candidate, sources: string[]): Promis
   }
 }
 export async function startExplorer(env: Env) {
-  const existing = await explorerStatus(env)
+  const existing = await loadJob(env)
   if (['searching','verifying'].includes(existing.status)) return existing
   const job: Job = {
     status: 'searching', queryIndex: 0, page: 1, candidates: [], candidateIndex: 0,
@@ -224,5 +224,5 @@ export async function stepExplorer(env: Env) {
   }
 }
 export async function explorerCatalog(env: Env) {
-  return read<Entry[]>(env, 'catalog', [])
+  const catalog = await read<Entry[]>(env, 'catalog', [])\n  const job = await loadJob(env)\n  return job.entries.length ? job.entries : catalog
 }
