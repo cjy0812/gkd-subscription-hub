@@ -29,7 +29,9 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 ## URL 行为
 
-订阅服务使用 `https://<id>.subscriptions.example.invalid/`，假设订阅 ID 为 `12345`：
+生产环境可将项目 ID 子域名（例如 `12345.gkd.example.com`）与管理端子域名（例如 `mng.gkd.example.com`）统一交给同一条 Worker 路由 `*.gkd.example.com/*`，不需要为管理端单独创建路由。注意：DNS/Worker 路由匹配与 TLS 证书覆盖是两回事；Cloudflare Universal SSL 在完整 DNS 接入模式下默认只覆盖根域名和一级子域名，多级域名 `mng.gkd.example.com` 需要额外证书覆盖。Total TLS / Advanced Certificate Manager 属于付费附加功能，启用前应先核对账户计划和价格。
+
+订阅服务使用 `https://<id>.gkd.example.com/`，例如订阅 ID 为 `12345`：
 
 | URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
 | ----------------------------------------------------------- | -------------- | -------------------- |
@@ -95,7 +97,7 @@ bun install
 
 ### 2. Cloudflare 资源
 
-已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。现有 示例项目 ID 的项目元数据已复制到新 KV，旧 Worker 与旧 KV 保持不变。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route。
+已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
 
 ### 3. 配置 GitHub Actions Secrets
 
@@ -144,7 +146,7 @@ bun run deploy
 
 `https://github.com/<owner>/<repository>`。
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://12345.subscriptions.example.invalid/gkd.json5`），不要使用目录页 URL。
+服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://12345.gkd.example.com/gkd.json5`），不要使用目录页 URL。
 
 ## 管理 API
 
