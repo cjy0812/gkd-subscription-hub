@@ -46,6 +46,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository)
     needs: verify
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
       pull-requests: write
@@ -57,8 +58,6 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
@@ -73,31 +72,28 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
-          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo "::error::缺少仓库级 Actions Secret：CLOUDFLARE_API_TOKEN"; exit 1; }
-          [[ -n "$ADMIN_PASSWORD" ]] || { echo "::error::缺少仓库级 Actions Secret：ADMIN_PASSWORD（值应与生产 Worker 相同）"; exit 1; }
-          [[ -n "$WORKER_GITHUB_TOKEN" ]] || { echo "::error::缺少仓库级 Actions Secret：WORKER_GITHUB_TOKEN（请使用生产 Worker 当前 GITHUB_TOKEN 的相同值）"; exit 1; }
-          [[ "$PREVIEW_NAME" =~ ^[a-z0-9][a-z0-9-]{0,48}$ ]] || { echo "::error::Preview 名称仅允许小写字母、数字和连字符，且必须以字母或数字开头"; exit 1; }
-      - name: Prepare Preview configuration and secrets
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo "::error::缺少 production Environment Secret：CLOUDFLARE_API_TOKEN"; exit 1; }
+          [[ -n "$ADMIN_PASSWORD" ]] || { echo "::error::缺少 production Environment Secret：ADMIN_PASSWORD"; exit 1; }
+          [[ "$PREVIEW_NAME" =~ ^[a-z0-9][a-z0-9-]{0,48}$ ]] || { echo "::error::Preview 名称仅允许小写字母、数字和连字符"; exit 1; }
+      - name: Prepare Preview configuration and shared secrets
         env:
           ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
-          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         run: |
           node <<'NODE'
           const fs = require('node:fs')
           const config = JSON.parse(fs.readFileSync('wrangler.preview.jsonc', 'utf8'))
           const previewHost = process.env.PREVIEW_NAME + '-gkd-subscription-hub.cjy081219.workers.dev'
-          config.vars.SUBSCRIPTION_DOMAIN = previewHost
           config.previews.vars.SUBSCRIPTION_DOMAIN = previewHost
           fs.writeFileSync('.wrangler.preview.generated.jsonc', JSON.stringify(config, null, 2) + '\n')
-          fs.writeFileSync('.preview-secrets.json', JSON.stringify({
-            ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
-            GITHUB_TOKEN: process.env.WORKER_GITHUB_TOKEN,
-          }))
+          const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }
+          if (process.env.GITHUB_TOKEN) secrets.GITHUB_TOKEN = process.env.GITHUB_TOKEN
+          fs.writeFileSync('.preview-secrets.json', JSON.stringify(secrets))
           NODE
-      - name: Configure shared Preview base secrets
+      - name: Set shared Preview base secrets
         env:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: bunx --yes wrangler@4.135.0 preview base-config secret bulk .preview-secrets.json --config .wrangler.preview.generated.jsonc --worker-name gkd-subscription-hub
@@ -115,15 +111,12 @@ jobs:
             exit 1
           fi
           echo "url=$preview_url" >> "$GITHUB_OUTPUT"
-      - name: Synchronize secrets to this Preview
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: bunx --yes wrangler@4.135.0 preview secret bulk .preview-secrets.json --config .wrangler.preview.generated.jsonc --name "$PREVIEW_NAME" --worker-name gkd-subscription-hub
       - name: Smoke test Preview
         env:
           PREVIEW_URL: \${{ steps.deploy_preview.outputs.url }}
         run: |
           set -euo pipefail
+          status=""
           for attempt in {1..10}; do
             status="$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/admin.html -w '%{http_code}' "$PREVIEW_URL/admin/" || true)"
             [[ "$status" == "200" ]] && break
@@ -173,15 +166,12 @@ jobs:
   cleanup_preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    environment: production
     concurrency:
       group: preview-\${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: \${{ github.event.pull_request.base.ref }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
@@ -215,9 +205,8 @@ jobs:
         env:
           ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
           NOTIFY_TOKEN: \${{ secrets.NOTIFY_TOKEN }}
-          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
         run: |
-          bun -e 'const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; if (process.env.WORKER_GITHUB_TOKEN) secrets.GITHUB_TOKEN = process.env.WORKER_GITHUB_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
+          bun -e 'const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
       - name: Build and deploy production Worker
         run: bun run deploy
         env:
