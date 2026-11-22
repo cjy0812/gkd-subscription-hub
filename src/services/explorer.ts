@@ -192,15 +192,7 @@ async function github<T>(env: Env, path: string): Promise<T> {
   if (!response.ok) throw new Error('GitHub API HTTP ' + response.status)
   return response.json() as Promise<T>
 }
-async function verify(env: Env, candidate: Candidate, sources: string[]): Promise<Entry | null> {
-  let full = candidate
-  if (candidate.fork && !candidate.parent) {
-    try {
-      full = await github<any>(env, '/repos/' + candidate.full_name)
-    } catch {
-      // Keep the fork; parent metadata is optional when GitHub cannot return it.
-    }
-  }
+async function verify(\n  env: Env,\n  candidate: Candidate,\n  sources: string[],\n  cached?: Entry,\n): Promise<Entry | null> {
   const repository = candidate.full_name
   const branch = candidate.default_branch
   if (!branch || candidate.visibility === 'private' || candidate.private === true) return null
@@ -210,6 +202,23 @@ async function verify(env: Env, candidate: Candidate, sources: string[]): Promis
     '/repos/' + repository + '/commits/' + encodeURIComponent(branch),
   )
   const commitSha = commit.sha
+  if (cached && (cached.repository as any).commitSha === commitSha) {
+    return {
+      ...cached,
+      repository: { ...cached.repository, ...repositoryData(candidate), commitSha },
+      discoveredBy: [...new Set([...cached.discoveredBy, ...sources])],
+      verifiedAt: now(),
+    }
+  }
+
+  let full = candidate
+  if (candidate.fork && !candidate.parent && !cached?.parent) {
+    try {
+      full = await github<any>(env, '/repos/' + candidate.full_name)
+    } catch {
+      // Keep the fork; parent metadata is optional when GitHub cannot return it.
+    }
+  }
   const treeSha = commit.commit?.tree?.sha
   if (!treeSha) throw new Error('无法读取 Git Tree SHA：' + repository)
 
@@ -327,11 +336,15 @@ export async function stepExplorer(env: Env) {
       job.status = 'verifying'
     }
 
+    const cachedEntries = await read<Entry[]>(env, 'catalog', [])
+    const cacheById = new Map(
+      cachedEntries.map((entry) => [Number((entry.repository as any).id), entry]),
+    )
     const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidates.length)
     for (; job.candidateIndex < end; job.candidateIndex++) {
       const candidate = job.candidates[job.candidateIndex]
       try {
-        const entry = await verify(env, candidate, [candidate.__source])
+        const entry = await verify(\n          env,\n          candidate,\n          [candidate.__source],\n          cacheById.get(Number(candidate.id)),\n        )
         if (entry) job.entries.push(entry)
       } catch (error) {
         job.incomplete = true
