@@ -22,7 +22,11 @@ const context = { waitUntil: vi.fn() } as unknown as ExecutionContext
 
 describe('top-level routing', () => {
   it('redirects the root to the admin application', async () => {
-    const response = await worker.fetch(new Request('https://gkd.example.com/'), environment(), context)
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/'),
+      environment(),
+      context,
+    )
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe('https://gkd.example.com/admin/')
   })
@@ -44,7 +48,11 @@ describe('top-level routing', () => {
   })
 
   it('returns 404 for unknown paths', async () => {
-    const response = await worker.fetch(new Request('https://gkd.example.com/unknown'), environment(), context)
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/unknown'),
+      environment(),
+      context,
+    )
     expect(response.status).toBe(404)
   })
 
