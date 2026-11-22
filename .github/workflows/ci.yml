@@ -2,20 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
   workflow_dispatch:
+    inputs:
+      preview_name:
+        description: "手动创建 Preview 的名称（仅影响预览环境）"
+        required: false
+        default: "manual-preview"
 
 permissions:
   contents: read
 
 jobs:
   verify:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
@@ -28,6 +33,163 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build:admin
+      - name: Upload admin build for Preview
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-dist-\${{ github.run_id }}-\${{ github.run_attempt }}
+          path: apps/admin/dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  preview:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository)
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: preview-\${{ github.event.pull_request.number || github.ref_name }}
+      cancel-in-progress: true
+    env:
+      PREVIEW_NAME: \${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || inputs.preview_name || 'manual-preview' }}
+      CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Download admin build
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-dist-\${{ github.run_id }}-\${{ github.run_attempt }}
+          path: apps/admin/dist/
+      - name: Validate Preview credentials
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
+          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo "::error::缺少仓库级 Actions Secret：CLOUDFLARE_API_TOKEN"; exit 1; }
+          [[ -n "$ADMIN_PASSWORD" ]] || { echo "::error::缺少仓库级 Actions Secret：ADMIN_PASSWORD（值应与生产 Worker 相同）"; exit 1; }
+          [[ -n "$WORKER_GITHUB_TOKEN" ]] || { echo "::error::缺少仓库级 Actions Secret：WORKER_GITHUB_TOKEN（请使用生产 Worker 当前 GITHUB_TOKEN 的相同值）"; exit 1; }
+          [[ "$PREVIEW_NAME" =~ ^[a-z0-9][a-z0-9-]{0,48}$ ]] || { echo "::error::Preview 名称仅允许小写字母、数字和连字符，且必须以字母或数字开头"; exit 1; }
+      - name: Prepare Preview configuration and secrets
+        env:
+          ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
+          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const config = JSON.parse(fs.readFileSync('wrangler.preview.jsonc', 'utf8'))
+          const previewHost = process.env.PREVIEW_NAME + '-gkd-subscription-hub.cjy081219.workers.dev'
+          config.vars.SUBSCRIPTION_DOMAIN = previewHost
+          config.previews.vars.SUBSCRIPTION_DOMAIN = previewHost
+          fs.writeFileSync('.wrangler.preview.generated.jsonc', JSON.stringify(config, null, 2) + '\n')
+          fs.writeFileSync('.preview-secrets.json', JSON.stringify({
+            ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+            GITHUB_TOKEN: process.env.WORKER_GITHUB_TOKEN,
+          }))
+          NODE
+      - name: Configure shared Preview base secrets
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bunx --yes wrangler@4.135.0 preview base-config secret bulk .preview-secrets.json --config .wrangler.preview.generated.jsonc --worker-name gkd-subscription-hub
+      - name: Deploy Cloudflare Worker Preview
+        id: deploy_preview
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          bunx --yes wrangler@4.135.0 preview --config .wrangler.preview.generated.jsonc --name "$PREVIEW_NAME" --json > preview.json
+          preview_url="$(jq -r '.preview_urls[0] // .preview_url // empty' preview.json)"
+          if [[ -z "$preview_url" ]]; then
+            cat preview.json
+            echo "::error::Wrangler 未返回 Preview URL"
+            exit 1
+          fi
+          echo "url=$preview_url" >> "$GITHUB_OUTPUT"
+      - name: Synchronize secrets to this Preview
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bunx --yes wrangler@4.135.0 preview secret bulk .preview-secrets.json --config .wrangler.preview.generated.jsonc --name "$PREVIEW_NAME" --worker-name gkd-subscription-hub
+      - name: Smoke test Preview
+        env:
+          PREVIEW_URL: \${{ steps.deploy_preview.outputs.url }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            status="$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/admin.html -w '%{http_code}' "$PREVIEW_URL/admin/" || true)"
+            [[ "$status" == "200" ]] && break
+            sleep 3
+          done
+          test "$status" = "200"
+          grep -q 'id="app"' /tmp/admin.html
+          api_status="$(curl --connect-timeout 10 --max-time 20 -sS -o /tmp/api.json -w '%{http_code}' "$PREVIEW_URL/admin/api/projects")"
+          test "$api_status" = "401"
+          root_status="$(curl --connect-timeout 10 --max-time 20 -sS -o /dev/null -w '%{http_code}' "$PREVIEW_URL/")"
+          test "$root_status" = "302"
+      - name: Publish Preview URL to Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: \${{ steps.deploy_preview.outputs.url }}
+          PREVIEW_NAME: \${{ env.PREVIEW_NAME }}
+        with:
+          script: |
+            const marker = '<!-- gkd-subscription-hub-preview -->'
+            const body = [
+              marker,
+              '## Cloudflare Preview',
+              '',
+              '预览地址：' + process.env.PREVIEW_URL,
+              '',
+              'Preview 名称：' + process.env.PREVIEW_NAME,
+              '',
+              '该环境使用独立于生产环境的 Preview KV；所有 PR Preview 共享此 Preview KV。',
+              'Preview URL 默认公开，管理密码与生产环境相同。请勿在预览环境写入敏感数据。',
+              '',
+              '关闭 PR 后会自动删除对应 Preview，Preview KV Namespace 保留。',
+            ].join('\n')
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number })
+            const previous = comments.data.find(comment => comment.body?.includes(marker))
+            if (previous) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }
+      - name: Remove temporary Preview secrets
+        if: always()
+        run: rm -f .preview-secrets.json .wrangler.preview.generated.jsonc preview.json
+
+  cleanup_preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: preview-\${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.base.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - name: Delete Cloudflare Preview
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
+        run: bunx --yes wrangler@4.135.0 preview delete --config wrangler.preview.jsonc --name "pr-\${{ github.event.pull_request.number }}" --worker-name gkd-subscription-hub --skip-confirmation
 
   deploy:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -35,39 +197,31 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Check deployment secrets
-        id: deploy_gate
+      - name: Require production deployment secrets
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
         run: |
-          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$ADMIN_PASSWORD" ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Deployment skipped. Configure CLOUDFLARE_API_TOKEN and ADMIN_PASSWORD in GitHub Actions secrets."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || { echo "::error::缺少 CLOUDFLARE_API_TOKEN，生产部署已中止"; exit 1; }
+          [[ -n "$ADMIN_PASSWORD" ]] || { echo "::error::缺少 ADMIN_PASSWORD，生产部署已中止"; exit 1; }
       - uses: actions/checkout@v4
-        if: steps.deploy_gate.outputs.ready == 'true'
       - uses: oven-sh/setup-bun@v2
-        if: steps.deploy_gate.outputs.ready == 'true'
         with:
           bun-version: 1.4.5
       - name: Install dependencies
-        if: steps.deploy_gate.outputs.ready == 'true'
         run: bun install --frozen-lockfile
       - name: Prepare deployment secrets
-        if: steps.deploy_gate.outputs.ready == 'true'
         env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
+          ADMIN_PASSWORD: \${{ secrets.ADMIN_PASSWORD }}
+          NOTIFY_TOKEN: \${{ secrets.NOTIFY_TOKEN }}
+          WORKER_GITHUB_TOKEN: \${{ secrets.WORKER_GITHUB_TOKEN }}
         run: |
-          bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
-      - name: Build and deploy isolated Worker
-        if: steps.deploy_gate.outputs.ready == 'true'
+          bun -e 'const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; if (process.env.WORKER_GITHUB_TOKEN) secrets.GITHUB_TOKEN = process.env.WORKER_GITHUB_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
+      - name: Build and deploy production Worker
         run: bun run deploy
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
       - name: Remove temporary secrets file
         if: always()
