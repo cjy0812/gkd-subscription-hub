@@ -59,5 +59,5 @@ app.delete('/api/projects/:id', async (c) => {
   return json({ ok: true, deleted: id })
 })
 app.route('/api/explorer', explorer)
-app.notFound((c) => bad('Not found', 404))
+app.notFound((_c) => bad('Not found', 404))
 export default app
