@@ -1,0 +1,80 @@
+# AGENTS.md
+
+本文件适用于整个仓库。所有 AI 编码代理（包括 Claude Code、Codex 和其他代理）在分析、修改或审查代码前必须遵守。
+
+## 项目概览
+
+- 这是 GKD 订阅索引与分发服务，运行于 Cloudflare Workers。
+- Worker 使用 Hono；状态与项目元数据保存在 Cloudflare KV。
+- 管理端位于 `apps/admin`，使用 Vue 3、TypeScript、Vite、Naive UI、Pinia 和 Vue Router。
+- 包管理器固定为 Bun，版本以根目录 `package.json` 的 `packageManager` 和 CI 配置为准。
+- 上游 GitHub 仓库是数据源；本项目只扫描和分发，不应擅自向上游仓库写入内容。
+
+## 开始修改前
+
+1. 阅读本文件、相关模块源码和现有测试；不要只根据 README 或旧聊天记录推断当前实现。
+2. 先确认实际路由、请求/响应结构、类型定义和运行时约束，再设计修改。
+3. 使用仓库现有依赖和模式。没有明确收益时，不新增依赖、不引入抽象层、不重构无关代码。
+4. 先定位最小修改范围；避免顺手格式化或重写无关文件。
+5. 不确定的行为必须通过源码、测试或官方文档核实；未核实内容应明确标注，不要当作事实。
+
+## 编码约定
+
+### 通用
+
+- 保持 TypeScript 类型明确；避免无必要的 `any`、类型断言和重复定义。
+- 优先复用现有工具函数、组件、API helper 和设计 token。
+- 对外部输入进行校验；错误信息应可操作，但不得泄露密码、Token 或其他 Secret。
+- 异步操作需要处理失败状态；避免吞掉异常，除非该处明确设计为 best-effort 并有合理说明。
+- 不要伪造后端能力、数据、运行状态或成功反馈。
+- 不要把 UI loading 状态描述为服务端任务状态。
+- 修改 API 时同步检查 Worker 路由、前端调用、类型和 README。
+
+### 管理端
+
+- 页面使用 Vue 3 Composition API 与 `<script setup lang="ts">`。
+- 复用 Naive UI 和 `apps/admin/src/styles/tokens.css` 中的设计变量。
+- 保持桌面端与移动端均可用；长仓库名、分支名和错误文本需要合理换行或截断。
+- 用户操作应有 loading、防重复提交和成功/失败反馈。
+- 管理端 API 统一经由 `apps/admin/src/api.ts`；不要绕过统一认证 helper。
+- 登录凭据当前由应用写入 `sessionStorage`。修改认证流程前，先评估现有 Worker auth middleware 与部署路径。
+
+### Worker
+
+- 遵循 Cloudflare Workers / workerd 运行环境；不要依赖 Node.js 专属运行时 API。
+- KV 不提供跨键事务或强一致锁。涉及并发写入时，不能假定读改写是原子操作。
+- GitHub API 调用应控制频率，处理失败和不完整响应；不要无边界增加并发或扫描次数。
+- 订阅文件只允许从登记项目的索引中分发；路径校验和现有安全边界不得削弱。
+- 不要把 GitHub commit 变化等同于 dist 内容变化；按项目现有摘要逻辑判断文件树变化。
+
+## 测试与验证
+
+修改后根据影响范围执行：
+
+```bash
+bun install --frozen-lockfile
+bun run format:check
+bun run lint
+bun run typecheck
+bun run test
+bun run build:admin
+```
+
+- 这些是仓库根目录当前定义的质量检查脚本；若脚本或环境不可用，明确报告具体原因，不要声称验证通过。
+- 仅在依赖变更时更新 lockfile。
+- 新增行为应补充有意义的测试；不要为了让测试通过而篡改测试预期或删除覆盖。
+- 如果没有执行某项检查，最终总结必须明确列出未执行项。
+- 检查 Git diff，确认没有意外文件、Secret、生成物或无关格式变更。
+
+## 文档要求
+
+- 新增或改变用户可见功能、配置、API、部署行为时，更新 README 对应章节。
+- 修改开发流程、架构约束、质量检查或代理协作规则时，同步更新本文件。
+- 文档描述必须对应当前实现；规划中的功能要明确标为规划，不能写成已实现。
+
+## Git 与变更范围
+
+- 不擅自创建发布 Tag、部署生产环境、修改 GitHub Secrets 或触发外部服务。
+- 未经明确要求，不擅自提交 PR、合并分支或执行破坏性数据操作。
+- 提交信息使用简洁、描述性前缀，例如 `feat(admin): ...`、`fix(worker): ...`、`docs: ...`。
+- 完成后总结：改动内容、关键设计选择、执行过的验证、未验证事项和已知风险。
