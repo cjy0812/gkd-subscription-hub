@@ -60,8 +60,9 @@ jobs:
         if: steps.deploy_gate.outputs.ready == 'true'
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
         run: |
-          bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); await Bun.write(".secrets.json", JSON.stringify({ ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }))'
+          bun -e 'if (!process.env.ADMIN_PASSWORD) throw new Error("Missing GitHub Actions secret: ADMIN_PASSWORD"); const secrets = { ADMIN_PASSWORD: process.env.ADMIN_PASSWORD }; if (process.env.NOTIFY_TOKEN) secrets.NOTIFY_TOKEN = process.env.NOTIFY_TOKEN; await Bun.write(".secrets.json", JSON.stringify(secrets))'
       - name: Build and deploy isolated Worker
         if: steps.deploy_gate.outputs.ready == 'true'
         run: bun run deploy
