@@ -18,7 +18,7 @@ type Entry = {
 }
 type Job = {
   status: string; queryIndex: number; page: number; candidateIndex: number
-  candidates: unknown[]; entries: Entry[]; seen: number[]; error: string | null
+  candidateCount: number; verifiedCount: number; seenCount: number; error: string | null
   incomplete: boolean; scannedPages: number; startedAt: string | null; updatedAt: string
 }
 const message = useMessage()
@@ -121,7 +121,7 @@ function clearFilters() {
 const jobPercent = computed(() => {
   if (!job.value) return 0
   if (job.value.status === 'complete') return 100
-  return Math.min(95, Math.round((job.value.queryIndex / 3) * 100))
+  return Math.min(95, Math.round((job.value.queryIndex / 5) * 100))
 })
 onMounted(() => { void load() })
 </script>
@@ -145,7 +145,7 @@ onMounted(() => { void load() })
       <n-space justify="space-between" align="center">
         <div>
           <strong>扫描状态：{{ job?.status || '未知' }}</strong>
-          <p class="muted">已验证 {{ job?.entries?.length || 0 }} 个仓库 · 候选 {{ job?.seen?.length || 0 }} 个 · 搜索页 {{ job?.scannedPages || 0 }} 页</p>
+          <p class="muted">已验证 {{ job?.verifiedCount || 0 }} 个仓库 · 候选 {{ job?.seenCount || 0 }} 个 · 搜索页 {{ job?.scannedPages || 0 }} 页</p>
         </div>
         <n-tag v-if="job?.incomplete" type="warning">搜索结果可能不完整</n-tag>
       </n-space>
