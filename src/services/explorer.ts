@@ -202,6 +202,7 @@ export async function stepExplorer(env: Env) {
         const entry = await verify(env, candidate, [candidate.__source])
         if (entry) job.entries.push(entry)
       } catch (error) {
+        job.incomplete = true
         if (error instanceof Error && error.message.startsWith('GitHub API 限流')) {
           job.status = 'paused'; job.error = error.message; break
         }
