@@ -2,14 +2,12 @@
 
 ## 自动流程
 
-| 事件 | 自动动作 | 是否部署 |
-|---|---|---|
-| 任意分支 push | 格式、Lint、类型检查、测试、管理端构建 | 否 |
-| 同仓库 PR 创建/更新/重新打开 | 完整 CI，通过后创建或更新该 PR 的 Preview Worker，并执行 Smoke Test | 是，仅 Preview |
-| Fork PR | 运行不需要 Secrets 的 CI | 否 |
-| PR 关闭或合并 | 删除对应 Preview Worker | 清理 |
-| main push | CI 通过后部署生产 Worker | 是，生产 |
-| 手动 workflow_dispatch | 选择 verify、preview 或 release | 按选择执行 |
+- 任意分支 push：执行格式、Lint、类型检查、测试和管理端构建，不部署。
+- 同仓库 PR 创建、更新或重新打开：完整 CI 通过后创建或更新该 PR 的 Preview Worker，并执行 Smoke Test。
+- Fork PR：只运行不需要 Secrets 的 CI，不部署 Preview。
+- PR 关闭或合并：删除对应 Preview Worker。
+- main push：CI 通过后部署生产 Worker。
+- 手动 workflow_dispatch：选择 verify、preview、delete-preview 或 release。
 
 PR Preview 不会部署到生产 Worker，也不会修改生产 KV。Preview Worker 命名为 `gkd-subscription-hub-pr-<PR号>`，对应 URL 为：
 
