@@ -100,7 +100,6 @@ Add an Explorer page under the existing admin SPA with:
 
 The catalog is read once and filtered locally in the browser. Changing filters must not call GitHub or repeatedly call the Worker.
 
-
 ## Quota and execution budget
 
 GitHub documented defaults used for planning (the actual remaining quota of the Worker's secret token is not readable during this repository review):
