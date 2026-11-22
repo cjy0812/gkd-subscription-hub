@@ -183,7 +183,7 @@ async function batchRefresh() {
       result.failed.map(({ item, error }) => [
         item.id,
         error instanceof Error ? error.message : '刷新失败',
-      ]),
+      ] as const),
     )
     projects.value = projects.value.map((project) => {
       const updated = refreshed.get(project.id)
