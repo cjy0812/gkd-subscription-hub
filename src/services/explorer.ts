@@ -381,7 +381,8 @@ export async function stepExplorer(env: Env) {
 
       job.incomplete ||= data.incomplete_results === true
       job.incomplete ||= search.kind === 'code' && Number(data.total_count || 0) > items.length
-      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000
+      job.incomplete ||=
+        search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
