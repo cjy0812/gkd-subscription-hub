@@ -336,7 +336,10 @@ onMounted(() => {
               <h1>订阅源管理</h1>
               <p class="muted">管理 GitHub 仓库索引，并查看订阅源分发状态。</p>
             </div>
-            <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
+            <n-space>
+              <n-button secondary @click="$router.push('/explorer')">规则发现</n-button>
+              <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
+            </n-space>
           </header>
 
           <n-grid cols="2 m:3" :x-gap="12" :y-gap="12" responsive="screen" class="stats-grid">

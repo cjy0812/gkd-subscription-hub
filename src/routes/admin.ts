@@ -5,6 +5,7 @@ import { parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
 import { bad, json } from '../utils/http'
+import explorer from './explorer'
 
 const app = new Hono<{ Bindings: Env }>()
 app.use('/api/*', auth)
@@ -57,5 +58,6 @@ app.delete('/api/projects/:id', async (c) => {
   await remove(c.env, id)
   return json({ ok: true, deleted: id })
 })
-app.notFound((c) => bad('Not found', 404))
+app.route('/api/explorer', explorer)
+app.notFound((_c) => bad('Not found', 404))
 export default app
