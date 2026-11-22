@@ -97,7 +97,7 @@ const columns: DataTableColumns<Project> = [
     title: '最近错误',
     key: 'lastError',
     minWidth: 180,
-    render: (row) => row.lastError ? h(NText, { type: 'error', depth: 1, style: 'max-width: 220px; display: block', depth: 1 }, { default: () => row.lastError }) : '—',
+    render: (row) => row.lastError ? h(NText, { type: 'error', style: 'max-width: 220px; display: block' }, { default: () => row.lastError }) : '—',
   },
   {
     title: '最近检查',
