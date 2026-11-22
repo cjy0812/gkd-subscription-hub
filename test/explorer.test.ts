@@ -16,6 +16,18 @@ describe('Explorer data guards', () => {
       candidateFromSearchItem({ id: '12', full_name: 'owner/repo' }, 'repositories'),
     ).toBeNull()
     expect(candidateFromSearchItem({ repository: null }, 'code')).toBeNull()
+    expect(
+      candidateFromSearchItem(
+        { id: 14, full_name: 'owner/repo', default_branch: 42 },
+        'repositories',
+      ),
+    ).toBeNull()
+    expect(
+      candidateFromSearchItem(
+        { id: 15, full_name: 'owner/repo', parent: 'invalid' },
+        'repositories',
+      ),
+    ).toBeNull()
   })
 
   it('counts nested GKD matches without trusting the input shape', () => {

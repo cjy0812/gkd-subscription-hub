@@ -33,14 +33,28 @@ function isRecord(value: unknown): value is JsonRecord {
 }
 
 function isCandidate(value: unknown): value is Candidate {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'number' &&
-    Number.isSafeInteger(value.id) &&
-    value.id > 0 &&
-    typeof value.full_name === 'string' &&
-    value.full_name.length > 0
-  )
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'number' ||
+    !Number.isSafeInteger(value.id) ||
+    value.id <= 0 ||
+    typeof value.full_name !== 'string' ||
+    !value.full_name.trim()
+  ) {
+    return false
+  }
+  if (value.default_branch !== undefined && typeof value.default_branch !== 'string') return false
+  if (value.private !== undefined && typeof value.private !== 'boolean') return false
+  if (value.visibility !== undefined && typeof value.visibility !== 'string') return false
+  if (value.fork !== undefined && typeof value.fork !== 'boolean') return false
+  if (value.__source !== undefined && typeof value.__source !== 'string') return false
+  if (value.parent !== undefined && value.parent !== null) {
+    if (!isRecord(value.parent)) return false
+    if (value.parent.full_name !== undefined && typeof value.parent.full_name !== 'string') {
+      return false
+    }
+  }
+  return true
 }
 
 export function candidateFromSearchItem(
