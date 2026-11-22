@@ -98,13 +98,43 @@ export async function explorerStatus(env: Env) {
 }
 function repositoryData(repository: Candidate) {
   const allowed = [
-    'id', 'node_id', 'name', 'full_name', 'html_url', 'description', 'homepage', 'owner',
-    'topics', 'license', 'language', 'default_branch', 'created_at', 'updated_at', 'pushed_at',
-    'size', 'stargazers_count', 'watchers_count', 'forks_count', 'open_issues_count',
-    'archived', 'disabled', 'fork', 'parent', 'custom_properties', 'visibility',
-    'allow_forking', 'has_issues', 'has_projects', 'has_wiki', 'has_pages',
-    'has_discussions', 'has_downloads', 'is_template', 'web_commit_signoff_required',
-    'subscribers_count', 'network_count',
+    'id',
+    'node_id',
+    'name',
+    'full_name',
+    'html_url',
+    'description',
+    'homepage',
+    'owner',
+    'topics',
+    'license',
+    'language',
+    'default_branch',
+    'created_at',
+    'updated_at',
+    'pushed_at',
+    'size',
+    'stargazers_count',
+    'watchers_count',
+    'forks_count',
+    'open_issues_count',
+    'archived',
+    'disabled',
+    'fork',
+    'parent',
+    'custom_properties',
+    'visibility',
+    'allow_forking',
+    'has_issues',
+    'has_projects',
+    'has_wiki',
+    'has_pages',
+    'has_discussions',
+    'has_downloads',
+    'is_template',
+    'web_commit_signoff_required',
+    'subscribers_count',
+    'network_count',
   ]
   const data = Object.fromEntries(
     allowed
@@ -163,8 +193,15 @@ function parseSubscription(
       return null
     }
     const standardFields = new Set([
-      'id', 'name', 'version', 'author', 'updateUrl', 'checkUpdateUrl',
-      'categories', 'apps', 'globalGroups',
+      'id',
+      'name',
+      'version',
+      'author',
+      'updateUrl',
+      'checkUpdateUrl',
+      'categories',
+      'apps',
+      'globalGroups',
     ])
     const customFields = Object.fromEntries(
       Object.entries(data).filter(([field]) => !standardFields.has(field)),
@@ -329,8 +366,14 @@ export async function stepExplorer(env: Env) {
       const endpoint = search.kind === 'code' ? 'code' : 'repositories'
       const data = await github<any>(
         env,
-        '/search/' + endpoint + '?q=' + encodeURIComponent(search.query) +
-          '&per_page=' + PAGE_SIZE + '&page=' + job.page,
+        '/search/' +
+          endpoint +
+          '?q=' +
+          encodeURIComponent(search.query) +
+          '&per_page=' +
+          PAGE_SIZE +
+          '&page=' +
+          job.page,
       )
       const items: Candidate[] = (data.items || [])
         .map((item: any) => (search.kind === 'code' ? item.repository : item))
@@ -338,10 +381,7 @@ export async function stepExplorer(env: Env) {
 
       job.incomplete ||= data.incomplete_results === true
       job.incomplete ||= search.kind === 'code' && Number(data.total_count || 0) > items.length
-      job.incomplete ||=
-        search.kind === 'repositories' &&
-        job.page >= 10 &&
-        Number(data.total_count || 0) > 1000
+      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
