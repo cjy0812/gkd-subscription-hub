@@ -122,15 +122,11 @@ bun install
 
 为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
 
-### 3. 配置 GitHub Actions Secrets
+### 3. 配置 Worker Secrets
 
-在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加：
+生产环境的 `ADMIN_PASSWORD`、可选的 `GITHUB_TOKEN` 和 `NOTIFY_TOKEN` 继续保存在 Cloudflare Worker 的 Production Variables and Secrets 中。GitHub Actions 现在只运行 CI，不再需要 Cloudflare API Token 或生产管理员密码。
 
-- `CLOUDFLARE_API_TOKEN`：Cloudflare API Token，使用 **Edit Cloudflare Workers** 模板，并限制到本 Cloudflare 账号。
-- `ADMIN_PASSWORD`：你自行设置的管理端登录密码。
-- `NOTIFY_TOKEN`（可选）：Webhook 入口的 Bearer Token；配置后才能调用 `POST /hooks/notify`。建议使用高熵随机值。
-
-不要把这两个值发到聊天或提交到 Git。部署工作流通过临时 secrets 文件将 `ADMIN_PASSWORD` 作为 Worker Secret 一并上传，完成后删除临时文件。
+Worker Preview 不继承生产 Secrets。首次启用 Preview 前，在 Cloudflare Dashboard 的 Worker → Settings → Variables and Secrets → **Previews Base** 中单独设置一个不同于生产环境的 `ADMIN_PASSWORD`。不要把生产密码复制到 Preview。
 
 ### 4. 本地开发
 
@@ -152,7 +148,7 @@ Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangl
 
 ### 5. 检查与部署
 
-GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `<worker-name>`。也可通过 workflow_dispatch 手动部署。
+GitHub Actions 对所有分支和 Pull Request 执行格式检查、Lint、类型检查、测试和构建。生产部署与分支 Preview 由 Cloudflare Workers Builds 原生 Git 集成负责：`main` 部署生产 Worker，其他分支生成 Preview，并自动在 PR 评论预览地址。连接步骤、Build command 和 Preview 数据隔离见 [CI/CD 文档](./docs/CI-CD.md)。
 
 ```bash
 bun run lint
@@ -164,7 +160,11 @@ bun run deploy
 
 部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
-### 6. 注册订阅
+### CI/CD 与预览环境
+
+CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/CD 文档](./docs/CI-CD.md)。
+
+## 6. 注册订阅
 
 访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
 
