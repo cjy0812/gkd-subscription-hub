@@ -65,9 +65,9 @@ function repositoryData(r: Candidate) {
     'id','node_id','name','full_name','html_url','description','homepage','owner',
     'topics','license','language','default_branch','created_at','updated_at','pushed_at',
     'size','stargazers_count','watchers_count','forks_count','open_issues_count',
-    'archived','disabled','fork','parent','custom_properties','visibility',
+    'archived','disabled','fork','parent','custom_properties','visibility','allow_forking','has_issues','has_projects','has_wiki','has_pages','has_discussions','has_downloads','is_template','web_commit_signoff_required','subscribers_count','network_count',
   ]
-  return Object.fromEntries(allowed.filter(k => r[k] !== undefined).map(k => [k, r[k]]))
+  const data = Object.fromEntries(allowed.filter(k => r[k] !== undefined).map(k => [k, r[k]]))\n  if (data.parent && typeof data.parent === 'object') data.parent = (data.parent as any).full_name || null\n  return data
 }
 function countRules(value: any): number {
   let count = 0
@@ -135,11 +135,11 @@ async function verify(env: Env, candidate: Candidate, sources: string[]): Promis
   const tree = await github<any>(env, `/repos/${repo}/git/trees/${treeSha}?recursive=1`)
   if (tree.truncated) throw new Error('Git Tree 被截断：' + repo)
   const files = (tree.tree || []).filter((f: any) =>
-    f.type === 'blob' && /^dist\/.*\.json5?$/i.test(f.path) && f.size <= 512_000
+    f.type === 'blob' && /^dist\/.*\.json5?$/i.test(f.path) && f.size <= 256_000
   ).sort((a: any, b: any) => {
     const rank = (p: string) => /(^|\/)gkd\.json5?$/i.test(p) ? 0 : /gkd.*\.json5?$/i.test(p) ? 1 : 2
     return rank(a.path) - rank(b.path)
-  }).slice(0, 3)
+  }).slice(0, 2)
   const subscriptions: Subscription[] = []
   for (const file of files) {
     const raw = await fetch(`https://raw.githubusercontent.com/${repo}/${sha}/${file.path.split('/').map(encodeURIComponent).join('/')}`)
@@ -179,7 +179,7 @@ export async function stepExplorer(env: Env) {
       const endpoint = search.kind === 'code' ? 'code' : 'repositories'
       const data = await github<any>(env, `/search/${endpoint}?q=${encodeURIComponent(search.query)}&per_page=${PAGE_SIZE}&page=${job.page}`)
       const items: Candidate[] = (data.items || []).map((item: any) => search.kind === 'code' ? item.repository : item).filter((item: any) => item?.id && item?.full_name)
-      job.incomplete ||= data.incomplete_results === true
+      job.incomplete ||= data.incomplete_results === true || (search.kind === 'code' && Number(data.total_count || 0) > items.length) || (search.kind === 'repositories' && job.page >= 10 && Number(data.total_count || 0) > 1000)
       job.scannedPages++
       const known = new Set(job.seen)
       const fresh = items.filter(r => !known.has(Number(r.id)))
