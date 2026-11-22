@@ -3,6 +3,7 @@ export interface Env {
   ASSETS: Fetcher
   ADMIN_PASSWORD: string
   GITHUB_TOKEN?: string
+  NOTIFY_TOKEN?: string
   SUBSCRIPTION_DOMAIN: string
 }
 export interface DistFile {
