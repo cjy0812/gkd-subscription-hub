@@ -281,7 +281,7 @@ function resetTime(timestamp: number) {
 const jobPercent = computed(() => {
   if (!job.value) return 0
   if (job.value.status === 'complete') return 100
-  return Math.min(95, Math.round((job.value.queryIndex / 5) * 100))
+  return Math.min(95, Math.round((job.value.queryIndex / 6) * 100))
 })
 
 onMounted(() => {
