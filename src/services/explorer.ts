@@ -2,7 +2,7 @@ import type { Env } from '../types'
 import { parseJson5 } from './json5'
 
 const PREFIX = 'explorer:'
-const SEARCH_QUERIES = [{ kind: 'repositories', query: 'topic:gkd-subscription' }, { kind: 'repositories', query: 'topic:gkd' }, { kind: 'code', query: 'defineGkdSubscription in:file' }]
+const SEARCH_QUERIES = [{ kind: 'repositories', query: 'topic:gkd-subscription is:public' }, { kind: 'repositories', query: 'topic:gkd is:public' }, { kind: 'code', query: 'defineGkdSubscription in:file is:public' }]
 const PAGE_SIZE = 100
 const VERIFY_PER_STEP = 4
 
