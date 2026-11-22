@@ -40,6 +40,17 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - Markdown：`https://12345.gkd.example.com/README.md`（浏览器渲染，非 HTML 客户端获取原文）
 - 原始文件：`https://12345.gkd.example.com/gkd.json5?raw=1`
 
+### 仅使用 workers.dev 时
+
+未配置自定义域名时，项目订阅通过路径参数访问（管理端仍使用 Worker 根路径）：
+
+- 管理端：`https://<worker-name>.<account-subdomain>.workers.dev/`
+- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/`
+- GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5`
+- 原始文件：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5?raw=1`
+
+其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。配置自定义域名后，继续使用上面的项目 ID 子域名格式。
+
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
 ## 技术栈
@@ -146,7 +157,7 @@ bun run deploy
 
 `https://github.com/<owner>/<repository>`。
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://12345.gkd.example.com/gkd.json5`），不要使用目录页 URL。
+服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：自定义域名示例为 `https://12345.gkd.example.com/gkd.json5`，仅使用 workers.dev 时为 `https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5`。不要使用目录页 URL。
 
 ## 管理 API
 
