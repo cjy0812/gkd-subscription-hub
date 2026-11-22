@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { auth } from '../middleware/auth'
 import { predict, refresh, runs } from '../services/actions'
-import explorer from './explorer'
 import { parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
 import { bad, json } from '../utils/http'
+import explorer from './explorer'
 
 const app = new Hono<{ Bindings: Env }>()
 app.use('/api/*', auth)
