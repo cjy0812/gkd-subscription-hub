@@ -1,0 +1,55 @@
+name: Worker smoke test
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify root redirect
+        env:
+          BASE_URL: https://gkd.chenge.eu.org
+        run: |
+          set -euo pipefail
+          status=$(curl --retry 5 --retry-delay 2 --retry-all-errors -sS -o /dev/null -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/")
+          test "$status" = "302"
+          grep -Eiq '^location: https://gkd\.chenge\.eu\.org/admin/' /tmp/root.headers
+
+      - name: Verify admin SPA and protected API
+        env:
+          BASE_URL: https://gkd.chenge.eu.org
+        run: |
+          set -euo pipefail
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/admin/" -o /tmp/admin.html
+          grep -q 'id="app"' /tmp/admin.html
+          status=$(curl -sS -o /tmp/api.json -w '%{http_code}' "$BASE_URL/admin/api/projects")
+          test "$status" = "401"
+
+      - name: Verify registered subscription and version metadata
+        env:
+          BASE_URL: https://gkd.chenge.eu.org
+        run: |
+          set -euo pipefail
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.json5" -o /tmp/gkd.json5
+          grep -Fq "id:233" /tmp/gkd.json5
+          grep -Fq "author:'⚠警告'" /tmp/gkd.json5
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.version.json5" -o /tmp/gkd.version.json5
+          grep -Fq "id:233,version:16" /tmp/gkd.version.json5
+
+      - name: Verify temporary legacy endpoint and explicit 404
+        env:
+          BASE_URL: https://gkd.chenge.eu.org
+        run: |
+          set -euo pipefail
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/gkd.json5" -o /tmp/legacy.json5
+          grep -Fq "id:233" /tmp/legacy.json5
+          status=$(curl -sS -o /tmp/not-found.txt -w '%{http_code}' "$BASE_URL/this-path-must-not-exist")
+          test "$status" = "404"
