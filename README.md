@@ -11,7 +11,8 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
-- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- GKD Rules Explorer 从公开 GitHub 搜索候选仓库，验证完整订阅文件，支持 Fork 来源、订阅元信息、自定义字段、搜索筛选和排序。
+- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。
+- GKD Rules Explorer 从公开 GitHub 搜索候选仓库，验证完整订阅文件，支持 Fork 来源、订阅元信息、自定义字段、搜索筛选和排序。
 - 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
 - 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
 
@@ -161,7 +162,7 @@ bun run build:admin
 bun run deploy
 ```
 
-部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署。`ADMIN_PASSWORD` 通过 GitHub Actions Secret 注入，不在仓库保存明文。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
+手动部署命令会先构建 Vue 静态资源，再生成 Worker 类型并调用 Wrangler 部署；生产 Secret 从 Cloudflare Worker 运行时配置读取，不应写入仓库或 GitHub Actions CI。Cloudflare Worker Static Assets 负责托管前端，Worker 继续处理 API 和订阅分发。
 
 ### CI/CD 与预览环境
 
