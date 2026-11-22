@@ -94,6 +94,28 @@ Add an Explorer page under the existing admin SPA with:
 
 The catalog is read once and filtered locally in the browser. Changing filters must not call GitHub or repeatedly call the Worker.
 
+
+## Quota and execution budget
+
+GitHub documented defaults used for planning (the actual remaining quota of the Worker's secret token is not readable during this repository review):
+- Authenticated REST core: typically 5,000 requests/hour.
+- Repository search: 30 requests/minute for authenticated requests.
+- Code search: 10 requests/minute.
+- Search endpoint result ceiling: 1,000 results per query.
+- Code search is limited to indexed default-branch files and has additional indexing/size constraints.
+
+Cloudflare Worker execution limits depend on the account plan. The Free-plan reference values are 10 ms CPU time and 50 outgoing subrequests per invocation; KV Free-plan reference values are 100,000 reads/day and 1,000 writes/day. The deployed script reports the `standard` usage model, but that is not proof of the account's billing plan. Account plan and current usage were not independently verified in this audit.
+
+The implementation therefore uses a bounded step:
+- at most one search request per step;
+- at most four candidate repositories per verification step;
+- per candidate: commit lookup, tree lookup, at most one parent metadata lookup for a fork, and at most two raw artifact fetches;
+- no clone, no Actions workflow enumeration, and no per-row GitHub API calls.
+
+This bounds the expected request count well below 50 per step. CPU time still needs measurement against production traffic; if it approaches the account's limit, reduce the candidate batch size. KV job/catalog writes are batched at step boundaries, not written once per individual metadata field.
+
+Actual token quota headers and Cloudflare account usage are surfaced as an operational verification item; no claim is made that the live quota is currently unused or sufficient.
+
 ## Known coverage limits
 
 GitHub Search is not a perfect global index. Search results are capped at 1,000 per query, may be marked incomplete, and Code Search indexes only the default branch and files below GitHub's documented size threshold. The UI must expose query totals, pages scanned, incomplete flags, and last scan time. No absolute zero-miss guarantee is claimed.
