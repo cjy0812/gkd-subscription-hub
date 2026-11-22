@@ -4,6 +4,7 @@ import { useMessage, type DataTableColumns } from 'naive-ui'
 import {
   NButton,
   NCard,
+  NCheckbox,
   NCollapse,
   NCollapseItem,
   NDataTable,
@@ -22,6 +23,7 @@ import {
   NText,
 } from 'naive-ui'
 import { ApiError, api } from '../api'
+import { runSequentialBatch } from '../batch'
 import { clearAdminToken, getAdminToken, setAdminToken } from '../auth'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
 
@@ -33,6 +35,11 @@ const branchName = ref('')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'normal' | 'error' | 'unknown'>('all')
 const refreshingIds = ref(new Set<number>())
+const selectedIds = ref<number[]>([])
+const batchRefreshing = ref(false)
+const batchDeleting = ref(false)
+const batchProgress = ref({ completed: 0, total: 0 })
+const batchBusy = computed(() => batchRefreshing.value || batchDeleting.value)
 const groupName = ref('默认分组')
 const subscriptionDomain = ref('')
 const projectStatus = (project: Project) => {
@@ -55,6 +62,19 @@ const groupedProjects = computed(() => {
   }
   return [...groups.entries()].map(([name, items]) => ({ name, items }))
 })
+const selectedProjects = computed(() =>
+  projects.value.filter((project) => selectedIds.value.includes(project.id)),
+)
+const allFilteredSelected = computed(
+  () =>
+    filteredProjects.value.length > 0 &&
+    filteredProjects.value.every((project) => selectedIds.value.includes(project.id)),
+)
+const someFilteredSelected = computed(
+  () =>
+    filteredProjects.value.some((project) => selectedIds.value.includes(project.id)) &&
+    !allFilteredSelected.value,
+)
 const expandedGroups = ref<string[]>([])
 watch(
   groupedProjects,
@@ -77,6 +97,124 @@ const totalFiles = computed(() =>
 const errorCount = computed(
   () => projects.value.filter((project) => projectStatus(project) === 'error').length,
 )
+function updateFilteredSelection(checked: boolean) {
+  const visibleIds = new Set(filteredProjects.value.map((project) => project.id))
+  selectedIds.value = checked
+    ? [...new Set([...selectedIds.value, ...visibleIds])]
+    : selectedIds.value.filter((id) => !visibleIds.has(id))
+}
+
+function toggleProjectSelection(id: number, checked: boolean) {
+  selectedIds.value = checked
+    ? [...new Set([...selectedIds.value, id])]
+    : selectedIds.value.filter((selectedId) => selectedId !== id)
+}
+
+function updateGroupSelection(group: Project[], keys: Array<string | number>) {
+  const groupIds = new Set(group.map((project) => project.id))
+  const outsideSelection = selectedIds.value.filter((id) => !groupIds.has(id))
+  const groupSelection = keys.filter(
+    (key): key is number => typeof key === 'number' && groupIds.has(key),
+  )
+  selectedIds.value = [...new Set([...outsideSelection, ...groupSelection])]
+}
+
+function clearSelection() {
+  if (!batchBusy.value) selectedIds.value = []
+}
+
+function reportBatchResult(
+  label: string,
+  result: { succeeded: unknown[]; failed: { item: Project; error: unknown }[]; skipped: Project[] },
+) {
+  const summary = `${label}完成：成功 ${result.succeeded.length} 项，失败 ${result.failed.length} 项，未执行 ${result.skipped.length} 项。`
+  if (result.failed.length || result.skipped.length) {
+    const details = result.failed
+      .slice(0, 3)
+      .map(
+        ({ item, error }) =>
+          `ID ${item.id}：${error instanceof Error ? error.message : '未知错误'}`,
+      )
+      .join('；')
+    message.warning(details ? `${summary} ${details}` : summary)
+  } else {
+    message.success(summary)
+  }
+}
+
+async function batchRefresh() {
+  const targets = selectedProjects.value.slice()
+  if (!targets.length || batchBusy.value) return
+  batchRefreshing.value = true
+  batchProgress.value = { completed: 0, total: targets.length }
+  try {
+    const result = await runSequentialBatch(
+      targets,
+      async (project) => {
+        refreshingIds.value = new Set(refreshingIds.value).add(project.id)
+        try {
+          const response = await api<ProjectResponse>(
+            `/api/projects/${project.id}/refresh`,
+            token.value,
+            { method: 'POST' },
+          )
+          return response.project
+        } finally {
+          const next = new Set(refreshingIds.value)
+          next.delete(project.id)
+          refreshingIds.value = next
+        }
+      },
+      {
+        onProgress: (completed, total) => {
+          batchProgress.value = { completed, total }
+        },
+        shouldStop: (error) => error instanceof ApiError && error.status === 401,
+      },
+    )
+    const refreshed = new Map(result.succeeded.map(({ item, value }) => [item.id, value]))
+    projects.value = projects.value.map((project) => refreshed.get(project.id) ?? project)
+    selectedIds.value = selectedIds.value.filter((id) => !refreshed.has(id))
+    reportBatchResult('批量刷新', result)
+  } finally {
+    batchRefreshing.value = false
+    batchProgress.value = { completed: 0, total: 0 }
+  }
+}
+
+async function batchDelete() {
+  const targets = selectedProjects.value.slice()
+  if (!targets.length || batchBusy.value) return
+  const confirmed = window.confirm(
+    `确定删除选中的 ${targets.length} 个订阅源元数据吗？只会删除本系统中的项目索引，不会删除上游 GitHub 仓库或文件。`,
+  )
+  if (!confirmed) return
+  batchDeleting.value = true
+  batchProgress.value = { completed: 0, total: targets.length }
+  try {
+    const result = await runSequentialBatch(
+      targets,
+      (project) =>
+        api<{ ok: boolean; deleted: number }>(`/api/projects/${project.id}`, token.value, {
+          method: 'DELETE',
+        }),
+      {
+        onProgress: (completed, total) => {
+          batchProgress.value = { completed, total }
+        },
+        shouldStop: (error) => error instanceof ApiError && error.status === 401,
+      },
+    )
+    const deletedIds = new Set(result.succeeded.map(({ item }) => item.id))
+    projects.value = projects.value.filter((project) => !deletedIds.has(project.id))
+    selectedIds.value = selectedIds.value.filter((id) => !deletedIds.has(id))
+    reportBatchResult('批量删除', result)
+  } finally {
+    batchDeleting.value = false
+    batchProgress.value = { completed: 0, total: 0 }
+  }
+}
+
 function openSubscription(id: number) {
   const project = projects.value.find((item) => item.id === id)
   const file = project?.distFiles.find(
@@ -91,6 +229,7 @@ function openSubscription(id: number) {
 }
 
 const columns: DataTableColumns<Project> = [
+  { type: 'selection' },
   {
     title: '订阅源',
     key: 'repository',
@@ -199,6 +338,8 @@ async function loadProjects() {
       api<{ subscriptionDomain: string }>('/api/config', token.value),
     ])
     projects.value = result.projects
+    const availableIds = new Set(result.projects.map((project) => project.id))
+    selectedIds.value = selectedIds.value.filter((id) => availableIds.has(id))
     subscriptionDomain.value = config.subscriptionDomain
     setAdminToken(token.value)
   } catch (error) {
@@ -260,6 +401,7 @@ async function removeProject(id: number) {
   try {
     await api(`/api/projects/${id}`, token.value, { method: 'DELETE' })
     projects.value = projects.value.filter((item) => item.id !== id)
+    selectedIds.value = selectedIds.value.filter((selectedId) => selectedId !== id)
     message.success(`ID ${id} 已删除`)
   } catch (error) {
     message.error(error instanceof Error ? error.message : '删除失败')
@@ -312,6 +454,14 @@ onMounted(() => {
               placeholder="搜索 ID、仓库、分支或分组"
               class="project-search"
             />
+            <n-checkbox
+              :checked="allFilteredSelected"
+              :indeterminate="someFilteredSelected"
+              :disabled="batchBusy || !filteredProjects.length"
+              @update:checked="updateFilteredSelection"
+            >
+              选择当前筛选结果（{{ filteredProjects.length }}）
+            </n-checkbox>
             <n-select
               v-model:value="statusFilter"
               :options="[
@@ -322,7 +472,39 @@ onMounted(() => {
               ]"
               class="status-filter"
             />
-            <n-button secondary :loading="loading" @click="loadProjects">刷新列表</n-button>
+            <n-button secondary :loading="loading" :disabled="batchBusy" @click="loadProjects">刷新列表</n-button>
+          </n-space>
+        </div>
+        <div v-if="selectedProjects.length" class="batch-toolbar">
+          <div class="batch-summary">
+            <strong>已选 {{ selectedProjects.length }} 项</strong>
+            <span v-if="batchBusy">
+              处理中 {{ batchProgress.completed }}/{{ batchProgress.total }}
+            </span>
+          </div>
+          <n-space>
+            <n-button
+              size="small"
+              secondary
+              :loading="batchRefreshing"
+              :disabled="batchBusy"
+              @click="batchRefresh"
+            >
+              批量刷新
+            </n-button>
+            <n-button
+              size="small"
+              tertiary
+              type="error"
+              :loading="batchDeleting"
+              :disabled="batchBusy"
+              @click="batchDelete"
+            >
+              批量删除
+            </n-button>
+            <n-button size="small" quaternary :disabled="batchBusy" @click="clearSelection">
+              清空选择
+            </n-button>
           </n-space>
         </div>
         <n-spin :show="loading">
@@ -339,7 +521,13 @@ onMounted(() => {
                 </div>
               </template>
               <div class="desktop-table">
-              <n-data-table :columns="columns" :data="group.items" :row-key="(row) => row.id" />
+              <n-data-table
+                :columns="columns"
+                :data="group.items"
+                :row-key="(row) => row.id"
+                :checked-row-keys="selectedIds"
+                @update:checked-row-keys="(keys) => updateGroupSelection(group.items, keys)"
+              />
             </div>
             <div class="mobile-project-list">
               <article
@@ -348,6 +536,13 @@ onMounted(() => {
                 class="mobile-project-card"
               >
                 <div class="mobile-project-title">
+                  <n-checkbox
+                    :checked="selectedIds.includes(project.id)"
+                    :disabled="batchBusy"
+                    @update:checked="(checked) => toggleProjectSelection(project.id, checked)"
+                  >
+                    选择
+                  </n-checkbox>
                   <strong>ID {{ project.id }}</strong>
                   <n-tag
                     size="small"
@@ -378,16 +573,18 @@ onMounted(() => {
                     size="small"
                     secondary
                     :loading="refreshingIds.has(project.id)"
+                    :disabled="batchBusy"
                     @click="refreshProject(project.id)"
                     >立即刷新</n-button
                   >
-                  <n-button size="small" @click="openSubscription(project.id)"
+                  <n-button size="small" :disabled="batchBusy" @click="openSubscription(project.id)"
                     >打开订阅</n-button
                   >
                   <n-button
                     size="small"
                     tertiary
                     type="error"
+                    :disabled="batchBusy"
                     @click="removeProject(project.id)"
                     >删除</n-button
                   >
@@ -445,6 +642,28 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-container);
   box-shadow: var(--shadow-card);
+}
+.batch-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: -4px 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-surface-secondary);
+  padding: 10px 12px;
+}
+.batch-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.batch-summary span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 .section-heading {
   display: flex;
