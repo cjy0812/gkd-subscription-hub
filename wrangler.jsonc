@@ -4,7 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-22",
   "workers_dev": true,
-  "preview_urls": true,
+  "preview_urls": false,
   "assets": {
     "directory": "./apps/admin/dist",
     "binding": "ASSETS",
