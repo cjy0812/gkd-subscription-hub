@@ -24,10 +24,11 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo
-            const { data } = await github.rest.actions.listJobsForWorkflowRun({
+            const { data } = await github.rest.actions.listJobsForWorkflowRunAttempt({
               owner,
               repo,
               run_id: context.payload.workflow_run.id,
+              attempt_number: context.payload.workflow_run.run_attempt,
               per_page: 100,
             })
             const deploy = data.jobs.find(job => job.name === 'deploy')
