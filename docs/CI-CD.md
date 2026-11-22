@@ -1,42 +1,60 @@
-# CI/CD 与 Preview 环境
+# CI/CD 与 Cloudflare Workers Builds
 
 ## 自动流程
 
-- 任意分支 push：执行格式、Lint、类型检查、测试和管理端构建，不部署。
-- 同仓库 PR 创建、更新或重新打开：运行完整 CI；自动 Preview 暂时停用，等待确认安全认证策略。
-- Fork PR：只运行不需要 Secrets 的 CI，不部署 Preview。
-- PR 关闭或合并：删除对应 Preview Worker（若曾手动创建）。
-- main push：CI 通过后部署生产 Worker。
-- 手动 workflow_dispatch：选择 verify、preview、delete-preview 或 release。
+本项目使用 Cloudflare 原生 Workers Builds + Worker Previews，不再由 GitHub Actions 创建、更新或清理 Preview Worker。
 
-PR Preview 不会部署到生产 Worker，也不会修改生产 KV。Preview Worker 命名为 `gkd-subscription-hub-pr-<PR号>`，对应 URL 为：
+- 所有分支 push：GitHub Actions 执行格式检查、Lint、类型检查、测试和管理端构建。
+- PR 创建或更新：GitHub Actions 执行 CI；Cloudflare Workers Builds 自动构建该分支的 Worker Preview，并在 PR 中评论预览地址。
+- 同一分支后续 push：Cloudflare 更新该分支现有 Preview，PR 中的稳定预览地址继续指向最新提交。
+- main push：GitHub Actions 执行 CI；Cloudflare Workers Builds 构建并部署生产 Worker。
+- PR 关闭：Cloudflare 管理 Preview 生命周期，不需要仓库工作流删除 Worker。
 
-`https://gkd-subscription-hub-pr-<PR号>.cjy081219.workers.dev`
+## Cloudflare Workers Builds 设置
 
-## Preview 数据边界
+在 Cloudflare Dashboard 中对现有 Worker **gkd-subscription-hub** 连接仓库 **cjy0812/gkd-subscription-hub**：
 
-- Preview Worker 使用专用 KV Namespace：`gkd-subscription-hub-preview`。
-- 所有 PR Preview Worker 共用该 Preview KV；它与生产 KV 完全分离，但不同 PR 之间不隔离数据。
-- PR 关闭时删除 Preview Worker，不删除共享 Preview KV。
-- 手动 Preview 当前复用 GitHub Actions production Environment 中的 `ADMIN_PASSWORD` 和 `CLOUDFLARE_API_TOKEN`，不要求维护另一份管理员密码；仅应对已审查、可信的代码手动触发。
-- 当前工作流不复制 Cloudflare 生产 Worker 中的 `GITHUB_TOKEN`：Cloudflare 不提供读取 Secret 明文的 API，而现有生产部署工作流也没有把它传给 GitHub Actions。Preview 的 GitHub API 请求因此使用未认证公开 API，额度会低于配置 Token 的生产环境。若以后确实需要同一个 Token，应通过受控的凭据同步方式处理，不要在仓库写入明文。
+1. Workers & Pages → gkd-subscription-hub → Settings → Builds → Connect。
+2. 安装/授权 Cloudflare Workers & Pages GitHub App，并允许访问本仓库。
+3. Production branch 选择 **main**。
+4. 启用 **Preview Builds**。
+5. 检查 Build configuration：
 
-## 一次性配置要求
+| 设置 | 值 |
+| --- | --- |
+| Root directory | / |
+| Build command | bun install --frozen-lockfile && bun run build:admin |
+| Deploy command | bunx wrangler deploy |
+| Preview command | bunx wrangler preview |
 
-1. GitHub 仓库 Settings → Environments → production 必须存在，并包含现有的 `CLOUDFLARE_API_TOKEN`、`ADMIN_PASSWORD`。
-2. Cloudflare API Token 需要允许 Wrangler 上传/删除 Worker、写入 Worker Secret，并访问目标账号。
-3. Preview URL 使用 workers.dev。当前生产 Worker 的 workers.dev 域名是 `cjy081219.workers.dev`；若账号子域名变化，需要同步修改工作流中的域名。
-4. 如果 production Environment 配置了 Required reviewers，Preview 和清理任务也会等待该 Environment 审批。当前是否启用了审批尚未通过 GitHub Environment API 核实。
+项目 package.json 固定 Bun 1.4.5；bun.lock 已提交。锁文件中的 Wrangler 版本满足 Worker Previews 所需的 Wrangler 4.135.0+。
 
-## 手动运行
+## Preview 数据与凭据隔离
 
-在 GitHub Actions 选择 CI → Run workflow：
+- 生产 Worker 继续绑定生产 KV：215fd3c9c2c74481bc521feadedd83e8。
+- 所有分支 Preview 绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview），不会写入生产 KV。
+- 不同分支 Preview 共享这一个 Preview KV，因此测试数据可能互相影响；它们与生产数据隔离，但不是 Preview 之间逐个隔离。
+- Preview 不继承生产变量和 Secrets。首次启用前，需要在 Cloudflare Worker 的 **Settings → Variables and Secrets → Previews Base** 中单独设置 ADMIN_PASSWORD。
+- Preview 的 ADMIN_PASSWORD 必须与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret，因此不要复制生产密码。
+- GITHUB_TOKEN 和 NOTIFY_TOKEN 在代码中均为可选项，Preview 暂不配置；GitHub API 将使用匿名额度。
+- Preview URL 默认公开。不要在 Preview 写入真实或敏感数据；如需限制访问，再单独配置 Cloudflare Access。
 
-- `verify`：只做质量检查和构建，不部署。
-- `preview`：手动创建 Preview Worker，默认名称 `gkd-subscription-hub-manual`。该动作会把生产管理员密码配置到 Preview Worker，仅在确认 PR 代码可信后执行。
-- `delete-preview`：删除指定名称的手动 Preview Worker。
-- `release`：仅当选择的分支为 `main` 时部署生产；其他分支不会部署生产。
+管理端的订阅快捷入口会使用当前 Preview 请求的 workers.dev 主机名，因此在 Preview 中不会跳回生产域名。
 
-## 验证范围
+## GitHub Actions 的职责
 
-Preview Smoke Test 检查管理端 HTML、未认证管理 API 返回 401、根路径重定向返回 302。它不执行 Explorer 扫描、不创建订阅项目、不写入生产数据。
+.github/workflows/ci.yml 只执行质量检查，不再持有 Cloudflare 部署 Token，也不执行生产部署或 Preview 生命周期操作。
+
+.github/workflows/smoke-test.yml 保留为手动生产 Smoke Test。它不再监听 CI 完成事件，因为 GitHub Actions 的 CI 成功并不代表 Cloudflare 部署已经完成；Cloudflare Builds 是实际部署者。
+
+## 本地开发与手动部署
+
+本地开发继续使用 Wrangler：
+
+~~~bash
+bun install --frozen-lockfile
+bun run dev:worker
+bun run dev:admin
+~~~
+
+如需从本地手动部署生产 Worker，沿用项目原有的 bun run deploy 流程和本地 .secrets.json。日常自动部署不再依赖该流程。
