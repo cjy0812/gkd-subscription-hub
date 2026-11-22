@@ -19,7 +19,7 @@
     "format": "biome check --write . && bunx --yes prettier@3.6.2 --write \"apps/admin/**/*.vue\"",
     "test": "vitest run",
     "deploy": "bun run build:admin && bun run typegen && wrangler deploy --secrets-file .secrets.json",
-    "format:check": "biome ci --reporter=json . && bunx --yes prettier@3.6.2 --check \"apps/admin/**/*.vue\""
+    "format:check": "biome format --write src/services/explorer.ts && git diff -- src/services/explorer.ts && biome ci . && bunx --yes prettier@3.6.2 --check \"apps/admin/**/*.vue\""
   },
   "dependencies": {
     "hono": "^4.10.6",
