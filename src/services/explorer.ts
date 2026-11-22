@@ -121,7 +121,11 @@ function countRules(value: unknown): number {
       for (const child of node) visit(child, depth + 1)
       return
     }
-    if (typeof node.matches === 'string' || typeof node.matches === 'object') count++
+    if (Array.isArray(node.matches)) {
+      count += node.matches.length
+    } else if (node.matches !== undefined && node.matches !== null) {
+      count++
+    }
     for (const [field, child] of Object.entries(node)) {
       if (field !== 'matches') visit(child, depth + 1)
     }
