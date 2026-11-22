@@ -342,8 +342,8 @@ export async function stepExplorer(env: Env) {
     }
 
     const cachedEntries = await read<Entry[]>(env, 'catalog', [])
-    const cacheById = new Map(
-      cachedEntries.map((entry) => [Number((entry.repository as any).id), entry]),
+    const cacheById = new Map<number, Entry>(
+      cachedEntries.map((entry) => [Number((entry.repository as any).id), entry] as const),
     )
     const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidates.length)
     for (; job.candidateIndex < end; job.candidateIndex++) {
