@@ -8,7 +8,7 @@ import {
 } from 'naive-ui'
 
 type Subscription = {
-  id: number; name: string; version: string; author?: string; artifactPath: string
+  id: number; name: string; version: string; author?: string; updateUrl?: string; checkUpdateUrl?: string; artifactPath: string
   categoriesCount: number; appsCount: number; globalGroupsCount: number; ruleCount: number
   customFields: Record<string, unknown>
 }
@@ -187,7 +187,12 @@ onMounted(() => { void load() })
             <n-descriptions-item label="默认分支">{{ selected.repository.default_branch }}</n-descriptions-item>
             <n-descriptions-item label="Stars / Forks">{{ selected.repository.stargazers_count }} / {{ selected.repository.forks_count }}</n-descriptions-item>
             <n-descriptions-item label="语言 / 许可证">{{ selected.repository.language }} / {{ selected.repository.license?.spdx_id || '—' }}</n-descriptions-item>
+            <n-descriptions-item label="主页">{{ selected.repository.homepage || '—' }}</n-descriptions-item>
+            <n-descriptions-item label="创建时间">{{ selected.repository.created_at }}</n-descriptions-item>
+            <n-descriptions-item label="更新时间">{{ selected.repository.updated_at }}</n-descriptions-item>
             <n-descriptions-item label="最近推送">{{ selected.repository.pushed_at }}</n-descriptions-item>
+            <n-descriptions-item label="仓库规模 / Issues">{{ selected.repository.size }} KB / {{ selected.repository.open_issues_count }}</n-descriptions-item>
+            <n-descriptions-item label="自定义仓库属性"><pre>{{ JSON.stringify(selected.repository.custom_properties || {}, null, 2) }}</pre></n-descriptions-item>
           </n-descriptions>
           <div v-for="sub in selected.subscriptions" :key="sub.artifactPath">
             <h3>{{ sub.name }} <n-tag>ID {{ sub.id }}</n-tag></h3>
@@ -195,6 +200,8 @@ onMounted(() => { void load() })
               <n-descriptions-item label="版本">{{ sub.version }}</n-descriptions-item>
               <n-descriptions-item label="作者">{{ sub.author || '—' }}</n-descriptions-item>
               <n-descriptions-item label="订阅文件">{{ sub.artifactPath }}</n-descriptions-item>
+              <n-descriptions-item label="更新地址">{{ sub.updateUrl || '—' }}</n-descriptions-item>
+              <n-descriptions-item label="检查更新地址">{{ sub.checkUpdateUrl || '—' }}</n-descriptions-item>
               <n-descriptions-item label="规则统计">{{ sub.ruleCount }} 条规则 / {{ sub.appsCount }} 应用 / {{ sub.globalGroupsCount }} 全局组 / {{ sub.categoriesCount }} 分类</n-descriptions-item>
             </n-descriptions>
             <h4>自定义字段</h4>
