@@ -162,8 +162,8 @@ bun run deploy
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
-| 方法   | 路径                        | 作用                                                      |
-| ------ | --------------------------- | --------------------------------------------------------- |
+| 方法   | 路径                              | 作用                                                      |
+| ------ | --------------------------------- | --------------------------------------------------------- |
 | GET    | `/admin/api/projects`             | 项目列表                                                  |
 | POST   | `/admin/api/projects`             | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
 | POST   | `/admin/api/projects/:id/refresh` | 立即刷新                                                  |
