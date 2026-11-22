@@ -172,7 +172,7 @@ onMounted(() => { void load() })
       <n-data-table :columns="columns" :data="filtered" :loading="loading" :pagination="{pageSize:20}" :row-key="row=>String(row.repository.id)" :scroll-x="900" />
     </n-card>
 
-    <n-drawer v-model:show="!!selected" :width="min(640, 92vw)" placement="right">
+    <n-drawer :show="Boolean(selected)" @update:show="value => { if (!value) selected = null }" width="min(640px, 92vw)" placement="right">
       <n-drawer-content v-if="selected" :title="selected.repository.full_name" closable>
         <n-space vertical>
           <n-space>
