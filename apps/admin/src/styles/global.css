@@ -60,3 +60,9 @@ a {
     padding: var(--space-4);
   }
 }
+
+/* Naive UI dialogs are teleported outside the page component. */
+.add-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
