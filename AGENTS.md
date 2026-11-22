@@ -67,7 +67,7 @@ bun run build:admin
 ```
 
 - 这些是仓库根目录当前定义的质量检查脚本；若脚本或环境不可用，明确报告具体原因，不要声称验证通过。
-- 当前脚本存在 lint 与 typecheck 重复执行 Admin typecheck 的问题，修复前不要把两次执行误认为独立覆盖。
+- format:check、lint、typecheck 必须保持职责分离；不要在格式检查中重复运行 Linter，也不要在 lint 中重复执行 Admin typecheck。
 - 仅在依赖变更时更新 lockfile。
 - 新增行为应补充有意义的测试；不要为了让测试通过而篡改测试预期或删除覆盖。
 - 如果没有执行某项检查，最终总结必须明确列出未执行项。

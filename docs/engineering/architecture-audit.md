@@ -41,7 +41,7 @@ ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。移�
 
 ### A-06（中）：质量脚本重复
 
-lint 执行 Admin typecheck，typecheck 又执行 Worker + Admin typecheck；CI 顺序运行二者。分离 Lint 与 Typecheck 责任。
+format:check 使用 biome ci（同时运行 Formatter 和 Linter），后续 lint 再运行 biome lint；lint 还重复执行 Admin typecheck，而 typecheck 已执行 Worker + Admin typecheck。拆分 Formatter、Linter、Typecheck，避免重复。
 
 ### A-07（中）：Prettier 未作为锁定依赖
 
