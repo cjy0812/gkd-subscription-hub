@@ -7,7 +7,6 @@ import type { Env } from '../types'
 import { bad, json } from '../utils/http'
 
 const app = new Hono<{ Bindings: Env }>()
-app.get('/admin', (c) => c.redirect('/'))
 app.use('/api/*', auth)
 app.get('/api/config', async (c) =>
   json({ ok: true, subscriptionDomain: c.env.SUBSCRIPTION_DOMAIN }),
@@ -58,8 +57,5 @@ app.delete('/api/projects/:id', async (c) => {
   await remove(c.env, id)
   return json({ ok: true, deleted: id })
 })
-app.notFound((c) => {
-  if (new URL(c.req.url).pathname.startsWith('/api/')) return bad('Not found', 404)
-  return c.env.ASSETS.fetch(c.req.raw)
-})
+app.notFound((c) => bad('Not found', 404))
 export default app
