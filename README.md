@@ -170,6 +170,14 @@ bun run deploy
 | POST   | `/admin/api/projects/:id/refresh` | 立即刷新                                                  |
 | DELETE | `/admin/api/projects/:id`         | 删除项目元数据                                            |
 
+### Explorer API
+
+- `GET /admin/api/explorer/catalog`：已验证的 GKD 订阅仓库目录。
+- `GET /admin/api/explorer/status`：发现任务状态。
+- `GET /admin/api/explorer/quota`：Worker GitHub Token 的 Core、Search、Code Search 配额。
+- `POST /admin/api/explorer/discover`：开始或重置发现任务。
+- `POST /admin/api/explorer/discover/step`：推进一批发现与验证任务。
+
 ## GKD Rules Explorer
 
 管理端访问 `/admin/explorer`。Explorer 与订阅分发项目列表隔离，使用 KV 的 `explorer:` 前缀保存发现任务和目录快照，不会把发现结果自动注册为订阅分发项目。
