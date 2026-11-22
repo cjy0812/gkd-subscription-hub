@@ -73,6 +73,7 @@ export default {
       if (req.method !== 'GET' && req.method !== 'HEAD') return bad('Method not allowed', 405)
       const upstream = await fetch(LEGACY_SUBSCRIPTION_URL, { method: req.method })
       const headers = new Headers(upstream.headers)
+      headers.set('content-type', 'application/json5; charset=utf-8')
       headers.set('cache-control', 'public, max-age=60, s-maxage=60')
       headers.set('access-control-allow-origin', '*')
       headers.set('x-content-type-options', 'nosniff')
