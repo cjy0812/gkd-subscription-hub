@@ -192,7 +192,12 @@ async function github<T>(env: Env, path: string): Promise<T> {
   if (!response.ok) throw new Error('GitHub API HTTP ' + response.status)
   return response.json() as Promise<T>
 }
-async function verify(\n  env: Env,\n  candidate: Candidate,\n  sources: string[],\n  cached?: Entry,\n): Promise<Entry | null> {
+async function verify(
+  env: Env,
+  candidate: Candidate,
+  sources: string[],
+  cached?: Entry,
+): Promise<Entry | null> {
   const repository = candidate.full_name
   const branch = candidate.default_branch
   if (!branch || candidate.visibility === 'private' || candidate.private === true) return null
@@ -344,7 +349,12 @@ export async function stepExplorer(env: Env) {
     for (; job.candidateIndex < end; job.candidateIndex++) {
       const candidate = job.candidates[job.candidateIndex]
       try {
-        const entry = await verify(\n          env,\n          candidate,\n          [candidate.__source],\n          cacheById.get(Number(candidate.id)),\n        )
+        const entry = await verify(
+          env,
+          candidate,
+          [candidate.__source],
+          cacheById.get(Number(candidate.id)),
+        )
         if (entry) job.entries.push(entry)
       } catch (error) {
         job.incomplete = true
