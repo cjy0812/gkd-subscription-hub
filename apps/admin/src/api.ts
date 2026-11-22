@@ -3,7 +3,8 @@ export async function api<T>(path: string, token: string, init: RequestInit = {}
   headers.set('content-type', 'application/json')
   if (token) headers.set('authorization', `Bearer ${token}`)
 
-  const response = await fetch(path, { ...init, headers })
+  const apiPath = path.startsWith('/api/') ? `/admin${path}` : path
+  const response = await fetch(apiPath, { ...init, headers })
   const payload = (await response.json().catch(() => ({}))) as { error?: string } & T
 
   if (!response.ok) {
