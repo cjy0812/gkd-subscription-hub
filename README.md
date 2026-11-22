@@ -11,7 +11,8 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
-- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。\n- 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
+- Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。
+- 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
 - 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
 
 ## 管理端响应式设计
@@ -28,14 +29,27 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 ## URL 行为
 
-订阅服务使用 `https://<id>.gkd.chenge.eu.org/`，假设订阅 ID 为 `667`：
+生产环境可将项目 ID 子域名（例如 `12345.gkd.example.com`）与管理端子域名（例如 `mng.gkd.example.com`）统一交给同一条 Worker 路由 `*.gkd.example.com/*`，不需要为管理端单独创建路由。注意：DNS/Worker 路由匹配与 TLS 证书覆盖是两回事；Cloudflare Universal SSL 在完整 DNS 接入模式下默认只覆盖根域名和一级子域名，多级域名 `mng.gkd.example.com` 需要额外证书覆盖。Total TLS / Advanced Certificate Manager 属于付费附加功能，启用前应先核对账户计划和价格。
 
-| URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
-| ----------------------------------------------------------- | -------------- | -------------------- |
-| `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/` | dist 文件目录  | HTML 目录            |
-| `/s/667/gkd.json5`                                          | JSON5 代码预览 | 原始 JSON5           |
-| `/s/667/README.md`                                          | Markdown 渲染  | 原始 Markdown        |
-| `/s/667/gkd.json5?raw=1`                                    | 原始 JSON5     | 原始 JSON5           |
+订阅服务使用 `https://<id>.gkd.example.com/`，例如订阅 ID 为 `12345`：
+
+### 示例订阅地址
+
+- 目录页：`https://12345.gkd.example.com/`（浏览器显示文件目录）
+- GKD 订阅：`https://12345.gkd.example.com/gkd.json5`（GKD 等非 HTML 客户端获取原始 JSON5）
+- Markdown：`https://12345.gkd.example.com/README.md`（浏览器渲染，非 HTML 客户端获取原文）
+- 原始文件：`https://12345.gkd.example.com/gkd.json5?raw=1`
+
+### 仅使用 workers.dev 时
+
+未配置自定义域名时，项目订阅通过路径参数访问（管理端仍使用 Worker 根路径）：
+
+- 管理端：`https://<worker-name>.<account-subdomain>.workers.dev/`
+- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/`
+- GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5`
+- 原始文件：`https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5?raw=1`
+
+其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。配置自定义域名后，继续使用上面的项目 ID 子域名格式。
 
 优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
 
@@ -94,7 +108,7 @@ bun install
 
 ### 2. Cloudflare 资源
 
-已为新 Worker 创建独立 KV namespace，ID 已写入 `wrangler.jsonc`。现有 ID 667 的项目元数据已复制到新 KV，旧 Worker 与旧 KV 保持不变。初次部署使用 `workers.dev` 地址，不创建 DNS 记录或 Worker Route。
+为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
 
 ### 3. 配置 GitHub Actions Secrets
 
@@ -125,7 +139,7 @@ Vite 默认运行在 `http://localhost:5173`，将 `/api` 代理到本地 Wrangl
 
 ### 5. 检查与部署
 
-GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `gkd-subscription-hub`。也可通过 workflow_dispatch 手动部署。
+GitHub Actions 对 Pull Request 和 main 分支推送执行格式检查、Lint、类型检查、测试和构建。main 分支 CI 成功且仓库已配置 `CLOUDFLARE_API_TOKEN` 后，CD 自动部署到独立 Worker `<worker-name>`。也可通过 workflow_dispatch 手动部署。
 
 ```bash
 bun run lint
@@ -139,11 +153,11 @@ bun run deploy
 
 ### 6. 注册订阅
 
-访问管理站 `https://gkd-subscription-hub.cjy081219.workers.dev/`，输入管理员密码，添加公开仓库 URL，例如：
+访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/`，输入管理员密码，添加公开仓库 URL，例如：
 
-`https://github.com/Lin-arm/GKD_subscription`。
+`https://github.com/<owner>/<repository>`。
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://667.gkd.chenge.eu.org/gkd.json5`），不要使用目录页 URL。
+服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：自定义域名示例为 `https://12345.gkd.example.com/gkd.json5`，仅使用 workers.dev 时为 `https://<worker-name>.<account-subdomain>.workers.dev/s/<id>/gkd.json5`。不要使用目录页 URL。
 
 ## 管理 API
 
