@@ -23,7 +23,7 @@
 | 设置 | 值 |
 | --- | --- |
 | Root directory | / |
-| Build command | bun install --frozen-lockfile && bun run build:admin |
+| Build command | bun install --frozen-lockfile && bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build:admin |
 | Deploy command | bunx wrangler deploy |
 | Preview command | bunx wrangler preview |
 
@@ -38,6 +38,7 @@
 - Preview 的 ADMIN_PASSWORD 必须与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret，因此不要复制生产密码。
 - GITHUB_TOKEN 和 NOTIFY_TOKEN 在代码中均为可选项，Preview 暂不配置；GitHub API 将使用匿名额度。
 - Preview URL 默认公开。不要在 Preview 写入真实或敏感数据；如需限制访问，再单独配置 Cloudflare Access。
+- Cron Triggers 不会在 Worker Preview 中执行，因此 Preview 不会自动运行每 6 小时的定时刷新；需要验证刷新逻辑时，应使用测试或手动请求路径。
 
 管理端的订阅快捷入口会使用当前 Preview 请求的 workers.dev 主机名，因此在 Preview 中不会跳回生产域名。
 
