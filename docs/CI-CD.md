@@ -20,12 +20,15 @@
 4. 启用 **Preview Builds**。
 5. 检查 Build configuration：
 
-| 设置 | 值 |
-| --- | --- |
-| Root directory | / |
-| Build command | bun install --frozen-lockfile && bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build:admin |
-| Deploy command | bunx wrangler deploy |
-| Preview command | bunx wrangler preview |
+- Root directory：`/`
+- Build command：
+
+```bash
+bun install --frozen-lockfile && bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build:admin
+```
+
+- Deploy command：`bunx wrangler deploy`
+- Preview command：`bunx wrangler preview`
 
 项目 package.json 固定 Bun 1.4.5；bun.lock 已提交。锁文件中的 Wrangler 版本满足 Worker Previews 所需的 Wrangler 4.135.0+。
 
@@ -52,10 +55,10 @@
 
 本地开发继续使用 Wrangler：
 
-~~~bash
+```bash
 bun install --frozen-lockfile
 bun run dev:worker
 bun run dev:admin
-~~~
+```
 
 如需从本地手动部署生产 Worker，沿用项目原有的 bun run deploy 流程和本地 .secrets.json。日常自动部署不再依赖该流程。
