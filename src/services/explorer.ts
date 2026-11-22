@@ -392,3 +392,23 @@ export async function explorerCatalog(env: Env) {
   const job = await loadJob(env)
   return job.entries.length ? job.entries : catalog
 }
+
+export async function explorerQuota(env: Env) {
+  const response = await github<any>(env, '/rate_limit')
+  const resources = response.resources || {}
+  const categories = ['core', 'search', 'code_search']
+  return Object.fromEntries(
+    categories.map((category) => {
+      const value = resources[category] || {}
+      return [
+        category,
+        {
+          limit: Number(value.limit || 0),
+          remaining: Number(value.remaining || 0),
+          used: Number(value.used || 0),
+          reset: Number(value.reset || 0),
+        },
+      ]
+    }),
+  )
+}
