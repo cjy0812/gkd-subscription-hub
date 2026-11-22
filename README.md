@@ -1,6 +1,6 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配独立路径，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配独立子域名，提供管理 API、目录页、原始文件分发和浏览器预览。
 
 ## 功能
 
@@ -28,7 +28,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 ## URL 行为
 
-订阅服务部署在 `https://gkd-subscription-hub.cjy081219.workers.dev`，假设订阅 ID 为 `667`：
+订阅服务使用 `https://<id>.gkd.chenge.eu.org/`，假设订阅 ID 为 `667`：
 
 | URL                                                         | 浏览器         | GKD / 非 HTML 客户端 |
 | ----------------------------------------------------------- | -------------- | -------------------- |
@@ -143,7 +143,7 @@ bun run deploy
 
 `https://github.com/Lin-arm/GKD_subscription`。
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://gkd-subscription-hub.cjy081219.workers.dev/s/667/gkd.json5`），不要使用目录页 URL。
+服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接（例如 `https://667.gkd.chenge.eu.org/gkd.json5`），不要使用目录页 URL。
 
 ## 管理 API
 

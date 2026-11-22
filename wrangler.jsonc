@@ -12,7 +12,7 @@
     "not_found_handling": "single-page-application"
   },
   "vars": {
-    "SUBSCRIPTION_BASE_URL": "https://gkd-subscription-hub.cjy081219.workers.dev/s"
+    "SUBSCRIPTION_DOMAIN": "gkd.chenge.eu.org"
   },
   "kv_namespaces": [
     {

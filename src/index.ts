@@ -5,7 +5,13 @@ import { get, ids, save } from './storage/projects'
 import type { Env } from './types'
 export default {
   async fetch(req: Request, env: Env) {
-    return new URL(req.url).pathname.startsWith('/s/')
+    const url = new URL(req.url)
+    const domain = env.SUBSCRIPTION_DOMAIN.toLowerCase()
+    const host = url.hostname.toLowerCase()
+    const suffix = `.${domain}`
+    const label = host.endsWith(suffix) ? host.slice(0, -suffix.length) : ''
+    const isSubscriptionHost = /^\d+$/.test(label)
+    return isSubscriptionHost || url.pathname.startsWith('/s/')
       ? subscription.fetch(req, env)
       : admin.fetch(req, env)
   },

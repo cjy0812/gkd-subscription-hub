@@ -6,36 +6,41 @@ import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
 
 const app = new Hono<{ Bindings: Env }>(),
   md = new MarkdownIt({ html: false, linkify: false, typographer: false })
-function directory(p: Project) {
+function directory(p: Project, prefix: string) {
   const rows = p.distFiles
     .slice()
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f) => {
       const h = f.path.split('/').map(encodeURIComponent).join('/')
-      return `<li><a href="/s/${p.id}/${h}">${escapeHtml(f.path)}</a> <small>${f.size.toLocaleString()} bytes</small></li>`
+      return `<li><a href="${prefix}${h}">${escapeHtml(f.path)}</a> <small>${f.size.toLocaleString()} bytes</small></li>`
     })
     .join('')
   return documentPage(
-    'GKD ' + p.id,
+    `GKD ${p.id}`,
     `<h1>GKD 订阅 · ID ${p.id}</h1><p>${escapeHtml(p.owner)}/${escapeHtml(p.repo)} · dist/</p><ul>${rows}</ul><p>${p.distFiles.length} 个文件</p>`,
   )
 }
 app.all('*', async (c) => {
   const req = c.req.raw
   if (req.method !== 'GET' && req.method !== 'HEAD') return bad('Method not allowed', 405)
-  const match = new URL(req.url).pathname.match(/^\/s\/(\d+)(?:\/(.*))?$/)
-  const id = match?.[1]
-  if (!id) return bad('Unknown subscription path', 404)
+  const url = new URL(req.url)
+  const host = url.hostname.toLowerCase()
+  const suffix = '.' + c.env.SUBSCRIPTION_DOMAIN.toLowerCase()
+  const label = host.endsWith(suffix) ? host.slice(0, -suffix.length) : ''
+  const hostId = /^\d+$/.test(label) ? label : undefined
+  const legacyMatch = url.pathname.match(/^\/s\/(\d+)(?:\/(.*))?$/)
+  const id = hostId || legacyMatch?.[1]
+  if (!id) return bad('Unknown subscription host or path', 404)
   const p = await get(c.env, Number(id))
   if (!p) return bad('Subscription not registered', 404)
   let path: string
   try {
-    path = decodeURIComponent(match?.[2] || '')
+    path = decodeURIComponent(hostId ? url.pathname.replace(/^\//, '') : legacyMatch?.[2] || '')
   } catch {
     return bad('Bad path', 400)
   }
   if (!path)
-    return new Response(directory(p), {
+    return new Response(directory(p, hostId ? '/' : `/s/${id}/`), {
       headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store' },
     })
   if (
@@ -70,7 +75,11 @@ app.all('*', async (c) => {
     const text = await r.text(),
       body = path.toLowerCase().endsWith('.md')
         ? md.render(text)
-        : `<h1>${escapeHtml(path)}</h1><p><a href="?raw=1">原始文件</a></p><pre><code>${escapeHtml(text)}</code></pre>`,
+        : '<h1>' +
+          escapeHtml(path) +
+          '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' +
+          escapeHtml(text) +
+          '</code></pre>',
       out = new Response(documentPage(path, body), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
