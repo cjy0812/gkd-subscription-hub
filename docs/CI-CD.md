@@ -38,7 +38,7 @@ bun install --frozen-lockfile && bun run format:check && bun run lint && bun run
 - 所有分支 Preview 绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview），不会写入生产 KV。
 - 不同分支 Preview 共享这一个 Preview KV，因此测试数据可能互相影响；它们与生产数据隔离，但不是 Preview 之间逐个隔离。
 - Preview 不继承生产变量和 Secrets。首次启用前，需要在 Cloudflare Worker 的 **Settings → Variables and Secrets → Previews Base** 中单独设置 ADMIN_PASSWORD。
-- Preview 的 ADMIN_PASSWORD 必须与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret，因此不要复制生产密码。
+- 建议 Preview 的 ADMIN_PASSWORD 与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret；如复用生产密码，PR 中的代码变更可能暴露生产管理员凭据，属于明确接受的安全风险，不应视为环境隔离自动消除了该风险。
 - GITHUB_TOKEN 和 NOTIFY_TOKEN 在代码中均为可选项，Preview 暂不配置；GitHub API 将使用匿名额度。
 - Preview URL 默认公开。不要在 Preview 写入真实或敏感数据；如需限制访问，再单独配置 Cloudflare Access。
 - Cron Triggers 不会在 Worker Preview 中执行，因此 Preview 不会自动运行每 6 小时的定时刷新；需要验证刷新逻辑时，应使用测试或手动请求路径。
