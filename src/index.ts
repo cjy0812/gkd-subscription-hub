@@ -10,7 +10,7 @@ export default {
     const host = url.hostname.toLowerCase()
     const suffix = `.${domain}`
     const label = host.endsWith(suffix) ? host.slice(0, -suffix.length) : ''
-    const isSubscriptionHost = /^\\d+$/.test(label)
+    const isSubscriptionHost = /^\d+$/.test(label)
     return isSubscriptionHost || url.pathname.startsWith('/s/')
       ? subscription.fetch(req, env)
       : admin.fetch(req, env)
