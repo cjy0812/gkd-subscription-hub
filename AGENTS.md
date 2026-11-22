@@ -37,7 +37,11 @@
 - 保持桌面端与移动端均可用；长仓库名、分支名和错误文本需要合理换行或截断。
 - 用户操作应有 loading、防重复提交和成功/失败反馈。
 - 管理端 API 统一经由 `apps/admin/src/api.ts`；不要绕过统一认证 helper。
-- 登录凭据当前由应用写入 `sessionStorage`。修改认证流程前，先评估现有 Worker auth middleware 与部署路径。
+- 会话存取统一使用 `apps/admin/src/auth.ts`；不要在页面中直接操作 `sessionStorage`。
+- 受保护的管理页面作为 `AdminLayout` 子路由；登录页面独立于业务页面，凭据必须先经管理 API 验证再写入会话。
+- `api.ts` 的 `ApiError.status === 401` 表示会话失效；网络错误或其他 HTTP 错误不得被当作登出处理。
+- 管理端顶部栏、侧边导航和移动端导航统一由 `apps/admin/src/layouts/AdminLayout.vue` 提供；业务页面不得再重复实现应用壳层。
+- 登录凭据当前由 `auth.ts` 写入 `sessionStorage`，仅限当前浏览器会话。修改认证流程前，先评估现有 Worker auth middleware 与部署路径。
 
 ### Worker
 
