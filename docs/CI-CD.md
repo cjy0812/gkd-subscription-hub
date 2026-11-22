@@ -36,6 +36,7 @@ PR Preview 不会部署到生产 Worker，也不会修改生产 KV。Preview Wor
 
 - `verify`：只做质量检查和构建，不部署。
 - `preview`：创建手动 Preview Worker，默认名称 `gkd-subscription-hub-manual`。
+- `delete-preview`：删除指定名称的手动 Preview Worker。
 - `release`：仅当选择的分支为 `main` 时部署生产；其他分支不会部署生产。
 
 ## 验证范围
