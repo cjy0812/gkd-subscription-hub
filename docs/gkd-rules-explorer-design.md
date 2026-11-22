@@ -75,7 +75,7 @@ Discovery is resumable. Search pages and candidate validation are processed in s
 - Reuse the rich repository objects returned by Search API; avoid one repository metadata request per candidate.
 - Use a small fixed query matrix; deduplicate by repository ID before verification.
 - Use commit SHA and blob SHA as cache keys. If the commit/blob is unchanged, reuse prior parsed metadata.
-- Use conditional requests with stored ETags for mutable metadata endpoints.
+- Cache parsed metadata by immutable repository ID and commit SHA. On repeat scans, perform one commit lookup and reuse parsed subscription data when the SHA is unchanged. ETag conditional requests for mutable metadata endpoints remain a later optimization.
 - Fetch artifact bytes from raw GitHub URLs pinned to commit SHA; do not use the Contents API per file.
 - Bound concurrency and process a small number of repositories per Worker invocation to stay below the Free plan's subrequest and CPU limits.
 - Store one published catalog snapshot and a separate resumable job state in KV. Keep all Explorer keys under the `explorer:` prefix. Never write to existing project keys.
@@ -88,7 +88,7 @@ Add an Explorer page under the existing admin SPA with:
 - filters for Fork/non-Fork, archived status, topic, author, and subscription count;
 - sorting by last push/update, stars, forks, name, and rule count;
 - pagination and clear-filter action;
-- visible scan progress, last scan time, API quota snapshot, and incomplete-result warnings;
+- visible scan progress, last scan time, and incomplete-result / rate-limit warnings;
 - repository rows showing direct Fork source;
 - detail drawer showing GitHub metadata, all subscription metadata, and arbitrary custom fields.
 
