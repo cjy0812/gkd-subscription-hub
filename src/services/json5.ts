@@ -6,7 +6,7 @@ export function parseJson5(source: string): unknown {
 
   let i = 0
   const fail = (): never => {
-    throw new Error('JSON5 语法错误，位置 ' + i)
+    throw new Error(`JSON5 语法错误，位置 ${i}`)
   }
 
   const whitespace = () => {
