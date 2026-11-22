@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'preview' || inputs.mode == 'delete-preview') && format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual')) || github.ref }}
+  cancel-in-progress: ${{ !(github.event_name == 'pull_request' && github.event.action == 'closed') }}
+
 jobs:
   verify:
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
@@ -61,9 +65,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    concurrency:
-      group: preview-${{ github.event.pull_request.number || inputs.preview_name || github.ref_name }}
-      cancel-in-progress: true
     env:
       PREVIEW_WORKER: ${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual') }}
       CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
@@ -102,6 +103,24 @@ jobs:
             ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
           }))
           NODE
+      - name: Confirm PR is still open and this run is current
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: context.issue.number,
+            })
+            if (pr.state !== 'open') {
+              core.setFailed('PR 已关闭，取消过期 Preview 部署')
+              return
+            }
+            if (pr.head.sha !== context.payload.pull_request.head.sha) {
+              core.setFailed('PR 已有更新提交，取消过期 Preview 部署')
+            }
       - name: Deploy isolated Cloudflare Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -165,9 +184,6 @@ jobs:
     env:
       PREVIEW_WORKER: ${{ github.event_name == 'pull_request' && format('gkd-subscription-hub-pr-{0}', github.event.pull_request.number) || format('gkd-subscription-hub-{0}', inputs.preview_name || 'manual') }}
       CLOUDFLARE_ACCOUNT_ID: "084099361afdf1265c20c09fb3834a6f"
-    concurrency:
-      group: preview-${{ github.event.pull_request.number || inputs.preview_name || 'manual' }}
-      cancel-in-progress: false
     steps:
       - name: Delete Preview Worker
         env:
@@ -176,7 +192,7 @@ jobs:
         run: |
           set -euo pipefail
           worker="$PREVIEW_WORKER"
-          [[ "$worker" =~ ^gkd-subscription-hub-[a-z0-9-]{1,40}$ ]] || { echo "::error::Preview Worker 名称不合法"; exit 1; }
+          [[ "$worker" =~ ^gkd-subscription-hub-[a-z0-9-]{1,42}$ ]] || { echo "::error::Preview Worker 名称不合法"; exit 1; }
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker"
           status="$(curl --connect-timeout 10 --max-time 30 -sS -o /tmp/worker.json -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api")"
           if [[ "$status" == "404" ]]; then
