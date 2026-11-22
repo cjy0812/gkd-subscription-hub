@@ -21,8 +21,10 @@ jobs:
         run: |
           set -euo pipefail
           getent ahosts gkd.chenge.eu.org
-          status=$(curl --retry 10 --retry-delay 3 --retry-all-errors -sS -o /dev/null -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/")
-          test "$status" = "302"
+          status=$(curl --connect-timeout 10 --max-time 20 --retry 2 --retry-delay 2 --retry-all-errors -sS -o /tmp/root.body -D /tmp/root.headers -w '%{http_code}' "$BASE_URL/" || echo CURL_ERROR)
+          echo "ROOT_HTTP_STATUS=$status"
+          cat /tmp/root.headers || true
+          if [ "$status" != "302" ]; then cat /tmp/root.body || true; exit 1; fi
           grep -Eiq '^location: https://gkd\.chenge\.eu\.org/admin/' /tmp/root.headers
 
       - name: Verify admin SPA and protected API
