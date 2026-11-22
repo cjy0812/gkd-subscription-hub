@@ -43,6 +43,19 @@ type Entry = {
   verifiedAt: string
 }
 
+type QuotaResource = {
+  limit: number
+  remaining: number
+  used: number
+  reset: number
+}
+
+type Quota = {
+  core: QuotaResource
+  search: QuotaResource
+  code_search: QuotaResource
+}
+
 type Job = {
   status: string
   queryIndex: number
@@ -62,6 +75,7 @@ const message = useMessage()
 const token = sessionStorage.getItem('gkdtoken') || ''
 const entries = ref<Entry[]>([])
 const job = ref<Job | null>(null)
+const quota = ref<Quota | null>(null)
 const loading = ref(false)
 const searching = ref('')
 const forkFilter = ref('all')
@@ -198,12 +212,14 @@ const columns: DataTableColumns<Entry> = [
 async function load() {
   loading.value = true
   try {
-    const [catalog, status] = await Promise.all([
+    const [catalog, status, quotaResult] = await Promise.all([
       api<{ entries: Entry[] }>('/api/explorer/catalog', token),
       api<{ status: Job }>('/api/explorer/status', token),
+      api<{ quota: Quota }>('/api/explorer/quota', token),
     ])
     entries.value = catalog.entries
     job.value = status.status
+    quota.value = quotaResult.quota
   } catch (error) {
     message.error(error instanceof Error ? error.message : '读取 Explorer 数据失败')
   } finally {
@@ -252,6 +268,10 @@ function clearFilters() {
   archivedFilter.value = 'all'
   authorFilter.value = ''
   topicFilter.value = ''
+}
+
+function resetTime(timestamp: number) {
+  return timestamp ? new Date(timestamp * 1000).toLocaleTimeString() : '—'
 }
 
 const jobPercent = computed(() => {
@@ -311,6 +331,17 @@ onMounted(() => {
       <n-text depth="3">
         上次任务更新：{{ job?.updatedAt ? new Date(job.updatedAt).toLocaleString() : '—' }}
       </n-text>
+      <n-space v-if="quota" wrap>
+        <n-tag type="success">
+          Core {{ quota.core.remaining }} / {{ quota.core.limit }} · 重置 {{ resetTime(quota.core.reset) }}
+        </n-tag>
+        <n-tag type="info">
+          Search {{ quota.search.remaining }} / {{ quota.search.limit }} · 重置 {{ resetTime(quota.search.reset) }}
+        </n-tag>
+        <n-tag type="warning">
+          Code Search {{ quota.code_search.remaining }} / {{ quota.code_search.limit }} · 重置 {{ resetTime(quota.code_search.reset) }}
+        </n-tag>
+      </n-space>
     </n-card>
 
     <n-card :bordered="false" class="stat-card">
