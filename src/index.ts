@@ -52,9 +52,9 @@ async function notify(req: Request, env: Env, ctx: ExecutionContext) {
         ...project,
         lastError: error instanceof Error ? error.message : 'Webhook refresh failed',
         prediction: {
-            ...project.prediction,
-            nextCheckAt: new Date(Date.now() + 1800000).toISOString(),
-          },
+          ...project.prediction,
+          nextCheckAt: new Date(Date.now() + 1800000).toISOString(),
+        },
       })
     }),
   )
