@@ -95,7 +95,9 @@ const authors = computed(() =>
   ].sort(),
 )
 const topics = computed(() =>
-  [...new Set(entries.value.flatMap((entry) => (entry.repository.topics || []) as string[]))].sort(),
+  [
+    ...new Set(entries.value.flatMap((entry) => (entry.repository.topics || []) as string[])),
+  ].sort(),
 )
 
 const filtered = computed(() => {
@@ -192,9 +194,7 @@ const columns: DataTableColumns<Entry> = [
     key: 'pushed',
     width: 170,
     render: (row) =>
-      row.repository.pushed_at
-        ? new Date(row.repository.pushed_at).toLocaleDateString()
-        : '—',
+      row.repository.pushed_at ? new Date(row.repository.pushed_at).toLocaleDateString() : '—',
   },
   {
     title: '操作',
@@ -337,13 +337,16 @@ onMounted(() => {
       </n-text>
       <n-space v-if="quota" wrap>
         <n-tag type="success">
-          Core {{ quota.core.remaining }} / {{ quota.core.limit }} · 重置 {{ resetTime(quota.core.reset) }}
+          Core {{ quota.core.remaining }} / {{ quota.core.limit }} · 重置
+          {{ resetTime(quota.core.reset) }}
         </n-tag>
         <n-tag type="info">
-          Search {{ quota.search.remaining }} / {{ quota.search.limit }} · 重置 {{ resetTime(quota.search.reset) }}
+          Search {{ quota.search.remaining }} / {{ quota.search.limit }} · 重置
+          {{ resetTime(quota.search.reset) }}
         </n-tag>
         <n-tag type="warning">
-          Code Search {{ quota.code_search.remaining }} / {{ quota.code_search.limit }} · 重置 {{ resetTime(quota.code_search.reset) }}
+          Code Search {{ quota.code_search.remaining }} / {{ quota.code_search.limit }} · 重置
+          {{ resetTime(quota.code_search.reset) }}
         </n-tag>
       </n-space>
     </n-card>
@@ -423,7 +426,11 @@ onMounted(() => {
       :show="Boolean(selected)"
       width="min(640px, 92vw)"
       placement="right"
-      @update:show="(value) => { if (!value) selected = null }"
+      @update:show="
+        (value) => {
+          if (!value) selected = null
+        }
+      "
     >
       <n-drawer-content v-if="selected" :title="selected.repository.full_name" closable>
         <n-space vertical>
@@ -474,10 +481,14 @@ onMounted(() => {
           </n-descriptions>
 
           <div v-for="subscription in selected.subscriptions" :key="subscription.artifactPath">
-            <h3>{{ subscription.name }} <n-tag>ID {{ subscription.id }}</n-tag></h3>
+            <h3>
+              {{ subscription.name }} <n-tag>ID {{ subscription.id }}</n-tag>
+            </h3>
             <n-descriptions bordered :column="1" size="small">
               <n-descriptions-item label="版本">{{ subscription.version }}</n-descriptions-item>
-              <n-descriptions-item label="作者">{{ subscription.author || '—' }}</n-descriptions-item>
+              <n-descriptions-item label="作者">{{
+                subscription.author || '—'
+              }}</n-descriptions-item>
               <n-descriptions-item label="订阅文件">
                 {{ subscription.artifactPath }}
               </n-descriptions-item>
@@ -489,7 +500,8 @@ onMounted(() => {
               </n-descriptions-item>
               <n-descriptions-item label="规则统计">
                 {{ subscription.ruleCount }} 条规则 / {{ subscription.appsCount }} 应用 /
-                {{ subscription.globalGroupsCount }} 全局组 / {{ subscription.categoriesCount }} 分类
+                {{ subscription.globalGroupsCount }} 全局组 /
+                {{ subscription.categoriesCount }} 分类
               </n-descriptions-item>
             </n-descriptions>
             <h4>自定义字段</h4>
