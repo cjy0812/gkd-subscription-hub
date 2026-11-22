@@ -6,18 +6,18 @@ import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
 
 const app = new Hono<{ Bindings: Env }>(),
   md = new MarkdownIt({ html: false, linkify: false, typographer: false })
-function directory(p: Project) {
+function directory(p: Project, prefix: string) {
   const rows = p.distFiles
     .slice()
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f) => {
       const h = f.path.split('/').map(encodeURIComponent).join('/')
-      return '<li><a href="/' + h + '">' + escapeHtml(f.path) + '</a> <small>' + f.size.toLocaleString() + ' bytes</small></li>'
+      return `<li><a href="${prefix}${h}">${escapeHtml(f.path)}</a> <small>${f.size.toLocaleString()} bytes</small></li>`
     })
     .join('')
   return documentPage(
-    'GKD ' + p.id,
-    '<h1>GKD 订阅 · ID ' + p.id + '</h1><p>' + escapeHtml(p.owner) + '/' + escapeHtml(p.repo) + ' · dist/</p><ul>' + rows + '</ul><p>' + p.distFiles.length + ' 个文件</p>',
+    `GKD ${p.id}`,
+    `<h1>GKD 订阅 · ID ${p.id}</h1><p>${escapeHtml(p.owner)}/${escapeHtml(p.repo)} · dist/</p><ul>${rows}</ul><p>${p.distFiles.length} 个文件</p>`,
   )
 }
 app.all('*', async (c) => {
@@ -40,7 +40,7 @@ app.all('*', async (c) => {
     return bad('Bad path', 400)
   }
   if (!path)
-    return new Response(directory(p), {
+    return new Response(directory(p, hostId ? '/' : `/s/${id}/`), {
       headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store' },
     })
   if (
