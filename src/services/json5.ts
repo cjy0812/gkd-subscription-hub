@@ -51,9 +51,9 @@ export function parseJson5(source: string): unknown {
   }
   const identifier = (): string => {
     const start = i
-    if (!/[A-Za-z_$]/.test(source[i] || '')) fail()
+    if (!/[$_\p{ID_Start}]/u.test(source[i] || '')) fail()
     i++
-    while (/[\w$]/.test(source[i] || '')) i++
+    while (/[$_\u200C\u200D\p{ID_Continue}]/u.test(source[i] || '')) i++
     return source.slice(start, i)
   }
   const value = (depth: number): unknown => {
