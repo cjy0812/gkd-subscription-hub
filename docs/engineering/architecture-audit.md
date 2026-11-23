@@ -90,8 +90,8 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### P2：页面渐进重构
 
-1. 补批量选择/批处理逻辑测试。
-2. 抽离 Projects 批处理/选择逻辑。
+1. [x] 补充顺序批处理与批量选择纯函数测试；见 `apps/admin/src/batch.test.ts`、`apps/admin/src/selection.test.ts`。
+2. [x] 将 Projects 页面选择集合更新规则抽离为可独立测试的纯函数；页面仍负责响应式状态和事件编排。
 3. 分离 Explorer 数据筛选/排序与 API 状态。
 4. 依据真实复用情况抽组件。
 
