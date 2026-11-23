@@ -265,7 +265,10 @@ const columns: DataTableColumns<Project> = [
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
         h('strong', `${row.owner}/${row.repo}`),
-        h('small', `订阅 ID ${row.id}`),
+        h(
+          'small',
+          `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
+        ),
       ]),
   },
   { title: '分支', key: 'branch', width: 120, ellipsis: { tooltip: true } },
