@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   candidateFromSearchItem,
   countRules,
+  hasMalformedSubscriptionBlob,
+  parseSearchCandidates,
   parseSubscription,
   requireArrayField,
 } from '../src/services/explorer'
@@ -86,6 +88,34 @@ describe('Explorer data guards', () => {
         10,
       ),
     ).toBeNull()
+  })
+})
+
+describe('malformed upstream entries', () => {
+  it('marks malformed search results as incomplete while retaining valid candidates', () => {
+    const result = parseSearchCandidates(
+      [
+        { id: 1, full_name: 'owner/valid' },
+        { id: 2, full_name: 'owner/invalid', default_branch: 42 },
+      ],
+      'repositories',
+    )
+    expect(result.items).toHaveLength(1)
+    expect(result.incomplete).toBe(true)
+  })
+
+  it('detects malformed subscription-looking Git Tree blobs', () => {
+    expect(
+      hasMalformedSubscriptionBlob([
+        { type: 'blob', path: 'dist/gkd.json5', sha: 'abc', size: 10 },
+      ]),
+    ).toBe(false)
+    expect(
+      hasMalformedSubscriptionBlob([{ type: 'blob', path: 'dist/gkd.json5', size: 10 }]),
+    ).toBe(true)
+    expect(
+      hasMalformedSubscriptionBlob([{ type: 'tree', path: 'dist/folder' }]),
+    ).toBe(false)
   })
 })
 
