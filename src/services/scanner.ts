@@ -1,10 +1,6 @@
 import type { DistFile, Env, Project, WorkflowInfo } from '../types'
 import { decode, gh } from './github'
-import {
-  getProviderAdapter,
-  parseRepositoryUrl,
-  type RepositoryLocator,
-} from './providers'
+import { getProviderAdapter, parseRepositoryUrl, type RepositoryLocator } from './providers'
 
 export function parseRepo(input: string): RepositoryLocator {
   return parseRepositoryUrl(input)
@@ -38,10 +34,9 @@ async function githubWorkflows(
   commitSha: string,
 ): Promise<WorkflowInfo[]> {
   const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
-  const response = await gh<{ workflows: Array<{ id: number; name: string; path: string; state: string }> }>(
-    env,
-    `${base}/actions/workflows?per_page=100`,
-  )
+  const response = await gh<{
+    workflows: Array<{ id: number; name: string; path: string; state: string }>
+  }>(env, `${base}/actions/workflows?per_page=100`)
   return Promise.all(
     response.workflows
       .filter((workflow) => workflow.state === 'active')
@@ -59,9 +54,7 @@ async function githubWorkflows(
           // A workflow file may have been removed between the workflow list and commit lookup.
         }
         const cron = [
-          ...yaml.matchAll(
-            /^\s*-\s*cron:\s*['"]?([^'"\s]+(?:\s+[^'"\s]+){4})['"]?\s*$/gm,
-          ),
+          ...yaml.matchAll(/^\s*-\s*cron:\s*['"]?([^'"\s]+(?:\s+[^'"\s]+){4})['"]?\s*$/gm),
         ].map((match) => match[1])
         return {
           id: workflow.id,
@@ -115,7 +108,12 @@ export async function scan(
     lastDistHash: null,
     lastDistChangedAt: null,
     lastRuns: [],
-    prediction: { intervalHours: null, predictedAt: null, nextCheckAt: timestamp, successfulRuns: 0 },
+    prediction: {
+      intervalHours: null,
+      predictedAt: null,
+      nextCheckAt: timestamp,
+      successfulRuns: 0,
+    },
     lastError: null,
   }
 }
