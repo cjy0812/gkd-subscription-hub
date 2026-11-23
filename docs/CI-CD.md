@@ -35,7 +35,7 @@ bun install --frozen-lockfile && bun run format:check && bun run lint && bun run
 ## Preview 数据与凭据隔离
 
 - 生产 Worker 继续绑定生产 KV：215fd3c9c2c74481bc521feadedd83e8。
-- 所有分支 Preview 绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview），不会写入生产 KV。
+- 当前 Wrangler Preview 配置绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview）。该绑定由分支中的 `previews` 配置决定，分支可以修改它，因此不是强制隔离边界；审查 PR 时必须将分支代码和配置视为不可信。
 - 不同分支 Preview 共享这一个 Preview KV，因此测试数据可能互相影响；它们与生产数据隔离，但不是 Preview 之间逐个隔离。
 - Preview 不继承生产变量和 Secrets。首次启用前，需要在 Cloudflare Worker 的 **Settings → Variables and Secrets → Previews Base** 中单独设置 ADMIN_PASSWORD。
 - 建议 Preview 的 ADMIN_PASSWORD 与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret；如复用生产密码，PR 中的代码变更可能暴露生产管理员凭据，属于明确接受的安全风险，不应视为环境隔离自动消除了该风险。
