@@ -35,17 +35,13 @@ src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInf
 
 Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 defineStore。完整搜索后决定移除，不迁移状态来证明依赖有用。
 
-### A-05（高）：Vue SFC 检查缺口
+### A-05（中）：Vue SFC 工具覆盖仍需观察
 
-ProjectsPage.vue 被 .prettierignore 排除；Biome 排除所有 Vue SFC。Vue 官方工具指南建议 Vite 项目使用 ESLint + eslint-plugin-vue 做 SFC 专属 Lint；vue-tsc 负责模板/脚本类型检查，不能替代 Lint。移除页面例外并补 Vue 模板/脚本 Lint。
+已移除 Prettier 和 `.prettierignore`，不再存在 ProjectsPage.vue 的格式检查例外。仓库锁定的 Biome 2.6.8 启用实验性 HTML super-language 支持，对 Vue SFC 提供格式化与 Lint；该能力仍可能存在边缘语法/规则缺口，不能等同于完整 Vue 专属规则集。`vue-tsc` 继续负责模板/脚本类型检查。当前选择接受实验性覆盖，不额外引入 ESLint/Prettier；若 CI 或实际开发发现可复现缺口，再基于证据评估。
 
 ### A-06（已修复）：质量脚本重复
 
 原先 format:check 使用 biome ci（同时运行 Formatter 和 Linter），后续 lint 再运行 biome lint；lint 还重复执行 Admin typecheck，而 typecheck 已执行 Worker + Admin typecheck。现已拆分为 biome format、biome lint 和独立 typecheck。修复提交 66a8aa3；CI Run #45084403707 与 #45084606662 均通过。
-
-### A-07（中）：Prettier 未作为锁定依赖
-
-Prettier 用 bunx --yes prettier@3.6.2 临时执行，未列为 devDependency。固定工具依赖版本。
 
 ### A-08（中）：GitHub API 类型过宽
 
@@ -65,6 +61,8 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ## 未证实 / 待验证
 
+- [ ] 在 CI 中验证 Biome 2.6.8 对全部 Vue SFC 的格式化与 Lint；实验性支持的边缘语法/规则覆盖仍需观察。
+
 - [ ] 全仓搜索 Pinia Store 是否存在动态使用。
 - [ ] 执行 frozen install、format、lint、typecheck、Vitest、Admin build。
 - [ ] 浏览器验证登录、401、批量跨筛选选择、部分失败和窄屏。
@@ -79,9 +77,9 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### P0：质量门禁可信
 
-1. [ ] 取消 ProjectsPage 格式检查例外。
+1. [x] 删除 ProjectsPage.vue 格式检查例外，并移除 Prettier 配置。
 2. [x] 分离 format/lint/typecheck，避免重复执行（提交 66a8aa3）。
-3. [ ] 固定 Prettier 依赖；引入 ESLint + eslint-plugin-vue（优先 flat config）覆盖 Vue SFC。
+3. [x] 移除临时下载的 Prettier 与独立配置；统一由锁定的 Biome 负责格式化和 Lint，并启用实验性 Vue SFC 支持。
 4. [x] 全量 CI 已通过（Run #45084606662）。
 
 ### P1：契约与边界

@@ -63,7 +63,9 @@ apps/admin/src/
 - Bun 版本以 packageManager 和 CI 为准，安装使用 frozen lockfile。
 - 新依赖需说明收益、原生替代、包体积、Worker 兼容性和维护状态。
 - 不在 CI 临时下载未锁定格式化工具；本地与 CI 版本一致。
-- Biome、Prettier 的职责必须明确；Vue SFC 必须有格式化和模板/脚本静态检查覆盖。
+- 格式化与基础 Lint 统一使用锁定版本的 Biome，不并行维护 Prettier/ESLint。
+- 当前锁定的 Biome 2.6.8 启用实验性 HTML super-language 支持，对 Vue SFC 提供格式化与 Lint；该能力仍可能存在边缘语法/规则缺口，不等同于完整 Vue 专属规则集。
+- vue-tsc 独立负责 Vue SFC 模板/脚本类型检查；Vitest 覆盖关键行为。只有发现可复现且影响质量的缺口、现有工具无法合理解决时，才评估新增工具。
 - 被 ignore 的业务页面不能长期失去质量检查；例外需有退出条件。
 
 ## 测试策略
