@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { h, ref } from 'vue'
 import {
   NButton,
   NDrawer,
   NDrawerContent,
+  NIcon,
   NLayout,
   NLayoutContent,
   NLayoutHeader,
@@ -10,19 +12,61 @@ import {
   NMenu,
   NTag,
 } from 'naive-ui'
-import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clearAdminToken } from '../auth'
 
 const route = useRoute()
 const router = useRouter()
 const showMobileNav = ref(false)
+
+function menuIcon(paths: string[]) {
+  return () =>
+    h(NIcon, { size: 20 }, {
+      default: () =>
+        h(
+          'svg',
+          {
+            viewBox: '0 0 24 24',
+            width: 20,
+            height: 20,
+            fill: 'none',
+            stroke: 'currentColor',
+            'stroke-width': 1.8,
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round',
+            'aria-hidden': 'true',
+          },
+          paths.map((d) => h('path', { d })),
+        ),
+    })
+}
+
 const menuOptions = [
-  { label: '仪表盘', key: '/dashboard' },
-  { label: '订阅源管理', key: '/projects' },
-  { label: '文件管理', key: '/files' },
-  { label: '运行监控', key: '/monitoring' },
-  { label: '规则发现', key: '/explorer' },
+  {
+    label: '仪表盘',
+    key: '/dashboard',
+    icon: menuIcon(['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z']),
+  },
+  {
+    label: '订阅源管理',
+    key: '/projects',
+    icon: menuIcon(['M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z']),
+  },
+  {
+    label: '文件管理',
+    key: '/files',
+    icon: menuIcon(['M6 3h8l4 4v14H6z', 'M14 3v5h5', 'M9 12h6', 'M9 16h6']),
+  },
+  {
+    label: '运行监控',
+    key: '/monitoring',
+    icon: menuIcon(['M3 12h4l3-8 4 16 3-8h4']),
+  },
+  {
+    label: '规则发现',
+    key: '/explorer',
+    icon: menuIcon(['M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16', 'M17 17l4 4']),
+  },
 ]
 
 function navigate(path: string) {
@@ -37,7 +81,7 @@ function logout() {
 </script>
 
 <template>
-  <n-layout class="app-layout">
+  <n-layout class="app-layout" dir="ltr">
     <n-layout-header class="topbar">
       <div class="brand">
         <div class="brand-mark small">G</div>
@@ -52,11 +96,21 @@ function logout() {
         <n-button quaternary size="small" @click="logout">退出</n-button>
       </div>
     </n-layout-header>
-    <n-layout has-sider class="workspace">
-      <n-layout-sider class="desktop-sidebar" bordered :width="224" :native-scrollbar="false">
-        <div class="sidebar-caption">工作区</div>
-        <n-menu :options="menuOptions" :value="route.path" @update:value="navigate" />
-        <div class="sidebar-foot">GKD Subscription Hub</div>
+    <n-layout has-sider class="workspace" dir="ltr">
+      <n-layout-sider
+        class="desktop-sidebar"
+        bordered
+        :width="72"
+        :native-scrollbar="false"
+      >
+        <n-menu
+          :options="menuOptions"
+          :value="route.path"
+          :collapsed="true"
+          :collapsed-width="64"
+          :collapsed-icon-size="20"
+          @update:value="navigate"
+        />
       </n-layout-sider>
       <n-layout-content class="main-content">
         <router-view />
@@ -105,14 +159,11 @@ function logout() {
   font-size: 15px;
 }
 
-.brand span,
-.sidebar-caption,
-.sidebar-foot {
+.brand span {
   color: var(--color-text-secondary);
 }
 
-.brand span,
-.sidebar-caption {
+.brand span {
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -140,41 +191,27 @@ function logout() {
 }
 
 .workspace {
+  display: flex;
+  flex-direction: row;
+  direction: ltr;
   min-height: calc(100vh - 64px);
 }
 
 .desktop-sidebar {
-  position: relative;
+  flex: 0 0 72px;
+  width: 72px;
   min-height: calc(100vh - 64px);
   background: var(--color-sidebar);
-  padding: 20px 12px;
-}
-
-.sidebar-caption {
-  padding: 4px 12px 12px;
-  text-transform: uppercase;
-}
-
-.sidebar-foot {
-  position: absolute;
-  right: 12px;
-  bottom: 18px;
-  left: 24px;
-  font-size: 11px;
+  padding: 12px 4px;
 }
 
 .main-content {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .mobile-actions {
   display: none;
-}
-
-@media (max-width: 960px) {
-  .desktop-sidebar {
-    width: 190px !important;
-  }
 }
 
 @media (max-width: 760px) {
