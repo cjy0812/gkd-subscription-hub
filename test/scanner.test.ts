@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { extractId, listBranches, parseRepo } from '../src/services/scanner'
+import { extractId, listBranches, parseRepo, scan } from '../src/services/scanner'
 import type { Env } from '../src/types'
 
 const github = {
@@ -93,4 +93,90 @@ describe('scanner helpers', () => {
     expect(result.truncated).toBe(false)
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
+
+  it('scans a GitLab project through the provider adapter', async () => {
+    const source = 'defineGkdSubscription({id:667})'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/repository/branches/main')) {
+        return new Response(JSON.stringify({ commit: { id: 'commit-sha' } }))
+      }
+      if (url.includes('/repository/files/src%2Fsubscription.ts')) {
+        return new Response(
+          JSON.stringify({ content: btoa(source), encoding: 'base64' }),
+        )
+      }
+      if (url.includes('/repository/tree?')) {
+        return new Response(
+          JSON.stringify([{ id: 'blob-sha', path: 'dist/gkd.json5', type: 'blob', size: 100 }]),
+        )
+      }
+      return new Response(
+        JSON.stringify({
+          id: 123,
+          path_with_namespace: 'group/subgroup/project',
+          web_url: 'https://gitlab.com/group/subgroup/project',
+          default_branch: 'main',
+          visibility: 'public',
+          archived: false,
+        }),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const project = await scan(
+      {} as Env,
+      parseRepo('https://gitlab.com/group/subgroup/project'),
+    )
+    expect(project.provider).toBe('gitlab')
+    expect(project.providerId).toBe('123')
+    expect(project.owner).toBe('group/subgroup')
+    expect(project.repo).toBe('project')
+    expect(project.id).toBe(667)
+    expect(project.commitSha).toBe('commit-sha')
+    expect(project.distFiles).toEqual([{ path: 'gkd.json5', sha: 'blob-sha', size: 100 }])
+    expect(project.workflows).toEqual([])
+  })
+
+  it('scans a Gitea project through the provider adapter', async () => {
+    const source = 'defineGkdSubscription({id:668})'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/branches/main')) {
+        return new Response(JSON.stringify({ commit: { id: 'gitea-commit' } }))
+      }
+      if (url.includes('/contents/src/subscription.ts')) {
+        return new Response(
+          JSON.stringify({ content: btoa(source), encoding: 'base64' }),
+        )
+      }
+      if (url.includes('/git/trees/gitea-commit')) {
+        return new Response(
+          JSON.stringify({
+            tree: [{ type: 'blob', path: 'dist/gkd.json5', sha: 'gitea-blob', size: 80 }],
+            truncated: false,
+          }),
+        )
+      }
+      return new Response(
+        JSON.stringify({
+          id: 42,
+          full_name: 'owner/repo',
+          html_url: 'https://gitea.com/owner/repo',
+          default_branch: 'main',
+          private: false,
+          archived: false,
+          fork: false,
+        }),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const project = await scan({} as Env, parseRepo('https://gitea.com/owner/repo'))
+    expect(project.provider).toBe('gitea')
+    expect(project.providerId).toBe('42')
+    expect(project.id).toBe(668)
+    expect(project.commitSha).toBe('gitea-commit')
+    expect(project.distFiles).toEqual([{ path: 'gkd.json5', sha: 'gitea-blob', size: 80 }])
+    expect(project.workflows).toEqual([])
+  })
+
 })
