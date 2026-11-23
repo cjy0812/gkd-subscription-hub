@@ -221,7 +221,7 @@ async function readCandidateAt(env: Env, job: Job, index: number, cache: Map<str
     }
     offset += batch.count
   }
-  return null
+  throw new Error('候选队列索引超出范围，请重新开始扫描；已发布目录保持不变。')
 }
 export async function explorerStatus(env: Env) {
   const job = await loadJob(env)
