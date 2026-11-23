@@ -23,6 +23,7 @@ import type { ExplorerBooleanFilter, ExplorerSortBy } from '../explorer-filter'
 import {
   collectExplorerAuthors,
   collectExplorerTopics,
+  collectSubscriptionIdConflicts,
   filterExplorerEntries,
 } from '../explorer-filter'
 import type {
@@ -41,6 +42,7 @@ const job = ref<ExplorerJobStatus | null>(null)
 const quota = ref<ExplorerQuota | null>(null)
 const loading = ref(false)
 const searching = ref('')
+const exactSubscriptionId = ref('')
 const forkFilter = ref<ExplorerBooleanFilter>('all')
 const archivedFilter = ref<ExplorerBooleanFilter>('all')
 const authorFilter = ref('')
@@ -50,9 +52,11 @@ const selected = ref<ExplorerEntry | null>(null)
 
 const authors = computed(() => collectExplorerAuthors(entries.value))
 const topics = computed(() => collectExplorerTopics(entries.value))
+const idConflicts = computed(() => collectSubscriptionIdConflicts(entries.value))
 const filtered = computed(() =>
   filterExplorerEntries(entries.value, {
     query: searching.value,
+    exactSubscriptionId: exactSubscriptionId.value,
     fork: forkFilter.value,
     archived: archivedFilter.value,
     author: authorFilter.value,
@@ -177,6 +181,7 @@ async function advance() {
 
 function clearFilters() {
   searching.value = ''
+  exactSubscriptionId.value = ''
   forkFilter.value = 'all'
   archivedFilter.value = 'all'
   authorFilter.value = ''
@@ -190,7 +195,23 @@ function resetTime(timestamp: number) {
 const jobPercent = computed(() => {
   if (!job.value) return 0
   if (job.value.status === 'complete') return 100
-  return Math.min(95, Math.round((job.value.queryIndex / 6) * 100))
+  if (job.value.phase === 'collecting') {
+    return Math.min(49, Math.round((job.value.queryIndex / 6) * 50))
+  }
+  if (job.value.phase === 'verifying') {
+    const ratio = job.value.candidateCount
+      ? job.value.candidateIndex / job.value.candidateCount
+      : 1
+    return Math.min(99, 50 + Math.round(ratio * 49))
+  }
+  return 0
+})
+
+const phaseLabel = computed(() => {
+  if (job.value?.phase === 'collecting') return '候选收集'
+  if (job.value?.phase === 'verifying') return '内容验证'
+  if (job.value?.phase === 'complete') return '扫描完成'
+  return '等待扫描'
 })
 
 onMounted(() => {
@@ -231,8 +252,8 @@ onMounted(() => {
         <div>
           <strong>扫描状态：{{ job?.status || '未知' }}</strong>
           <p class="muted">
-            已验证 {{ job?.verifiedCount || 0 }} 个仓库 · 候选 {{ job?.seenCount || 0 }} 个 · 搜索页
-            {{ job?.scannedPages || 0 }} 页
+            {{ phaseLabel }} · 已收集 {{ job?.candidateCount || 0 }} 个候选 · 已验证
+            {{ job?.verifiedCount || 0 }} 个仓库 · 已搜索 {{ job?.scannedPages || 0 }} 页
           </p>
         </div>
         <n-tag v-if="job?.incomplete" type="warning">搜索结果可能不完整</n-tag>
@@ -265,9 +286,16 @@ onMounted(() => {
         <n-input
           v-model:value="searching"
           clearable
-          placeholder="搜索仓库、订阅名、作者、ID、Topic 或自定义字段"
+          placeholder="模糊搜索仓库、订阅名、作者、Topic 或自定义字段"
         />
         <n-space wrap>
+          <n-input
+            v-model:value="exactSubscriptionId"
+            clearable
+            inputmode="numeric"
+            placeholder="订阅 ID 精确匹配"
+            style="width: 180px"
+          />
           <n-select
             v-model:value="forkFilter"
             :options="[
@@ -315,6 +343,17 @@ onMounted(() => {
         </n-space>
       </n-space>
     </n-card>
+
+    <n-alert v-if="idConflicts.length" type="warning" :bordered="false">
+      <strong>发现 {{ idConflicts.length }} 个跨仓库重复订阅 ID</strong>
+      <p class="muted">重复 ID 仅作为数据质量提示，不会自动隐藏或删除仓库。</p>
+      <ul>
+        <li v-for="conflict in idConflicts.slice(0, 10)" :key="conflict.id">
+          ID {{ conflict.id }}：{{ conflict.repositories.join('、') }}
+        </li>
+      </ul>
+      <p v-if="idConflicts.length > 10" class="muted">其余 {{ idConflicts.length - 10 }} 项未展开。</p>
+    </n-alert>
 
     <n-card :bordered="false" class="stat-card">
       <n-space justify="space-between">
