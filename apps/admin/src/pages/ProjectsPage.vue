@@ -24,7 +24,7 @@ import {
 } from 'naive-ui'
 import { ApiError, api } from '../api'
 import { runSequentialBatch } from '../batch'
-import { clearAdminToken, getAdminToken, setAdminToken } from '../auth'
+import { clearAdminToken, getAdminToken } from '../auth'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
 
 const message = useMessage()
@@ -148,7 +148,7 @@ function reportBatchResult(
 
 async function batchRefresh() {
   const targets = selectedProjects.value.slice()
-  if (!targets.length || batchBusy.value) return
+  if (!targets.length || batchBusy.value || refreshingIds.value.size > 0) return
   batchRefreshing.value = true
   batchProgress.value = { completed: 0, total: targets.length }
   try {
@@ -179,12 +179,11 @@ async function batchRefresh() {
     const refreshed = new Map(
       result.succeeded.map(({ item, value }) => [item.id, value] as const),
     )
-    const failed = new Map(
-      result.failed.map(({ item, error }) => [
-        item.id,
-        error instanceof Error ? error.message : '刷新失败',
-      ] as const),
-    )
+    const failed = new Map<number, string>()
+    for (const { item, error } of result.failed) {
+      // Only HTTP 502 is persisted by the refresh route as the project's lastError.
+      if (error instanceof ApiError && error.status === 502) failed.set(item.id, error.message)
+    }
     projects.value = projects.value.map((project) => {
       const updated = refreshed.get(project.id)
       if (updated) return updated
@@ -360,7 +359,6 @@ async function loadProjects() {
     const availableIds = new Set(result.projects.map((project) => project.id))
     selectedIds.value = selectedIds.value.filter((id) => availableIds.has(id))
     subscriptionDomain.value = config.subscriptionDomain
-    setAdminToken(token.value)
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       token.value = ''
