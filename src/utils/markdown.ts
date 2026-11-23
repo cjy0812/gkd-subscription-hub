@@ -100,11 +100,11 @@ function addHeadingIds(tokens: ReturnType<typeof md.parse>) {
   return headings
 }
 
-md.renderer.rules.heading_close = (tokens, index, options, env, self) => {
+md.renderer.rules.heading_close = (tokens, index) => {
   const open = tokens[index - 2]
   const id = open?.attrGet('id')
   const anchor = id
-    ? `<a class="heading-anchor" href="#${id}" aria-label="复制此标题链接" title="标题链接">¶</a>`
+    ? `<a class="heading-anchor" href="#${id}" aria-label="标题链接" title="标题链接">¶</a>`
     : ''
   return `</${tokens[index].tag}>${anchor}`
 }
