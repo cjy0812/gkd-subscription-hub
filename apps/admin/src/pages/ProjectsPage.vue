@@ -24,6 +24,7 @@ import {
 } from 'naive-ui'
 import { ApiError, api } from '../api'
 import { runSequentialBatch } from '../batch'
+import { toggleSelection, updateScopedSelection, updateVisibleSelection } from '../selection'
 import { clearAdminToken, getAdminToken } from '../auth'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
 
@@ -102,25 +103,23 @@ const errorCount = computed(
   () => projects.value.filter((project) => projectStatus(project) === 'error').length,
 )
 function updateFilteredSelection(checked: boolean) {
-  const visibleIds = new Set(filteredProjects.value.map((project) => project.id))
-  selectedIds.value = checked
-    ? [...new Set([...selectedIds.value, ...visibleIds])]
-    : selectedIds.value.filter((id) => !visibleIds.has(id))
+  selectedIds.value = updateVisibleSelection(
+    selectedIds.value,
+    filteredProjects.value.map((project) => project.id),
+    checked,
+  )
 }
 
 function toggleProjectSelection(id: number, checked: boolean) {
-  selectedIds.value = checked
-    ? [...new Set([...selectedIds.value, id])]
-    : selectedIds.value.filter((selectedId) => selectedId !== id)
+  selectedIds.value = toggleSelection(selectedIds.value, id, checked)
 }
 
 function updateGroupSelection(group: Project[], keys: Array<string | number>) {
-  const groupIds = new Set(group.map((project) => project.id))
-  const outsideSelection = selectedIds.value.filter((id) => !groupIds.has(id))
-  const groupSelection = keys.filter(
-    (key): key is number => typeof key === 'number' && groupIds.has(key),
+  selectedIds.value = updateScopedSelection(
+    selectedIds.value,
+    group.map((project) => project.id),
+    keys,
   )
-  selectedIds.value = [...new Set([...outsideSelection, ...groupSelection])]
 }
 
 function clearSelection() {
