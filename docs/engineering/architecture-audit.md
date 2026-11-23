@@ -31,9 +31,9 @@ src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInf
 
 基线代码中 src/services/explorer.ts 的 Candidate 使用 Record<string, any>，GitHub Search、Commit、Tree 和 Rate Limit 响应也直接使用 any。PR #26 已改为 unknown + 运行时类型守卫并补测试，当前 CI 通过；仍待 PR 合并后从基线移除此项。
 
-### A-04（高）：Pinia 可能未使用
+### A-04（已解决）：移除未使用的 Pinia
 
-Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 defineStore。完整搜索后决定移除，不迁移状态来证明依赖有用。
+全仓库搜索 `defineStore` 无结果；`createPinia` 只在 `apps/admin/src/main.ts` 中用于初始化，没有 Store 定义或使用。已从 Admin 依赖、应用装配和锁文件移除 Pinia，不迁移状态、不引入替代状态库。详见 PR #28。
 
 ### A-05（中）：Vue SFC 工具覆盖仍需观察
 
@@ -63,7 +63,6 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 - [ ] 在 CI 中验证 Biome 2.6.8 对全部 Vue SFC 的格式化与 Lint；实验性支持的边缘语法/规则覆盖仍需观察。
 
-- [ ] 全仓搜索 Pinia Store 是否存在动态使用。
 - [ ] 执行 frozen install、format、lint、typecheck、Vitest、Admin build。
 - [ ] 浏览器验证登录、401、批量跨筛选选择、部分失败和窄屏。
 - [ ] 评估 Workers Vitest Integration 是否覆盖 workerd 差异。
