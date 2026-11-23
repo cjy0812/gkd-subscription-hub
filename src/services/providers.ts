@@ -176,6 +176,24 @@ async function providerJson<T>(url: string, provider: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let index = 0
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+      while (index < items.length) {
+        const current = index++
+        results[current] = await mapper(items[current])
+      }
+    }),
+  )
+  return results
+}
+
 async function gitlabPage<T>(url: string): Promise<{ data: T; next: string | null }> {
   const response = await fetch(url, { headers: { Accept: 'application/json' } })
   if (response.status === 403 || response.status === 429) {
@@ -263,11 +281,10 @@ const gitlabAdapter: ProviderAdapter = {
   async listDistFiles(_env, locator, commitSha) {
     const project = encodeURIComponent(locator.fullPath)
     let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&pagination=keyset&per_page=${PAGE_SIZE}&order_by=id&sort=asc&ref=${encodeURIComponent(commitSha)}`
-    const files: Array<{ id: string; path: string; type: string; size?: number }> = []
+    const files: Array<{ id: string; path: string; type: string }> = []
     let pages = 0
     while (url && pages < MAX_PAGES) {
-      const page =
-        await gitlabPage<Array<{ id: string; path: string; type: string; size?: number }>>(url)
+      const page = await gitlabPage<Array<{ id: string; path: string; type: string }>>(url)
       files.push(...page.data)
       url = page.next || ''
       if (!url && page.data.length === PAGE_SIZE) {
@@ -276,16 +293,24 @@ const gitlabAdapter: ProviderAdapter = {
       pages += 1
     }
     if (url) throw Error('GitLab dist/ 文件超过 1,000 条，暂不支持完整索引')
-    return files
+    const blobs = files
       .filter((item) => item.type === 'blob')
-      .map((item) => ({
-        path: item.path.startsWith('dist/') ? item.path.slice(5) : item.path,
-        sha: item.id,
-        size: item.size || 0,
-      }))
       .filter(
-        (item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'),
+        (item) => item.path.startsWith('dist/') &&
+          item.path.slice(5) &&
+          !item.path.slice(5).split('/').some((part) => part === '.' || part === '..'),
       )
+    return mapWithConcurrency(blobs, 8, async (item) => {
+      const blob = await providerJson<{ size: number }>(
+        `https://gitlab.com/api/v4/projects/${project}/repository/blobs/${encodeURIComponent(item.id)}`,
+        'GitLab',
+      )
+      return {
+        path: item.path.slice(5),
+        sha: item.id,
+        size: blob.size,
+      }
+    })
   },
   async readFile(_env, locator, path, ref) {
     const project = encodeURIComponent(locator.fullPath)
