@@ -117,6 +117,7 @@ export interface ExplorerJobStatus {
   candidateCount: number
   candidateIndex: number
   verifiedCount: number
+  matchedCount: number
   seenCount: number
   error: string | null
   incomplete: boolean
