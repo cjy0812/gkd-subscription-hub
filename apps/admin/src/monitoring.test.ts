@@ -15,7 +15,13 @@ function project(
   }
 }
 
-function run(workflowId: number, updatedAt: string, status: string, conclusion: string | null) {
+function run(
+  workflowId: number,
+  updatedAt: string,
+  status: string,
+  conclusion: string | null,
+  runId = workflowId,
+) {
   return {
     workflowId,
     workflowName: `Workflow ${workflowId}`,
@@ -24,7 +30,7 @@ function run(workflowId: number, updatedAt: string, status: string, conclusion: 
     conclusion,
     created_at: updatedAt,
     updated_at: updatedAt,
-    html_url: `https://github.com/owner/repo/actions/runs/${workflowId}`,
+    html_url: `https://github.com/owner/repo/actions/runs/${runId}`,
     head_sha: `sha-${workflowId}`,
   }
 }
@@ -56,6 +62,18 @@ describe('buildMonitoringOverview', () => {
     expect(result.projectErrors.map((item) => item.id)).toEqual([1])
     expect(result.recentRuns.map((item) => item.workflowId)).toEqual([4, 3, 2, 1])
     expect(result.recentRuns[0]).toMatchObject({ projectId: 2, owner: 'owner', repo: 'repo-2' })
+  })
+
+  it('uses the unique workflow run URL for keys when timestamps and commits match', () => {
+    const projects = [
+      project(1, [
+        run(7, '2026-01-01T00:00:00Z', 'completed', 'success', 7001),
+        run(7, '2026-01-01T00:00:00Z', 'completed', 'failure', 7002),
+      ]),
+    ]
+    const result = buildMonitoringOverview(projects)
+    expect(result.recentRuns).toHaveLength(2)
+    expect(new Set(result.recentRuns.map((item) => item.key)).size).toBe(2)
   })
 
   it('limits the recent run list and handles empty projects', () => {
