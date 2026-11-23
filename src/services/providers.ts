@@ -53,10 +53,16 @@ const MAX_PAGES = 10
 const PAGE_SIZE = 100
 
 function parsePath(host: string, segments: string[], provider: ProjectProvider, minimum: number) {
-  if (host !== (provider === 'github' ? 'github.com' : provider === 'gitlab' ? 'gitlab.com' : 'gitea.com')) {
+  if (
+    host !==
+    (provider === 'github' ? 'github.com' : provider === 'gitlab' ? 'gitlab.com' : 'gitea.com')
+  ) {
     return null
   }
-  if (segments.length < minimum || segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+  if (
+    segments.length < minimum ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
     return null
   }
   const lastSegment = segments[segments.length - 1]
@@ -69,7 +75,8 @@ function parsePath(host: string, segments: string[], provider: ProjectProvider, 
 
 const githubAdapter: ProviderAdapter = {
   kind: 'github',
-  parse: (host, segments) => (segments.length === 2 ? parsePath(host, segments, 'github', 2) : null),
+  parse: (host, segments) =>
+    segments.length === 2 ? parsePath(host, segments, 'github', 2) : null,
   async getRepository(env, locator) {
     const data = await gh<{
       id: number
@@ -117,7 +124,9 @@ const githubAdapter: ProviderAdapter = {
       defaultBranch: metadata.default_branch,
       branches: [
         metadata.default_branch,
-        ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
+        ...names
+          .filter((name) => name !== metadata.default_branch)
+          .sort((a, b) => a.localeCompare(b)),
       ],
       truncated: Boolean(next) || items.length >= PAGE_SIZE * MAX_PAGES,
     }
@@ -139,7 +148,9 @@ const githubAdapter: ProviderAdapter = {
     return tree.tree
       .filter((item) => item.type === 'blob' && item.path.startsWith('dist/'))
       .map((item) => ({ path: item.path.slice(5), sha: item.sha, size: item.size || 0 }))
-      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+      .filter(
+        (item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'),
+      )
   },
   async readFile(env, locator, path, ref) {
     const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
@@ -189,10 +200,7 @@ const gitlabAdapter: ProviderAdapter = {
       visibility: string
       archived: boolean
       forked_from_project?: { path_with_namespace?: string } | null
-    }>(
-      `https://gitlab.com/api/v4/projects/${encodeURIComponent(locator.fullPath)}`,
-      'GitLab',
-    )
+    }>(`https://gitlab.com/api/v4/projects/${encodeURIComponent(locator.fullPath)}`, 'GitLab')
     const parts = data.path_with_namespace.split('/')
     return {
       id: String(data.id),
@@ -217,6 +225,9 @@ const gitlabAdapter: ProviderAdapter = {
     ])
     const items = [...first.data]
     let next = first.next
+    if (!next && first.data.length === PAGE_SIZE) {
+      throw Error('GitLab 分支列表返回满页但缺少下一页链接，无法确认完整性')
+    }
     let pages = 1
     while (next && pages < MAX_PAGES) {
       if (new URL(next).hostname !== 'gitlab.com') throw Error('GitLab 分页链接主机无效')
@@ -234,9 +245,11 @@ const gitlabAdapter: ProviderAdapter = {
       defaultBranch: metadata.defaultBranch,
       branches: [
         metadata.defaultBranch,
-        ...names.filter((name) => name !== metadata.defaultBranch).sort((a, b) => a.localeCompare(b)),
+        ...names
+          .filter((name) => name !== metadata.defaultBranch)
+          .sort((a, b) => a.localeCompare(b)),
       ],
-      truncated: page === MAX_PAGES && pageItems.length === PAGE_SIZE,
+      truncated: Boolean(next) || items.length >= PAGE_SIZE * MAX_PAGES,
     }
   },
   async getCommit(_env, locator, branch) {
@@ -253,7 +266,8 @@ const gitlabAdapter: ProviderAdapter = {
     const files: Array<{ id: string; path: string; type: string; size?: number }> = []
     let pages = 0
     while (url && pages < MAX_PAGES) {
-      const page = await gitlabPage<Array<{ id: string; path: string; type: string; size?: number }>>(url)
+      const page =
+        await gitlabPage<Array<{ id: string; path: string; type: string; size?: number }>>(url)
       files.push(...page.data)
       url = page.next || ''
       if (!url && page.data.length === PAGE_SIZE) {
@@ -269,7 +283,9 @@ const gitlabAdapter: ProviderAdapter = {
         sha: item.id,
         size: item.size || 0,
       }))
-      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+      .filter(
+        (item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'),
+      )
   },
   async readFile(_env, locator, path, ref) {
     const project = encodeURIComponent(locator.fullPath)
@@ -333,7 +349,9 @@ const giteaAdapter: ProviderAdapter = {
       defaultBranch: metadata.defaultBranch,
       branches: [
         metadata.defaultBranch,
-        ...names.filter((name) => name !== metadata.defaultBranch).sort((a, b) => a.localeCompare(b)),
+        ...names
+          .filter((name) => name !== metadata.defaultBranch)
+          .sort((a, b) => a.localeCompare(b)),
       ],
       truncated: page > 20 && pageItems.length === 50,
     }
@@ -364,7 +382,9 @@ const giteaAdapter: ProviderAdapter = {
     return files
       .filter((item) => item.type === 'blob' && item.path.startsWith('dist/'))
       .map((item) => ({ path: item.path.slice(5), sha: item.sha, size: item.size || 0 }))
-      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+      .filter(
+        (item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'),
+      )
   },
   async readFile(_env, locator, path, ref) {
     const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
@@ -397,10 +417,20 @@ export function parseRepositoryUrl(input: string): RepositoryLocator {
   } catch {
     throw Error('仓库 URL 无效')
   }
-  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash) {
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.port ||
+    url.search ||
+    url.hash
+  ) {
     throw Error('仅接受 HTTPS 公开仓库地址')
   }
-  const segments = url.pathname.split('/').filter(Boolean).map((segment) => {
+  const segments = url.pathname
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => {
     try {
       const decoded = decodeURIComponent(segment)
       if (decoded.includes('/') || decoded.includes('\\')) throw Error('仓库路径段无效')
