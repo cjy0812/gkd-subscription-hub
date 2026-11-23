@@ -383,7 +383,8 @@ async function verify(
   if (hasMalformedSubscriptionBlob(rawTree)) {
     throw new Error(`Git Tree 订阅文件条目格式无效：${repository}`)
   }
-  const files = rawTree.filter(isTreeBlob)
+  const files = rawTree
+    .filter(isTreeBlob)
     .filter((file) => /^dist\/.*\.json5?$/i.test(file.path) && file.size <= MAX_ARTIFACT_SIZE)
     .sort((a, b) => {
       const rank = (path: string) =>
