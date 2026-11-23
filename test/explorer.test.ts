@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { candidateFromSearchItem, countRules, parseSubscription, requireArrayField } from '../src/services/explorer'
+import {
+  candidateFromSearchItem,
+  countRules,
+  parseSubscription,
+  requireArrayField,
+} from '../src/services/explorer'
 
 describe('Explorer data guards', () => {
   it('accepts valid repository search results and rejects malformed items', () => {
