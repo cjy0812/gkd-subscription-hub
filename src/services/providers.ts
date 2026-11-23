@@ -431,14 +431,14 @@ export function parseRepositoryUrl(input: string): RepositoryLocator {
     .split('/')
     .filter(Boolean)
     .map((segment) => {
-    try {
-      const decoded = decodeURIComponent(segment)
-      if (decoded.includes('/') || decoded.includes('\\')) throw Error('仓库路径段无效')
-      return decoded
-    } catch {
-      throw Error('仓库路径编码无效')
-    }
-  })
+      try {
+        const decoded = decodeURIComponent(segment)
+        if (decoded.includes('/') || decoded.includes('\\')) throw Error('仓库路径段无效')
+        return decoded
+      } catch {
+        throw Error('仓库路径编码无效')
+      }
+    })
   if (url.hostname === 'gitlab.com' && segments.includes('-')) {
     throw Error('请填写 GitLab 项目根地址，不要附带 /-/tree 等页面路径')
   }
