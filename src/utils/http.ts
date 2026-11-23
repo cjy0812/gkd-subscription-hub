@@ -20,6 +20,13 @@ export function wantsHtml(req: Request) {
   if (mode === 'cors' || mode === 'no-cors' || dest === 'empty') return false
   return (req.headers.get('accept') || '').toLowerCase().includes('text/html')
 }
+export const htmlPreviewSecurityHeaders = {
+  'content-security-policy':
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self' https:; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+  'referrer-policy': 'no-referrer',
+  'x-content-type-options': 'nosniff',
+}
+
 export function documentPage(title: string, body: string, rawHref?: string) {
   const rawLink = rawHref ? `<a href="${escapeHtml(rawHref)}">查看原始文件</a>` : ''
   return `<!doctype html>
