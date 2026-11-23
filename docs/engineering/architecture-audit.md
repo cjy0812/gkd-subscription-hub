@@ -132,6 +132,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 已新增 `src/services/providers.ts`，将仓库 URL 解析、公开仓库元数据、分支列表、Commit、dist Tree、订阅源文件读取和固定版本原始文件分发抽象为 Provider Adapter。当前实现支持 GitHub、GitLab.com、Gitea.com；GitLab 嵌套 Group 路径可解析，旧项目记录缺少 provider 字段时默认按 GitHub 处理。
 
 安全与边界：
+
 - 只允许 HTTPS 和三个明确的公共主机；不接受自托管 GitLab/Gitea、自定义实例、任意 URL 或私有仓库。
 - GitLab Tree/Branches 使用 keyset Link 分页；若满页却缺少下一页链接，安全失败，不假设结果完整。
 - GitLab 原始文件按 blob SHA 读取；GitHub 按 commit SHA；Gitea Media API 使用 commit SHA，避免分支移动造成内容漂移。
@@ -139,6 +140,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 - Explorer 候选搜索仍仅使用 GitHub Search API；多 Provider Explorer 搜索尚未接入。
 
 此前确定的主动轮询优先、统一 `/hooks/notify` 可选通知加速、通知后重新拉取验证等架构决策仍待后续阶段落实。
+
 ### A-18（中）：项目列表信息层级与源码入口
 
 当前表格在“订阅源”单元格把 ID 放在仓库名上方；项目操作只有“打开订阅、刷新、删除”，没有直达上游源码仓库的独立入口。重新设计为仓库名优先、ID 作为次级元信息，并加入上游仓库链接。图标按钮须提供 Tooltip/aria-label；删除仍需确认。
