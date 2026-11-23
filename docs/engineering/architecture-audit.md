@@ -111,7 +111,6 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 修复后必须关联 PR/commit；未运行测试不得从待验证改成通过。
 
-
 ## 管理端体验反馈审计（2026-11-23）
 
 以下条目来自维护者对已部署管理端的 11 项反馈。本节把源码确认与线上待复现分开；不将未证实的根因记录为事实。
@@ -133,6 +132,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
 
 此前明确的 Provider 抽象范围：
+
 - 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
 - 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
 - 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
