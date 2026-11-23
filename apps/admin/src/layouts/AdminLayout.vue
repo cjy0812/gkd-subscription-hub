@@ -14,59 +14,21 @@ import {
 } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { clearAdminToken } from '../auth'
+import AppIcon from '../components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
 const showMobileNav = ref(false)
 
-function menuIcon(paths: string[]) {
-  return () =>
-    h(NIcon, { size: 20 }, {
-      default: () =>
-        h(
-          'svg',
-          {
-            viewBox: '0 0 24 24',
-            width: 20,
-            height: 20,
-            fill: 'none',
-            stroke: 'currentColor',
-            'stroke-width': 1.8,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-            'aria-hidden': 'true',
-          },
-          paths.map((d) => h('path', { d })),
-        ),
-    })
-}
+const menuIcon = (name: string) => () =>
+  h(NIcon, { size: 20 }, { default: () => h(AppIcon, { name, size: 20 }) })
 
 const menuOptions = [
-  {
-    label: '仪表盘',
-    key: '/dashboard',
-    icon: menuIcon(['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z']),
-  },
-  {
-    label: '订阅源管理',
-    key: '/projects',
-    icon: menuIcon(['M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z']),
-  },
-  {
-    label: '文件管理',
-    key: '/files',
-    icon: menuIcon(['M6 3h8l4 4v14H6z', 'M14 3v5h5', 'M9 12h6', 'M9 16h6']),
-  },
-  {
-    label: '运行监控',
-    key: '/monitoring',
-    icon: menuIcon(['M3 12h4l3-8 4 16 3-8h4']),
-  },
-  {
-    label: '规则发现',
-    key: '/explorer',
-    icon: menuIcon(['M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16', 'M17 17l4 4']),
-  },
+  { label: '仪表盘', key: '/dashboard', icon: menuIcon('layout-dashboard') },
+  { label: '订阅源管理', key: '/projects', icon: menuIcon('folder') },
+  { label: '文件管理', key: '/files', icon: menuIcon('file-text') },
+  { label: '运行监控', key: '/monitoring', icon: menuIcon('activity') },
+  { label: '规则发现', key: '/explorer', icon: menuIcon('search') },
 ]
 
 function navigate(path: string) {
