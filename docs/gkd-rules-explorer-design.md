@@ -140,30 +140,23 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 
 ## 维护者反馈：扫描分页、筛选与 ID 冲突（2026-11-23）
 
-### 当前实现行为（源码确认）
+### 已实现的两阶段扫描
 
-- `stepExplorer()` 每次调用最多请求一个 GitHub Search 页面（Repository Search 每页 100 条，最多 10 页；Code Search 每个查询只读取第一页）。
-- 读取该页后，当前实现立即去重并把该页候选写入 Job，再在同一 step 内最多验证 4 个候选；候选处理完后才继续下一页。
-- 所以当前执行顺序是“搜索一页 → 验证本页候选 → 搜索下一页”，不是“先收集全部候选 → 再统一验证”。
-- UI 的结果表格另有每页 20 条的展示分页；它与 Worker 的 GitHub Search 扫描分页是两件不同的事。
-- 当前搜索候选按 GitHub repository immutable ID 去重；订阅文件内的 subscription ID 没有跨仓库唯一性冲突检测。
-- UI 全文搜索把仓库字段与订阅字段拼接后做子串匹配；没有精确 ID 模式，也不显示命中字段。
+- Worker 每次 step 只读取一个 GitHub Search 页（每页最多 100 条）；所有查询和页码先完成候选收集，再进入内容验证。
+- Repository Search 与 Code Search 均最多读取 10 页/查询（每查询最多 1,000 条）；超过上限时设置 `incomplete`，UI 显示结果可能不完整。
+- 候选按 GitHub repository immutable ID 全局去重；同一仓库被多个查询命中时，在 `sourceById` 中合并来源查询。
+- 候选以每个搜索页一个 KV 批次保存，Key 为 `explorer:queue:<runId>:<batchIndex>`，7 天 TTL；Job 仅保存批次索引、候选数、游标、来源映射和状态，避免每页重写整个候选集合。
+- 所有查询收集完成后才开始内容验证；每个 step 最多验证 4 个候选，读取 Commit/Tree/订阅文件并解析 JSON5。
+- 候选批次缺失/不完整时任务进入 error，不发布部分目录；旧版 Job 状态会暂停并要求重新开始，已发布 Catalog 保留。
+- 新 Catalog 只在验证阶段结束后发布；扫描期间目录 API 始终返回上一次已发布快照。
+- UI 分别显示候选收集和内容验证进度；表格自身每页 20 条仅是展示分页，与 Worker 扫描分页无关。
 
-### 方案评估
+### 限制与风险
 
-维护者提出的“先全拉，再逐级过筛”可实现为**有界两阶段流水线**，但不能理解为不受限制地一次性下载全网数据：
-
-1. **候选收集阶段**：按查询与分页游标分批请求，保存紧凑候选元数据（repository ID、full_name、default_branch、source query 等），全局去重；本阶段不下载仓库 Tree/订阅文件。
-2. **候选验证阶段**：按小批次读取 Commit/Tree/订阅文件，检查 JSON5 与规则集合，生成已验证目录项。
-3. **目录发布阶段**：只有完整任务结束或明确策略允许部分发布时才更新已发布快照；中断、限流或失败必须保留上一个完整快照，并准确标记当前任务不完整。
-
-约束与取舍：
-
-- GitHub Search 每个查询最多 1,000 条结果；Code Search 的索引、分页与配额更严格，不能保证覆盖所有仓库。
-- Worker 单次执行有 CPU/subrequest 预算；因此两个阶段仍需按 step 继续，不是一次请求拉完。
-- 候选队列需要评估 KV 单值大小和写入成本；必要时按分片 Key 存储，而不是把全部候选无限塞进一个 KV 值。
-- 去重必须使用 GitHub repository ID；订阅 ID 是 GKD 业务标识，需单独检测冲突，不能用它替代仓库去重。
-- UI 需要分别显示“候选收集进度”和“内容验证进度”，并解释 GitHub 搜索上限/不完整标记。
+- GitHub Search 每个查询最多 1,000 条结果；Code Search 的索引和配额限制仍可能造成不完整结果。
+- 队列批次 7 天过期；若任务暂停超过 7 天再恢复，会因队列丢失而安全失败，要求重新开始，不会发布部分目录。
+- 候选收集每个 step 只发一个 Search 请求；内容验证每个 step 最多 4 个候选，避免单个 Worker 请求无限循环。
+- 当搜索命中超过 1,000 条时，当前仍会完成可读取范围并发布带 `incomplete` 标记的目录；维护者应结合 UI 警告理解覆盖范围。
 
 ### ID 233 排查与修正方向
 
@@ -175,4 +168,4 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 - 缓存目录是否残留旧数据；
 - UI 展示的 ID 是否来自正确的 subscription 对象。
 
-后续实现应增加精确订阅 ID 筛选、命中字段说明、重复 ID 冲突报告，并用固定 fixture 覆盖同 ID 多仓库、同仓库多查询、分页交界和无效订阅样本。未复现前不把它标记为已确认 Bug。
+已增加独立的订阅 ID 精确筛选（不再把 ID 混入普通模糊搜索）与跨仓库重复 ID 报告；报告仅提示冲突，不自动删除或隐藏。仍需补充搜索命中字段说明，并用真实线上样本核实 ID 233 是否属于真实重复。
