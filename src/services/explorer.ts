@@ -142,6 +142,7 @@ type Job = {
   sourceById: Record<string, string[]>
   entries: Entry[]
   verifiedCount: number
+  matchedCount: number
   seen: number[]
   startedAt: string | null
   updatedAt: string
@@ -171,6 +172,7 @@ function emptyJob(): Job {
     sourceById: {},
     entries: [],
     verifiedCount: 0,
+    matchedCount: 0,
     seen: [],
     startedAt: null,
     updatedAt: now(),
@@ -232,7 +234,8 @@ export async function explorerStatus(env: Env) {
     page: job.page,
     candidateCount: job.candidateCount,
     candidateIndex: job.candidateIndex,
-    verifiedCount: job.verifiedCount || job.entries.length,
+    verifiedCount: job.verifiedCount || job.candidateIndex,
+    matchedCount: job.matchedCount || job.entries.length,
     seenCount: job.candidateCount,
     startedAt: job.startedAt,
     updatedAt: job.updatedAt,
@@ -609,7 +612,8 @@ export async function stepExplorer(env: Env) {
       }
     }
 
-    job.verifiedCount = job.entries.length
+    job.verifiedCount = job.candidateIndex
+    job.matchedCount = job.entries.length
     if (job.status !== 'paused' && job.candidateIndex >= job.candidateCount) {
       job.status = 'complete'
       job.phase = 'complete'
