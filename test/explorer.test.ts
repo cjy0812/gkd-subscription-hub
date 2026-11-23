@@ -89,7 +89,6 @@ describe('Explorer data guards', () => {
   })
 })
 
-
 describe('strict external array fields', () => {
   it('accepts arrays and rejects missing or malformed array fields', () => {
     expect(requireArrayField({ tree: [] }, 'tree', 'Git Tree')).toEqual([])
