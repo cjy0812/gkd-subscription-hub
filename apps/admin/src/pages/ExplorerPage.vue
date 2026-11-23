@@ -18,64 +18,21 @@ import {
   NText,
 } from 'naive-ui'
 import { api } from '../api'
-
-type Subscription = {
-  id: number
-  name: string
-  version: string
-  author?: string
-  updateUrl?: string
-  checkUpdateUrl?: string
-  artifactPath: string
-  categoriesCount: number
-  appsCount: number
-  globalGroupsCount: number
-  ruleCount: number
-  customFields: Record<string, unknown>
-}
-
-type Entry = {
-  repository: Record<string, any>
-  fork: boolean
-  parent: string | null
-  subscriptions: Subscription[]
-  discoveredBy: string[]
-  verifiedAt: string
-}
-
-type QuotaResource = {
-  limit: number
-  remaining: number
-  used: number
-  reset: number
-}
-
-type Quota = {
-  core: QuotaResource
-  search: QuotaResource
-  code_search: QuotaResource
-}
-
-type Job = {
-  status: string
-  queryIndex: number
-  page: number
-  candidateIndex: number
-  candidateCount: number
-  verifiedCount: number
-  seenCount: number
-  error: string | null
-  incomplete: boolean
-  scannedPages: number
-  startedAt: string | null
-  updatedAt: string
-}
+import { getAdminToken } from '../auth'
+import type {
+  ExplorerCatalogResponse,
+  ExplorerEntry,
+  ExplorerJobStatus,
+  ExplorerQuota,
+  ExplorerQuotaResponse,
+  ExplorerStatusResponse,
+} from '../types'
 
 const message = useMessage()
-const token = sessionStorage.getItem('gkdtoken') || ''
-const entries = ref<Entry[]>([])
-const job = ref<Job | null>(null)
-const quota = ref<Quota | null>(null)
+const token = getAdminToken()
+const entries = ref<ExplorerEntry[]>([])
+const job = ref<ExplorerJobStatus | null>(null)
+const quota = ref<ExplorerQuota | null>(null)
 const loading = ref(false)
 const searching = ref('')
 const forkFilter = ref('all')
@@ -83,7 +40,7 @@ const archivedFilter = ref('all')
 const authorFilter = ref('')
 const topicFilter = ref('')
 const sortBy = ref('pushed')
-const selected = ref<Entry | null>(null)
+const selected = ref<ExplorerEntry | null>(null)
 
 const authors = computed(() =>
   [
@@ -132,7 +89,7 @@ const filtered = computed(() => {
     )
   })
 
-  const sortValue = (entry: Entry) => {
+  const sortValue = (entry: ExplorerEntry) => {
     const repository = entry.repository
     if (sortBy.value === 'stars') return Number(repository.stargazers_count || 0)
     if (sortBy.value === 'forks') return Number(repository.forks_count || 0)
@@ -152,7 +109,7 @@ const filtered = computed(() => {
   })
 })
 
-const columns: DataTableColumns<Entry> = [
+const columns: DataTableColumns<ExplorerEntry> = [
   {
     title: 'GitHub 仓库',
     key: 'repo',
@@ -213,13 +170,13 @@ async function load() {
   loading.value = true
   try {
     const [catalog, status] = await Promise.all([
-      api<{ entries: Entry[] }>('/api/explorer/catalog', token),
-      api<{ status: Job }>('/api/explorer/status', token),
+      api<ExplorerCatalogResponse>('/api/explorer/catalog', token),
+      api<ExplorerStatusResponse>('/api/explorer/status', token),
     ])
     entries.value = catalog.entries
     job.value = status.status
     try {
-      const quotaResult = await api<{ quota: Quota }>('/api/explorer/quota', token)
+      const quotaResult = await api<ExplorerQuotaResponse>('/api/explorer/quota', token)
       quota.value = quotaResult.quota
     } catch {
       quota.value = null
@@ -233,7 +190,7 @@ async function load() {
 
 async function begin() {
   try {
-    const result = await api<{ status: Job }>('/api/explorer/discover', token, {
+    const result = await api<ExplorerStatusResponse>('/api/explorer/discover', token, {
       method: 'POST',
     })
     job.value = result.status
@@ -247,7 +204,7 @@ async function advance() {
   loading.value = true
   try {
     for (let index = 0; index < 20; index++) {
-      const result = await api<{ status: Job }>('/api/explorer/discover/step', token, {
+      const result = await api<ExplorerStatusResponse>('/api/explorer/discover/step', token, {
         method: 'POST',
       })
       job.value = result.status

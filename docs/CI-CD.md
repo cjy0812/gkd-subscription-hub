@@ -5,7 +5,7 @@
 本项目使用 Cloudflare 原生 Workers Builds + Worker Previews，不再由 GitHub Actions 创建、更新或清理 Preview Worker。
 
 - 所有分支 push：GitHub Actions 执行格式检查、Lint、类型检查、测试和管理端构建。
-- PR 创建或更新：GitHub Actions 执行 CI；Cloudflare Workers Builds 自动构建该分支的 Worker Preview，并在 PR 中评论预览地址。
+- PR 创建或更新：GitHub Actions 执行 CI；来自已连接仓库分支的 PR 由 Cloudflare Workers Builds 自动构建 Worker Preview，并在 PR 中评论预览地址。来自 Fork 的 PR 不会自动获得该 Preview；需要维护者在可信分支手动部署/验证，或采用单独授权的预览流程。
 - 同一分支后续 push：Cloudflare 更新该分支现有 Preview，PR 中的稳定预览地址继续指向最新提交。
 - main push：GitHub Actions 执行 CI；Cloudflare Workers Builds 构建并部署生产 Worker。
 - PR 关闭：Cloudflare 管理 Preview 生命周期，不需要仓库工作流删除 Worker。
@@ -35,7 +35,7 @@ bun install --frozen-lockfile && bun run format:check && bun run lint && bun run
 ## Preview 数据与凭据隔离
 
 - 生产 Worker 继续绑定生产 KV：215fd3c9c2c74481bc521feadedd83e8。
-- 所有分支 Preview 绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview），不会写入生产 KV。
+- 当前 Wrangler Preview 配置绑定专用 KV：fc091077968342c1b73b22a310412947（gkd-subscription-hub-preview）。该绑定由分支中的 `previews` 配置决定，分支可以修改它，因此不是强制隔离边界；审查 PR 时必须将分支代码和配置视为不可信。
 - 不同分支 Preview 共享这一个 Preview KV，因此测试数据可能互相影响；它们与生产数据隔离，但不是 Preview 之间逐个隔离。
 - Preview 不继承生产变量和 Secrets。首次启用前，需要在 Cloudflare Worker 的 **Settings → Variables and Secrets → Previews Base** 中单独设置 ADMIN_PASSWORD。
 - 建议 Preview 的 ADMIN_PASSWORD 与生产密码不同。PR 代码可读取 Preview 自身的运行时 Secret；如复用生产密码，PR 中的代码变更可能暴露生产管理员凭据，属于明确接受的安全风险，不应视为环境隔离自动消除了该风险。
