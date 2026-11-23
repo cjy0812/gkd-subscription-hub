@@ -158,13 +158,13 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 与 A-18 同一根因：列表可打开分发订阅，但没有清晰区分并链接上游仓库源码。新增仓库链接应基于已保存的 `repoUrl` 或 Provider URL，不应从 owner/repo 字符串拼接未验证地址。
 
-### A-22（中）：Explorer 搜索与候选收集耦合
+### A-22（已修复，仍需线上运行验收）：Explorer 搜索与候选收集分阶段
 
-当前 `stepExplorer()` 每次调用最多读取一个 Search API 页面，接着验证该页候选；`VERIFY_PER_STEP=4` 限制单步验证量。Repository Search 最多遍历 10 页（每页 100），Code Search 每个查询只读第一页。维护者希望先收集候选再逐层筛选。建议评估两阶段有界流程（候选收集阶段 + 候选验证阶段），但不能承诺无界全量抓取：GitHub 搜索结果上限/索引不完整、Workers 执行预算、KV 单值限制和 GitHub 配额仍然存在。应保留可恢复游标、候选去重和不完整标记。
+`stepExplorer()` 已拆为候选收集与内容验证两个阶段。每个 step 只请求一个 Search 页面；Repository Search 与 Code Search 均最多遍历 10 页/查询（每页 100），按 GitHub repository ID 全局去重，并把每个搜索页的候选摘要写入独立 KV 批次。所有查询结束后才开始验证，每步最多验证 4 个候选。Job 只保留批次索引、游标、计数和来源映射，扫描期间 Catalog API 始终返回上一次已发布快照。候选批次缺失时任务安全失败，不发布部分目录。GitHub Search 上限/索引不完整、Workers 执行预算和 API 配额仍然存在。
 
-### A-23（待复现）：Explorer 结果中出现大量订阅 ID 233
+### A-23（部分修复，根因待复现）：Explorer 结果中出现大量订阅 ID 233
 
-`filterExplorerEntries()` 对仓库名、描述、Owner、Topic、订阅名称、作者、订阅 ID、版本和自定义字段执行合并后的子串匹配；没有独立的精确 ID 筛选。后端按 GitHub repository ID 去重，但未对不同仓库的相同 subscription ID 作显式冲突诊断。当前源码不能证明 ID 233 重复是数据真实如此、搜索词误匹配、缓存问题还是分页问题。需要取得具体搜索词、目录快照和相关仓库，核对原始 JSON5、repository.id、subscription.id、搜索命中字段及 row-key；补充精确 ID 筛选与重复 ID 冲突报告。
+普通模糊搜索已不再包含 subscription ID；新增独立精确 ID 筛选，并对不同仓库出现相同 subscription ID 的情况显示冲突提示。提示只报告数据，不隐藏或删除仓库。当前源码仍不能证明线上 ID 233 重复是实际数据冲突、缓存快照还是其他原因。需要取得具体搜索词、目录快照和相关仓库，核对原始 JSON5、repository.id、subscription.id、搜索命中字段及 row-key。
 
 ### 验收证据要求
 
