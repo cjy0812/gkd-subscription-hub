@@ -83,7 +83,7 @@ function addHeadingIds(tokens: ReturnType<typeof md.parse>) {
     const token = tokens[index]
     if (token.type !== 'heading_open') continue
     const inline = tokens[index + 1]
-    if (!inline || inline.type !== 'inline') continue
+    if (inline?.type !== 'inline') continue
 
     const headingText = inline.children?.map((child) => child.content).join('') || inline.content
     const base = `md-${slugify(headingText)}`
@@ -112,7 +112,7 @@ md.renderer.rules.heading_close = (tokens, index) => {
 
 const defaultLinkOpen =
   md.renderer.rules.link_open ||
-  ((tokens, index, options, env, self) => self.renderToken(tokens, index, options))
+  ((tokens, index, options, _env, self) => self.renderToken(tokens, index, options))
 
 md.renderer.rules.link_open = (tokens, index, options, env, self) => {
   const token = tokens[index]
@@ -134,7 +134,7 @@ md.renderer.rules.image = (tokens, index, options, env, self) => {
   return defaultImage(tokens, index, options, env, self)
 }
 
-md.renderer.rules.fence = (tokens, index, options, env, self) => {
+md.renderer.rules.fence = (tokens, index, options, _env, _self) => {
   const token = tokens[index]
   const language = token.info.trim().split(/\s+/, 1)[0]
   const highlighted = options.highlight ? options.highlight(token.content, language, '') : ''
