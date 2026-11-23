@@ -73,6 +73,28 @@ export function candidateFromSearchItem(
   return isCandidate(candidate) ? candidate : null
 }
 
+export function parseSearchCandidates(
+  rawItems: unknown[],
+  kind: (typeof SEARCH_QUERIES)[number]['kind'],
+): { items: Candidate[]; incomplete: boolean } {
+  const parsed = rawItems.map((item) => candidateFromSearchItem(item, kind))
+  return {
+    items: parsed.filter((item): item is Candidate => item !== null),
+    incomplete: parsed.some((item) => item === null),
+  }
+}
+
+export function hasMalformedSubscriptionBlob(tree: unknown[]): boolean {
+  return tree.some(
+    (item) =>
+      isRecord(item) &&
+      item.type === 'blob' &&
+      typeof item.path === 'string' &&
+      /^dist\/.*\.json5?$/i.test(item.path) &&
+      !isTreeBlob(item),
+  )
+}
+
 function isTreeBlob(value: unknown): value is GitHubTreeBlob {
   return (
     isRecord(value) &&
@@ -357,8 +379,11 @@ async function verify(
   const treeData = await github(env, `/repos/${repository}/git/trees/${treeSha}?recursive=1`)
   if (!isRecord(treeData)) throw new Error(`Git Tree 响应格式无效：${repository}`)
   if (treeData.truncated === true) throw new Error(`Git Tree 被截断：${repository}`)
-  const files = requireArrayField(treeData, 'tree', 'Git Tree')
-    .filter(isTreeBlob)
+  const rawTree = requireArrayField(treeData, 'tree', 'Git Tree')
+  if (hasMalformedSubscriptionBlob(rawTree)) {
+    throw new Error(`Git Tree 订阅文件条目格式无效：${repository}`)
+  }
+  const files = rawTree.filter(isTreeBlob)
     .filter((file) => /^dist\/.*\.json5?$/i.test(file.path) && file.size <= MAX_ARTIFACT_SIZE)
     .sort((a, b) => {
       const rank = (path: string) =>
@@ -435,11 +460,11 @@ export async function stepExplorer(env: Env) {
       )
       if (!isRecord(data)) throw new Error('GitHub Search 响应格式无效')
       const rawItems = requireArrayField(data, 'items', 'GitHub Search')
-      const items: Candidate[] = rawItems
-        .map((item) => candidateFromSearchItem(item, search.kind))
-        .filter((item): item is Candidate => item !== null)
+      const parsed = parseSearchCandidates(rawItems, search.kind)
+      const items = parsed.items
 
       const totalCount = Number(data.total_count || 0)
+      job.incomplete ||= parsed.incomplete
       job.incomplete ||= data.incomplete_results === true
       job.incomplete ||= search.kind === 'code' && totalCount > items.length
       job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && totalCount > 1000
