@@ -77,6 +77,25 @@ describe('admin API client', () => {
     expect(dispatchEvent.mock.calls[0][0]).toBeInstanceOf(Event)
   })
 
+  it('does not clear a newer session when an older request returns 401', async () => {
+    let rejectResponse: ((response: Response) => void) | undefined
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          rejectResponse = resolve
+        }),
+    )
+
+    setAdminToken('old-token')
+    const request = api('/api/projects', 'old-token')
+    setAdminToken('new-token')
+    rejectResponse?.(new Response('Unauthorized', { status: 401 }))
+
+    await expect(request).rejects.toMatchObject({ status: 401 })
+    expect(getAdminToken()).toBe('new-token')
+    expect(dispatchEvent).not.toHaveBeenCalled()
+  })
+
   it('does not clear the session for non-401 errors', async () => {
     setAdminToken('still-valid')
     fetchMock.mockResolvedValueOnce(new Response('Service unavailable', { status: 503 }))
