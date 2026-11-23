@@ -229,7 +229,7 @@ export async function explorerStatus(env: Env) {
     candidateCount: job.candidateCount,
     candidateIndex: job.candidateIndex,
     verifiedCount: job.verifiedCount || job.entries.length,
-    seenCount: job.seen.length,
+    seenCount: job.candidateCount,
     startedAt: job.startedAt,
     updatedAt: job.updatedAt,
     error: job.error,
