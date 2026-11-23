@@ -68,7 +68,7 @@ Worker 入口位于 src/index.ts：
 - 路由：src/routes/explorer.ts。
 - 业务逻辑：src/services/explorer.ts。
 - 独立使用 explorer: 前缀保存扫描 Job 和已验证目录快照。
-- 当前通过 GitHub 搜索收集候选仓库，再读取 Git Tree、检查 dist/ 下订阅文件并解析元信息；目标是由各 Provider 的搜索能力/分页能力适配器提供候选源。
+- Explorer 候选发现目前仍通过 GitHub Search；其余 Provider 的仓库注册/扫描/分发已走 Adapter，未来如需多源 Explorer，再为 GitLab/Gitea 实现各自搜索与分页能力。
 - 扫描是可恢复的批次任务；每次 step 处理有限候选，遇到配额限制可暂停。
 - Explorer 结果不会自动注册为正式订阅分发项目。
 
@@ -91,7 +91,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 
 ## 后续架构演进
 
-- 先建立 Provider Adapter 契约，再迁移 GitHub 现有实现，随后增加 GitLab 与 Gitea Adapter。
+- 扩展 GitLab CI / Gitea Actions 运行记录映射、Release/Tag 与统一通知事件；评估是否开放自托管实例和多 Provider Explorer。
 - 各 Provider 的 API DTO 和运行时校验保持在 Adapter 边界内；自托管实例需另行设计 host allowlist、认证和 SSRF 防护。
 - 评估项目索引的 KV 并发一致性需求；不要未评估就引入 Durable Objects。
 - 共享 API DTO 仅在真实重复和兼容成本证明有收益时提取。
