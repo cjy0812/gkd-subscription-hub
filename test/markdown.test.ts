@@ -40,6 +40,13 @@ describe('Markdown preview renderer', () => {
     expect(html).toContain('decoding="async"')
   })
 
+  it('keeps linked heading labels plain in the generated table of contents', () => {
+    const html = renderMarkdown('## [安装指南](https://example.com)')
+    expect(html).toContain('href="#md-安装指南"')
+    expect(html).toContain('href="https://example.com"')
+    expect(html).not.toContain('<a href="#md-安装指南"><a')
+  })
+
   it('provides a copy action for fenced code blocks', () => {
     const html = renderMarkdown('```js\nconsole.log(1)\n```')
     expect(html).toContain('class="copy-code"')
