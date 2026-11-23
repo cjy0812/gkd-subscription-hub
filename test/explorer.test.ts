@@ -131,7 +131,6 @@ describe('strict external array fields', () => {
   })
 })
 
-
 describe('two-phase Explorer discovery', () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -171,7 +170,9 @@ describe('two-phase Explorer discovery', () => {
         return new Response(JSON.stringify({ total_count: items.length, items }))
       }
       if (url.endsWith('/repos/owner/repo/commits/main')) {
-        return new Response(JSON.stringify({ sha: 'commit-1', commit: { tree: { sha: 'tree-1' } } }))
+        return new Response(
+          JSON.stringify({ sha: 'commit-1', commit: { tree: { sha: 'tree-1' } } }),
+        )
       }
       if (url.endsWith('/repos/owner/repo/git/trees/tree-1?recursive=1')) {
         return new Response(JSON.stringify({ truncated: false, tree: [] }))
@@ -194,7 +195,9 @@ describe('two-phase Explorer discovery', () => {
     expect(collected.candidateIndex).toBe(0)
     const storedJob = JSON.parse(values.get('explorer:job') || '{}')
     expect(storedJob.sourceById['42']).toHaveLength(2)
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
+    expect(
+      fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/')),
+    ).toHaveLength(0)
     expect(await explorerCatalog(env)).toEqual(published)
 
     const completed = await stepExplorer(env)
@@ -244,7 +247,9 @@ describe('two-phase Explorer discovery', () => {
       if (url.includes('/search/repositories') && url.includes('page=2')) {
         return new Response(JSON.stringify({ total_count: 101, items: [secondPage] }))
       }
-      if (url.includes('/search/')) return new Response(JSON.stringify({ total_count: 0, items: [] }))
+      if (url.includes('/search/')) {
+        return new Response(JSON.stringify({ total_count: 0, items: [] }))
+      }
       throw new Error(`Unexpected request: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
