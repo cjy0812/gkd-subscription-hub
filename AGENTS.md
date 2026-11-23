@@ -68,7 +68,7 @@ bun run build:admin
 
 - 这些是仓库根目录当前定义的质量检查脚本；若脚本或环境不可用，明确报告具体原因，不要声称验证通过。
 - format:check、lint、typecheck 必须保持职责分离；不要在格式检查中重复运行 Linter，也不要在 lint 中重复执行 Admin typecheck。
-- 格式化与基础 Lint 统一使用锁定版本的 Biome；Vue SFC 使用 Biome 2.3+ 的实验性 HTML super-language 进行 Lint，但暂不启用 Vue SFC 格式化（输出变动较大且仍属实验性）。不要另行引入 Prettier 或 ESLint，除非发现可复现的覆盖缺口并先评估方案。
+- 格式化与基础 Lint 统一使用锁定版本的 Biome；Vue SFC 使用 Biome 2.3+ 的实验性 HTML super-language 进行 Lint，但暂不启用 Vue SFC 格式化（输出变动较大且仍属实验性）；由于 CI 已观察到模板中实际使用的组件被误报为未使用，Vue SFC 单独关闭 `correctness/noUnusedImports`，其他文件仍执行该规则。不要另行引入 Prettier 或 ESLint，除非发现可复现的覆盖缺口并先评估方案。
 - Vue SFC 的类型检查继续由 vue-tsc 负责；Biome 的实验性模板 Lint 不等同于完整的 Vue 专属规则集。
 - 仅在依赖变更时更新 lockfile。
 - 新增行为应补充有意义的测试；不要为了让测试通过而篡改测试预期或删除覆盖。
