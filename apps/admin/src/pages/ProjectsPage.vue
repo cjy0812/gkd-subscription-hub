@@ -407,7 +407,7 @@ async function loadBranches() {
     branchesLoaded.value = true
     branchesTruncated.value = Boolean(result.truncated)
     if (branchesTruncated.value) {
-      message.warning('分支数量超过 1,000，仅显示前 1,000 个；请使用默认分支或稍后筛选')
+      message.warning('已达到 1,000 个分支读取上限，后续分支未继续请求')
     } else {
       message.success(`已读取 ${result.branches.length} 个分支，默认分支为 ${result.defaultBranch}`)
     }
@@ -710,7 +710,7 @@ onMounted(() => {
         />
         <n-text v-if="branchError" type="error" class="branch-error">{{ branchError }}</n-text>
         <n-text v-else-if="branchesTruncated" type="warning" class="branch-error">
-          仓库分支超过 1,000 个，当前仅展示前 1,000 个。
+          已达到 1,000 个分支读取上限，后续分支未继续请求。
         </n-text>
       </n-form-item>
       <n-form-item label="所属分组">
