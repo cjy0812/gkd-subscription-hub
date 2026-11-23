@@ -85,14 +85,15 @@ function addHeadingIds(tokens: ReturnType<typeof md.parse>) {
     const inline = tokens[index + 1]
     if (!inline || inline.type !== 'inline') continue
 
-    const base = `md-${slugify(inline.content)}`
+    const headingText = inline.children?.map((child) => child.content).join('') || inline.content
+    const base = `md-${slugify(headingText)}`
     const count = used.get(base) || 0
     used.set(base, count + 1)
     const id = count ? `${base}-${count + 1}` : base
     token.attrSet('id', id)
     headings.push({
       id,
-      label: md.renderInline(inline.content),
+      label: md.utils.escapeHtml(headingText),
       level: Number(token.tag.slice(1)) || 1,
     })
   }
