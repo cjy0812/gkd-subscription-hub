@@ -20,6 +20,7 @@ const showMobileNav = ref(false)
 const menuOptions = [
   { label: '仪表盘', key: '/dashboard' },
   { label: '订阅源管理', key: '/projects' },
+  { label: '运行监控', key: '/monitoring' },
   { label: '规则发现', key: '/explorer' },
 ]
 
