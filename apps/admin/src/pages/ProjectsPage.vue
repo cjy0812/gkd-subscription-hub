@@ -246,13 +246,13 @@ function openSubscription(id: number) {
 const columns: DataTableColumns<Project> = [
   { type: 'selection' },
   {
-    title: '订阅源',
+    title: '仓库',
     key: 'repository',
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('strong', `ID ${row.id}`),
-        h('span', `${row.owner}/${row.repo}`),
+        h('strong', `${row.owner}/${row.repo}`),
+        h('small', `订阅 ID ${row.id}`),
       ]),
   },
   { title: '分支', key: 'branch', width: 120, ellipsis: { tooltip: true } },
@@ -307,13 +307,23 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 250,
+    width: 310,
     render: (row) =>
       h(
         NSpace,
         { size: 8 },
         {
           default: () => [
+            h(
+              'a',
+              {
+                href: `https://github.com/${encodeURIComponent(row.owner)}/${encodeURIComponent(row.repo)}`,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                class: 'repo-source-link',
+              },
+              '源码',
+            ),
             h(
               NButton,
               { size: 'small', tertiary: true, disabled: batchBusy.value, onClick: () => openSubscription(row.id) },
@@ -436,7 +446,7 @@ onMounted(() => {
         <div>
           <p class="eyebrow">OVERVIEW</p>
           <h1>订阅源管理</h1>
-          <p class="muted">管理 GitHub 仓库索引，并查看订阅源分发状态。</p>
+          <p class="muted">管理已登记的订阅仓库，并查看订阅源分发状态。</p>
         </div>
         <n-space>
           <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
