@@ -76,7 +76,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it。
 
-Biome 不负责 Vue SFC 的格式化和完整语义检查；Vue SFC 由 Prettier 格式化、vue-tsc 类型检查。
+Vue SFC 通过 Biome 2.6.8 的实验性 HTML super-language 支持参与格式化与 Lint；该能力仍属实验性，不能等同于完整的 Vue 专属规则集。vue-tsc 负责 Vue SFC 类型检查。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的覆盖缺口，再单独评估补充工具。
 
 ## 项目结构
 
