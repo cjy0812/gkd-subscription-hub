@@ -121,11 +121,11 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### A-15（待复现）：桌面侧栏线上显示在右侧
 
-`AdminLayout.vue` 的 `NLayoutSider` 在 `NLayoutContent` 之前，结构上应为左侧侧栏；移动端 Drawer 也声明 `placement="left"`。维护者反馈线上菜单显示在右侧。当前不能仅凭源码确定原因。验收需记录部署 Commit、浏览器、视口宽度、页面截图，并检查 CSS direction、Naive UI 布局计算、缓存/Preview 与 Production 是否版本一致。
+`AdminLayout.vue` 已改为显式 LTR 横向布局与左侧 72px 图标轨道，移动端 Drawer 仍为左侧。维护者反馈线上菜单曾显示在右侧；本次只修正源码布局意图，真实部署仍未复现/验收。需记录部署 Commit、浏览器、视口宽度和截图，并核对缓存/Preview 与 Production 是否版本一致。
 
 ### A-16（中）：项目注册表单缺少分支发现
 
-新增项目表单使用自由文本分支；Worker 注册 API 也只接收 `branch` 字符串。建议增加受控的分支列表 API/选择器，并在仓库 URL 验证后加载默认分支和分支列表；需处理网络失败、无权限/仓库不存在和分支删除竞态。
+新增项目表单已改为显式读取分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 使用 GitHub 仓库元数据与分支 API，默认分支置顶，分页最多读取 1,000 项；加载错误显示在表单中。当前仅适配 GitHub，Provider Adapter 完成后需将分支发现纳入统一接口。
 
 ### A-17（高，方向已确定、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
 
