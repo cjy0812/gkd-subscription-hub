@@ -33,7 +33,11 @@ const message = useMessage()
 const token = ref(getAdminToken())
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
-const branchName = ref('')
+const branchName = ref<string | null>(null)
+const branchOptions = ref<Array<{ label: string; value: string }>>([])
+const branchLoading = ref(false)
+const branchesLoaded = ref(false)
+const branchError = ref('')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'normal' | 'error' | 'unknown'>('all')
 const refreshingIds = ref(new Set<number>())
@@ -43,6 +47,12 @@ const batchDeleting = ref(false)
 const batchProgress = ref({ completed: 0, total: 0 })
 const batchBusy = computed(() => batchRefreshing.value || batchDeleting.value)
 const groupName = ref('默认分组')
+watch(repositoryUrl, () => {
+  branchName.value = null
+  branchOptions.value = []
+  branchesLoaded.value = false
+  branchError.value = ''
+})
 const subscriptionDomain = ref('')
 const projectStatus = (project: Project) => {
   if (project.lastError) return 'error'
@@ -380,6 +390,28 @@ async function loadProjects() {
   }
 }
 
+async function loadBranches() {
+  const url = repositoryUrl.value.trim()
+  if (!url || branchLoading.value) return
+  branchLoading.value = true
+  branchError.value = ''
+  try {
+    const result = await api<{ defaultBranch: string; branches: string[] }>(
+      `/api/repositories/branches?url=${encodeURIComponent(url)}`,
+      token.value,
+    )
+    branchOptions.value = result.branches.map((name) => ({ label: name, value: name }))
+    branchName.value = result.defaultBranch
+    branchesLoaded.value = true
+    message.success(`已读取 ${result.branches.length} 个分支，默认分支为 ${result.defaultBranch}`)
+  } catch (error) {
+    branchError.value = error instanceof Error ? error.message : '读取分支失败'
+    message.error(branchError.value)
+  } finally {
+    branchLoading.value = false
+  }
+}
+
 async function addProject() {
   if (!repositoryUrl.value.trim()) return
   submitting.value = true
@@ -388,13 +420,13 @@ async function addProject() {
       method: 'POST',
       body: JSON.stringify({
         url: repositoryUrl.value.trim(),
-        branch: branchName.value.trim() || undefined,
+        branch: branchName.value || undefined,
         group: groupName.value.trim() || '默认分组',
       }),
     })
     projects.value = [...projects.value, result.project].sort((a, b) => a.id - b.id)
     repositoryUrl.value = ''
-    branchName.value = ''
+    branchName.value = null
     groupName.value = '默认分组'
     showAdd.value = false
     message.success(`已添加订阅 ID ${result.project.id}`)
@@ -647,16 +679,29 @@ onMounted(() => {
   </div>
   <n-modal v-model:show="showAdd" preset="card" title="添加订阅源" class="add-modal">
     <n-form @submit.prevent="addProject">
-      <n-form-item label="GitHub 仓库地址">
-        <n-input
-          v-model:value="repositoryUrl"
-          placeholder="https://github.com/owner/repo"
-          clearable
-          @keyup.enter="addProject"
-        />
+      <n-form-item label="仓库地址">
+        <n-space align="center" :wrap="false" class="repo-url-row">
+          <n-input
+            v-model:value="repositoryUrl"
+            placeholder="https://github.com/owner/repo"
+            clearable
+            @keyup.enter="loadBranches"
+          />
+          <n-button secondary :loading="branchLoading" :disabled="!repositoryUrl.trim()" @click="loadBranches">
+            读取分支
+          </n-button>
+        </n-space>
       </n-form-item>
-      <n-form-item label="分支（可选）">
-        <n-input v-model:value="branchName" placeholder="留空则使用仓库默认分支" clearable />
+      <n-form-item label="所属分支（可选）">
+        <n-select
+          v-model:value="branchName"
+          :options="branchOptions"
+          filterable
+          clearable
+          :disabled="!branchesLoaded"
+          placeholder="先读取仓库分支；留空使用默认分支"
+        />
+        <n-text v-if="branchError" type="error" class="branch-error">{{ branchError }}</n-text>
       </n-form-item>
       <n-form-item label="所属分组">
         <n-input
@@ -742,7 +787,7 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
- .repo-source-link {
+.repo-source-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -763,7 +808,7 @@ onMounted(() => {
 .status-filter {
   width: 130px;
 }
-.form-hint {
+.repo-url-row {\n  width: 100%;\n}\n.repo-url-row :deep(.n-input) {\n  flex: 1;\n  min-width: 0;\n}\n.branch-error {\n  display: block;\n  margin-top: 6px;\n}\n.form-hint {
   margin: -4px 0 18px;
   font-size: 12px;
 }
