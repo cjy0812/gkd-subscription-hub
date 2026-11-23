@@ -296,9 +296,13 @@ const gitlabAdapter: ProviderAdapter = {
     const blobs = files
       .filter((item) => item.type === 'blob')
       .filter(
-        (item) => item.path.startsWith('dist/') &&
+        (item) =>
+          item.path.startsWith('dist/') &&
           item.path.slice(5) &&
-          !item.path.slice(5).split('/').some((part) => part === '.' || part === '..'),
+          !item.path
+            .slice(5)
+            .split('/')
+            .some((part) => part === '.' || part === '..'),
       )
     return mapWithConcurrency(blobs, 8, async (item) => {
       const blob = await providerJson<{ size: number }>(
