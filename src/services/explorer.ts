@@ -25,6 +25,7 @@ type Candidate = JsonRecord & {
   fork?: boolean
   parent?: { full_name?: string } | null
   __source?: string
+  __sources?: string[]
 }
 type GitHubTreeBlob = { type: 'blob'; path: string; sha: string; size: number }
 
@@ -128,13 +129,19 @@ type Entry = {
   discoveredBy: string[]
   verifiedAt: string
 }
+type CandidateBatch = { key: string; count: number }
 type Job = {
   status: 'idle' | 'searching' | 'verifying' | 'complete' | 'paused' | 'error'
+  phase: 'collecting' | 'verifying' | 'complete'
+  runId: string
   queryIndex: number
   page: number
-  candidates: Candidate[]
+  candidateBatches: CandidateBatch[]
+  candidateCount: number
   candidateIndex: number
+  sourceById: Record<string, string[]>
   entries: Entry[]
+  verifiedCount: number
   seen: number[]
   startedAt: string | null
   updatedAt: string
@@ -151,31 +158,77 @@ async function read<T>(env: Env, name: string, fallback: T): Promise<T> {
 async function write(env: Env, name: string, value: unknown) {
   await env.STATE.put(key(name), JSON.stringify(value))
 }
-async function loadJob(env: Env): Promise<Job> {
-  return read<Job>(env, 'job', {
+function emptyJob(): Job {
+  return {
     status: 'idle',
+    phase: 'collecting',
+    runId: crypto.randomUUID(),
     queryIndex: 0,
     page: 1,
-    candidates: [],
+    candidateBatches: [],
+    candidateCount: 0,
     candidateIndex: 0,
+    sourceById: {},
     entries: [],
+    verifiedCount: 0,
     seen: [],
     startedAt: null,
     updatedAt: now(),
     error: null,
     incomplete: false,
     scannedPages: 0,
-  })
+  }
+}
+
+async function loadJob(env: Env): Promise<Job> {
+  const stored = await env.STATE.get<Partial<Job>>(key('job'), 'json')
+  if (!stored) return emptyJob()
+  if (!stored.phase || !stored.runId || !Array.isArray(stored.candidateBatches)) {
+    const legacy = emptyJob()
+    legacy.status = stored.status === 'complete' ? 'complete' : 'paused'
+    legacy.phase = stored.status === 'complete' ? 'complete' : 'collecting'
+    legacy.startedAt = stored.startedAt ?? null
+    legacy.updatedAt = stored.updatedAt ?? now()
+    legacy.error =
+      stored.status === 'complete'
+        ? null
+        : '扫描任务结构已升级。请重新开始扫描；上次已发布目录不会被覆盖。'
+    return legacy
+  }
+  return { ...emptyJob(), ...stored } as Job
+}
+
+async function writeCandidateBatch(env: Env, runId: string, index: number, candidates: Candidate[]) {
+  const batchKey = `${PREFIX}queue:${runId}:${index}`
+  await env.STATE.put(batchKey, JSON.stringify(candidates), { expirationTtl: 7 * 24 * 60 * 60 })
+  return batchKey
+}
+
+async function readCandidateAt(env: Env, job: Job, index: number, cache: Map<string, Candidate[]>) {
+  let offset = 0
+  for (const batch of job.candidateBatches) {
+    if (index < offset + batch.count) {
+      let candidates = cache.get(batch.key)
+      if (!candidates) {
+        candidates = (await env.STATE.get<Candidate[]>(batch.key, 'json')) || []
+        cache.set(batch.key, candidates)
+      }
+      return candidates[index - offset] || null
+    }
+    offset += batch.count
+  }
+  return null
 }
 export async function explorerStatus(env: Env) {
   const job = await loadJob(env)
   return {
     status: job.status,
+    phase: job.phase,
     queryIndex: job.queryIndex,
     page: job.page,
-    candidateCount: job.candidates.length,
+    candidateCount: job.candidateCount,
     candidateIndex: job.candidateIndex,
-    verifiedCount: job.entries.length,
+    verifiedCount: job.verifiedCount || job.entries.length,
     seenCount: job.seen.length,
     startedAt: job.startedAt,
     updatedAt: job.updatedAt,
