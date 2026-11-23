@@ -192,6 +192,8 @@ describe('two-phase Explorer discovery', () => {
     expect(collected.status).toBe('verifying')
     expect(collected.candidateCount).toBe(1)
     expect(collected.candidateIndex).toBe(0)
+    const storedJob = JSON.parse(values.get('explorer:job') || '{}')
+    expect(storedJob.sourceById['42']).toHaveLength(2)
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
     expect(await explorerCatalog(env)).toEqual(published)
 
