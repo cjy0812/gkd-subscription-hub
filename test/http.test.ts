@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { escapeHtml, mime, wantsHtml } from '../src/utils/http'
+import { escapeHtml, htmlPreviewSecurityHeaders, mime, wantsHtml } from '../src/utils/http'
 
 describe('HTTP helpers', () => {
   it('negotiates HTML by Accept', () => {
@@ -32,3 +32,10 @@ describe('HTTP helpers', () => {
     expect(mime('a.md')).toContain('text/markdown')
   })
 })
+  it('sets a restrictive policy for generated HTML previews', () => {
+    expect(htmlPreviewSecurityHeaders['content-security-policy']).toContain("default-src 'none'")
+    expect(htmlPreviewSecurityHeaders['content-security-policy']).toContain("frame-ancestors 'none'")
+    expect(htmlPreviewSecurityHeaders['referrer-policy']).toBe('no-referrer')
+    expect(htmlPreviewSecurityHeaders['x-content-type-options']).toBe('nosniff')
+  })
+
