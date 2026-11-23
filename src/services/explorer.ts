@@ -501,6 +501,7 @@ function compactCandidate(candidate: Candidate): Candidate {
 
 export async function stepExplorer(env: Env) {
   const job = await loadJob(env)
+  if (job.error?.startsWith('扫描任务结构已升级')) return explorerStatus(env)
   if (job.status === 'paused' || job.status === 'error') {
     job.status = job.phase === 'verifying' ? 'verifying' : 'searching'
     job.error = null
