@@ -11,6 +11,15 @@
       "semicolons": "asNeeded"
     }
   },
+  "html": {
+    "experimentalFullSupportEnabled": true,
+    "formatter": {
+      "enabled": true
+    },
+    "linter": {
+      "enabled": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -18,12 +27,21 @@
     }
   },
   "files": {
-    "includes": [
-      "**",
-      "!apps/admin/**/*.vue",
-      "!!apps/admin/dist",
-      "!!node_modules",
-      "!worker-configuration.d.ts"
-    ]
-  }
+    "includes": ["**", "!!apps/admin/dist", "!!node_modules", "!worker-configuration.d.ts"]
+  },
+  "overrides": [
+    {
+      "includes": ["apps/admin/**/*.vue"],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }
