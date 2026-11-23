@@ -20,20 +20,23 @@ export async function listBranches(env: Env, owner: string, repo: string) {
     gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100&page=1`),
   ])
   const items = [...firstPage]
-  for (let page = 2; page <= 10 && items.length % 100 === 0; page += 1) {
-    const nextPage = await gh<Array<{ name: string }>>(
+  let page = 1
+  let pageItems = firstPage
+  while (pageItems.length === 100 && page < 10) {
+    page += 1
+    pageItems = await gh<Array<{ name: string }>>(
       env,
       `${repositoryPath}/branches?per_page=100&page=${page}`,
     )
-    items.push(...nextPage)
-    if (nextPage.length < 100) break
+    items.push(...pageItems)
   }
+  const truncated = page === 10 && pageItems.length === 100
   const names = [...new Set(items.map((branch) => branch.name))]
   const branches = [
     metadata.default_branch,
     ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
   ]
-  return { defaultBranch: metadata.default_branch, branches, truncated: items.length >= 1000 }
+  return { defaultBranch: metadata.default_branch, branches, truncated }
 }
 
 export function extractId(s: string) {
