@@ -21,8 +21,8 @@ app.get('/api/repositories/branches', async (c) => {
   const url = c.req.query('url')
   if (!url) return bad('缺少仓库 URL')
   try {
-    const { owner, repo } = parseRepo(url)
-    return json({ ok: true, ...(await listBranches(c.env, owner, repo)) })
+    const repository = parseRepo(url)
+    return json({ ok: true, ...(await listBranches(c.env, repository)) })
   } catch (error) {
     return bad(error instanceof Error ? error.message : '读取分支失败', 422)
   }
