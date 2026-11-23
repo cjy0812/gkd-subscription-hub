@@ -727,9 +727,21 @@ onMounted(() => {
   display: grid;
   gap: 3px;
 }
-.repo-cell span {
+.repo-cell small {
   color: var(--color-text-secondary);
   font-size: 12px;
+}
+.repo-source-link {
+  color: var(--color-accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+.repo-source-link:hover {
+  text-decoration: underline;
+}
+.repo-source-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 .project-search {
   width: min(320px, 100%);
