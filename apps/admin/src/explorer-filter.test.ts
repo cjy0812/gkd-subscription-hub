@@ -107,10 +107,16 @@ describe('Explorer filters', () => {
   })
 
   it('searches repository and subscription metadata, including custom fields', () => {
-    expect(filterExplorerEntries(entries, { ...defaults, query: 'stable' }).map((x) => x.repository.full_name))
-      .toEqual(['zeta/project'])
-    expect(filterExplorerEntries(entries, { ...defaults, query: 'alpha' }).map((x) => x.repository.full_name))
-      .toEqual(['alpha/project'])
+    expect(
+      filterExplorerEntries(entries, { ...defaults, query: 'stable' }).map(
+        (x) => x.repository.full_name,
+      ),
+    ).toEqual(['zeta/project'])
+    expect(
+      filterExplorerEntries(entries, { ...defaults, query: 'alpha' }).map(
+        (x) => x.repository.full_name,
+      ),
+    ).toEqual(['alpha/project'])
   })
 
   it('combines fork, archived, author, and topic filters', () => {
@@ -125,19 +131,30 @@ describe('Explorer filters', () => {
   })
 
   it('sorts numeric fields descending and names ascending', () => {
-    expect(filterExplorerEntries(entries, { ...defaults, sortBy: 'stars' }).map((x) => x.repository.full_name))
-      .toEqual(['alpha/project', 'beta/project', 'zeta/project'])
-    expect(filterExplorerEntries(entries, { ...defaults, sortBy: 'rules' }).map((x) => x.repository.full_name))
-      .toEqual(['beta/project', 'zeta/project', 'alpha/project'])
-    expect(filterExplorerEntries(entries, { ...defaults, sortBy: 'name' }).map((x) => x.repository.full_name))
-      .toEqual(['alpha/project', 'beta/project', 'zeta/project'])
+    expect(
+      filterExplorerEntries(entries, { ...defaults, sortBy: 'stars' }).map(
+        (x) => x.repository.full_name,
+      ),
+    ).toEqual(['alpha/project', 'beta/project', 'zeta/project'])
+    expect(
+      filterExplorerEntries(entries, { ...defaults, sortBy: 'rules' }).map(
+        (x) => x.repository.full_name,
+      ),
+    ).toEqual(['beta/project', 'zeta/project', 'alpha/project'])
+    expect(
+      filterExplorerEntries(entries, { ...defaults, sortBy: 'name' }).map(
+        (x) => x.repository.full_name,
+      ),
+    ).toEqual(['alpha/project', 'beta/project', 'zeta/project'])
   })
 
   it('sorts by most recently pushed with updatedAt fallback', () => {
     const withMissingPush = entry('omega/project', { pushedAt: '' })
     withMissingPush.repository.updated_at = '2026-01-04T00:00:00Z'
     expect(
-      filterExplorerEntries([...entries, withMissingPush], defaults).map((x) => x.repository.full_name),
+      filterExplorerEntries([...entries, withMissingPush], defaults).map(
+        (x) => x.repository.full_name,
+      ),
     ).toEqual(['omega/project', 'zeta/project', 'alpha/project', 'beta/project'])
   })
 })
