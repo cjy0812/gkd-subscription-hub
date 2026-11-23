@@ -96,3 +96,8 @@ bun run build:admin
 - 未经明确要求，不擅自提交 PR、合并分支或执行破坏性数据操作。
 - 提交信息使用简洁、描述性前缀，例如 `feat(admin): ...`、`fix(worker): ...`、`docs: ...`。
 - 完成后总结：改动内容、关键设计选择、执行过的验证、未验证事项和已知风险。
+
+
+## 管理端 UI 设计约束
+
+修改 `apps/admin/**` 的页面、组件或样式前，必须阅读 `docs/engineering/admin-ui-design-guidelines.md`。遵循其中基于 Addy Osmani `frontend-ui-engineering` 与 Vercel `web-design-guidelines` 的可访问性、响应式、组件边界和设计 Tokens 规则；不要引入第二套 UI framework。UI 变更必须记录真实浏览器验收视口与结果，CI 通过不能替代浏览器验收。
