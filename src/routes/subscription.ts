@@ -3,7 +3,14 @@ import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
 import { renderJson5Preview } from '../utils/json5-preview'
 import { renderMarkdown } from '../utils/markdown'
-import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
+import {
+  bad,
+  documentPage,
+  escapeHtml,
+  htmlPreviewSecurityHeaders,
+  mime,
+  wantsHtml,
+} from '../utils/http'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -40,7 +47,11 @@ app.all('*', async (c) => {
   }
   if (!path)
     return new Response(directory(p), {
-      headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store' },
+      headers: {
+        'content-type': 'text/html;charset=utf-8',
+        'cache-control': 'no-store',
+        ...htmlPreviewSecurityHeaders,
+      },
     })
   if (
     path.split('/').some((x) => !x || x === '.' || x === '..' || x.startsWith('.')) ||
@@ -80,7 +91,7 @@ app.all('*', async (c) => {
           'content-type': 'text/html;charset=utf-8',
           'cache-control': 'public,max-age=60',
           vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
-          'x-content-type-options': 'nosniff',
+          ...htmlPreviewSecurityHeaders,
         },
       })
     return req.method === 'HEAD'
