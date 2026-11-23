@@ -2,7 +2,9 @@ import { save } from '../storage/projects'
 import type { Env, Prediction, Project, WorkflowRun } from '../types'
 import { gh } from './github'
 import { scan } from './scanner'
+import { parseRepositoryUrl } from './providers'
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
+  if (p.provider && p.provider !== 'github') return []
   const groups = await Promise.all(
     p.workflows
       .filter((w) => w.relevant)
@@ -62,7 +64,7 @@ export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
   }
 }
 export async function refresh(e: Env, p: Project) {
-  const fresh = await scan(e, p.owner, p.repo, p.branch)
+  const fresh = await scan(e, parseRepositoryUrl(p.repoUrl), p.branch)
   const lastRuns = await runs(e, fresh)
   const now = Date.now()
   const next = {
