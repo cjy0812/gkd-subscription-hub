@@ -48,5 +48,4 @@ describe('scanner helpers', () => {
     expect(result.truncated).toBe(false)
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
-
 })
