@@ -59,6 +59,15 @@ describe('provider CI monitoring', () => {
             web_url: 'https://gitlab.com/group/project/-/pipelines/902',
             sha: 'def456',
           },
+          {
+            id: 903,
+            status: 'waiting_for_callback',
+            source: 'web',
+            created_at: '2026-11-22T12:00:00.000Z',
+            updated_at: '2026-11-22T12:01:00.000Z',
+            web_url: 'https://gitlab.com/group/project/-/pipelines/903',
+            sha: 'ghi789',
+          },
         ]),
       ),
     )
