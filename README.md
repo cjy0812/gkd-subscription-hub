@@ -78,7 +78,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - **前端**：Vue 3、Vite、Naive UI、Vue Router。当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
 - **后端**：Cloudflare Workers、Hono、KV。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
-- **内容处理**：markdown-it。
+- **内容处理**：markdown-it（安全 Markdown 渲染）+ highlight.js（按需语言子集代码高亮）。
 
 Vue SFC 使用 Biome 2.6.8 的实验性 HTML super-language 进行 Lint，并由 vue-tsc 负责模板/脚本类型检查；CI 已观察到 `noUnusedImports` 对模板中实际使用的组件产生误报，因此仅对 Vue SFC 关闭该规则。由于格式化器仍属实验性且可能造成较大模板格式变动，当前明确关闭 Vue SFC 格式化。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的质量缺口，再单独评估补充工具。
 
