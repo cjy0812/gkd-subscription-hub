@@ -47,9 +47,14 @@ async function gitlabRuns(p: Project): Promise<WorkflowRun[]> {
                 : null
       const status = conclusion
         ? 'completed'
-        : ['created', 'waiting_for_resource', 'preparing', 'pending', 'manual', 'scheduled'].includes(
-              pipeline.status,
-            )
+        : [
+            'created',
+            'waiting_for_resource',
+            'preparing',
+            'pending',
+            'manual',
+            'scheduled',
+          ].includes(pipeline.status)
           ? 'queued'
           : 'in_progress'
       return {
