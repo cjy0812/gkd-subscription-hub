@@ -5,10 +5,14 @@ export const json = (data: unknown, status = 200) =>
   })
 export const bad = (message: string, status = 400) => json({ ok: false, error: message }, status)
 export function escapeHtml(s: string) {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }
+  return s.replace(/[&<>"']/g, (character) => entities[character] ?? character)
 }
 export function wantsHtml(req: Request) {
   const url = new URL(req.url)
