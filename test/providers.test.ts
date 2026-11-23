@@ -53,6 +53,33 @@ describe('repository provider adapters', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('reads GitLab dist file sizes from blob metadata', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/repository/tree?')) {
+        return new Response(
+          JSON.stringify([
+            { id: 'blob-a', path: 'dist/gkd.json5', type: 'blob' },
+            { id: 'tree-a', path: 'dist/nested', type: 'tree' },
+          ]),
+        )
+      }
+      if (url.endsWith('/repository/blobs/blob-a')) {
+        return new Response(JSON.stringify({ size: 1234 }))
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const locator = parseRepositoryUrl('https://gitlab.com/group/subgroup/project')
+    const result = await getProviderAdapter('gitlab').listDistFiles(
+      {} as Env,
+      locator,
+      'commit-sha',
+    )
+    expect(result).toEqual([{ path: 'gkd.json5', sha: 'blob-a', size: 1234 }])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('uses the GitLab immutable blob endpoint for subscription delivery', () => {
     const url = getProviderAdapter('gitlab').rawFileUrl(
       {
