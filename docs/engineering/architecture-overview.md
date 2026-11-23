@@ -15,6 +15,8 @@
 Worker 入口位于 src/index.ts：
 
 - GET /：302 重定向到 /admin/。
+- GET /gkd.json5：兼容旧订阅入口，代理旧订阅内容。
+- /admin：重定向到 /admin/。
 - /admin/api/*：去掉 /admin 前缀后交给 Hono Admin Router；API 路由通过 auth middleware。
 - 其他 /admin/*：交给 Worker Static Assets，Vue Router 处理 SPA 页面。
 - POST /hooks/notify：验证 NOTIFY_TOKEN、校验仓库格式、确认仓库已登记、检查 KV 冷却键，再用 waitUntil 异步刷新。
