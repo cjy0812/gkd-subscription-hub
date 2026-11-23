@@ -359,5 +359,4 @@ describe('two-phase Explorer discovery', () => {
     expect(restarted.phase).toBe('collecting')
     expect(restarted.queryIndex).toBe(0)
   })
-
 })
