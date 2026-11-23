@@ -5,6 +5,7 @@ import {
   NCard,
   NDataTable,
   NEmpty,
+  NInput,
   NSelect,
   NSpace,
   NSpin,
