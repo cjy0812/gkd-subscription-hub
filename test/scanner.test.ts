@@ -102,9 +102,7 @@ describe('scanner helpers', () => {
         return new Response(JSON.stringify({ commit: { id: 'commit-sha' } }))
       }
       if (url.includes('/repository/files/src%2Fsubscription.ts')) {
-        return new Response(
-          JSON.stringify({ content: btoa(source), encoding: 'base64' }),
-        )
+        return new Response(JSON.stringify({ content: btoa(source), encoding: 'base64' }))
       }
       if (url.includes('/repository/tree?')) {
         return new Response(
@@ -123,10 +121,7 @@ describe('scanner helpers', () => {
       )
     })
     vi.stubGlobal('fetch', fetchMock)
-    const project = await scan(
-      {} as Env,
-      parseRepo('https://gitlab.com/group/subgroup/project'),
-    )
+    const project = await scan({} as Env, parseRepo('https://gitlab.com/group/subgroup/project'))
     expect(project.provider).toBe('gitlab')
     expect(project.providerId).toBe('123')
     expect(project.owner).toBe('group/subgroup')
