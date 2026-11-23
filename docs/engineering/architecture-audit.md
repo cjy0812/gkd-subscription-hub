@@ -125,7 +125,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### A-16（中）：项目注册表单缺少分支发现
 
-新增项目表单已改为显式读取分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 使用 GitHub 仓库元数据与分支 API，默认分支置顶，分页最多读取 1,000 项；加载错误显示在表单中。当前仅适配 GitHub，Provider Adapter 完成后需将分支发现纳入统一接口。
+新增项目表单已改为显式读取 Provider 分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 经 Provider Adapter 读取 GitHub/GitLab.com/Gitea.com 分支，默认分支置顶；分页达到上限会明确标记截断，加载错误显示在表单中。自托管实例尚未开放。
 
 ### A-17（部分完成）：GitHub / GitLab.com / Gitea.com Provider Adapter
 
