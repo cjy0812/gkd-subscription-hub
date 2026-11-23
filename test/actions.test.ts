@@ -39,7 +39,7 @@ describe('provider CI monitoring', () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL) =>
         new Response(
-        JSON.stringify([
+          JSON.stringify([
           {
             id: 901,
             status: 'success',
@@ -92,9 +92,10 @@ describe('provider CI monitoring', () => {
   })
 
   it('maps Gitea Actions workflow runs into the shared workflow run model', async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
-      new Response(
-        JSON.stringify({
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify({
           workflow_runs: [
             {
               id: 701,
