@@ -22,7 +22,7 @@ export async function digest(files: DistFile[]) {
   const source = files
     .slice()
     .sort((a, b) => a.path.localeCompare(b.path))
-    .map((file) => file.path + '\0' + file.sha + '\0' + file.size)
+    .map((file) => `${file.path}\0${file.sha}\0${file.size}`)
     .join('\n')
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source))
   return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('')
@@ -62,7 +62,7 @@ async function githubWorkflows(
           path: workflow.path,
           cron,
           relevant: /dist|subscription|release|publish|deploy|build/i.test(
-            workflow.name + ' ' + workflow.path + ' ' + yaml,
+            `${workflow.name} ${workflow.path} ${yaml}`,
           ),
         }
       }),
