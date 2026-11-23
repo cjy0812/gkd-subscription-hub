@@ -7,7 +7,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
 - 自动索引 `dist/` 的递归文件树；根路径显示目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- 浏览器请求访问 Markdown 时使用 markdown-it 渲染；访问 JSON5 时显示代码预览。
+- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
