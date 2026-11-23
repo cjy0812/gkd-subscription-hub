@@ -31,7 +31,7 @@ export function buildMonitoringOverview(
   const allRuns = projects.flatMap((project) =>
     project.lastRuns.map((run) => ({
       ...run,
-      key: `${project.id}:${run.workflowId}:${run.head_sha}:${run.updated_at}`,
+      key: `${project.id}:${run.html_url}`,
       projectId: project.id,
       owner: project.owner,
       repo: project.repo,
