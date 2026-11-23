@@ -2,18 +2,30 @@ import { save } from '../storage/projects'
 import type { Env, Prediction, Project, WorkflowRun } from '../types'
 import { gh } from './github'
 import { scan } from './scanner'
+import { parseRepositoryUrl } from './providers'
+type GitHubWorkflowRun = {
+  event: string
+  status: string
+  conclusion: string | null
+  created_at: string
+  updated_at: string
+  html_url: string
+  head_sha: string
+}
+
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
+  if (p.provider && p.provider !== 'github') return []
   const groups = await Promise.all(
     p.workflows
       .filter((w) => w.relevant)
       .slice(0, 6)
       .map(async (w) => {
         try {
-          const d = await gh<any>(
+          const d = await gh<{ workflow_runs: GitHubWorkflowRun[] }>(
             e,
-            `/repos/${p.owner}/${p.repo}/actions/workflows/${w.id}/runs?per_page=10`,
+            `/repos/${encodeURIComponent(p.owner)}/${encodeURIComponent(p.repo)}/actions/workflows/${w.id}/runs?per_page=10`,
           )
-          return d.workflow_runs.map((r: any) => ({
+          return d.workflow_runs.map((r) => ({
             workflowId: w.id,
             workflowName: w.name,
             event: r.event,
@@ -62,7 +74,7 @@ export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
   }
 }
 export async function refresh(e: Env, p: Project) {
-  const fresh = await scan(e, p.owner, p.repo, p.branch)
+  const fresh = await scan(e, parseRepositoryUrl(p.repoUrl), p.branch)
   const lastRuns = await runs(e, fresh)
   const now = Date.now()
   const next = {

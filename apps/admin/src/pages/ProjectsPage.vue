@@ -265,7 +265,10 @@ const columns: DataTableColumns<Project> = [
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
         h('strong', `${row.owner}/${row.repo}`),
-        h('small', `订阅 ID ${row.id}`),
+        h(
+          'small',
+          `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
+        ),
       ]),
   },
   { title: '分支', key: 'branch', width: 120, ellipsis: { tooltip: true } },
@@ -330,7 +333,7 @@ const columns: DataTableColumns<Project> = [
             h(
               'a',
               {
-                href: `https://github.com/${encodeURIComponent(row.owner)}/${encodeURIComponent(row.repo)}`,
+                href: row.repoUrl,
                 target: '_blank',
                 rel: 'noopener noreferrer',
                 class: 'repo-source-link',
@@ -486,7 +489,7 @@ onMounted(() => {
         <div>
           <p class="eyebrow">OVERVIEW</p>
           <h1>订阅源管理</h1>
-          <p class="muted">管理已登记的订阅仓库，并查看订阅源分发状态。</p>
+          <p class="muted">支持 GitHub、GitLab.com 和 Gitea.com 公开仓库；管理已登记的订阅源与分发状态。</p>
         </div>
         <n-space>
           <n-button type="primary" @click="showAdd = true">
@@ -690,7 +693,7 @@ onMounted(() => {
         <n-space align="center" :wrap="false" class="repo-url-row">
           <n-input
             v-model:value="repositoryUrl"
-            placeholder="https://github.com/owner/repo"
+            placeholder="GitHub / GitLab / Gitea 仓库 URL"
             clearable
             @keyup.enter="loadBranches"
           />

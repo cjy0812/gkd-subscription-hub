@@ -1,6 +1,6 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `dist/`，按订阅 ID 分配统一路径，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter 扫描 GitHub、GitLab.com、Gitea.com 公开仓库的 `dist/`，按订阅 ID 分配统一路径，提供管理 API、目录页、原始文件分发和浏览器预览。
 
 ## 功能
 
@@ -9,12 +9,12 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
 - 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
 - `?raw=1` 强制原始内容。
-- 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
+- GitHub 项目读取 Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间；GitLab CI / Gitea Actions 运行监控尚未接入。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
 - Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。
 - GKD Rules Explorer 采用两阶段扫描：先收集 GitHub 搜索候选并按仓库 ID 去重，再分批验证 Commit、Tree 和 JSON5 订阅文件；扫描期间保留上次已发布目录。支持 Fork 来源、订阅元信息、自定义字段、模糊搜索、订阅 ID 精确筛选、跨仓库重复 ID 提示和排序。
 - 管理端提供订阅地址快捷入口、最近检查时间、预测检查时间和错误状态展示。
-- 项目元数据目前保存在独立 KV，订阅文件按需从 GitHub raw 获取。
+- 项目元数据保存在独立 KV；订阅文件通过 Provider 的固定版本地址按需读取（GitHub commit SHA、GitLab blob SHA、Gitea commit SHA）。
 
 ## 管理端功能
 
@@ -23,11 +23,11 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 管理员密码登录与退出；登录页独立于业务页面，认证信息保存在当前浏览器会话的 `sessionStorage`。
 - 订阅管理、仪表盘和 Explorer 共用 AdminLayout；桌面端采用左侧图标导航，悬停显示菜单名称，移动端使用抽屉导航；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
-- 运行监控页聚合项目最近一次刷新时保存的 GitHub Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；该页面读取 KV 快照，不会自动轮询 GitHub。
+- 运行监控页聚合 GitHub 项目最近一次刷新时保存的 Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；GitLab/Gitea 暂无 CI 运行记录；页面读取 KV 快照，不会自动轮询上游。
 - 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
-- 新增订阅源时可读取 GitHub 仓库分支列表并通过下拉框选择；默认分支置顶，留空时使用仓库默认分支。
+- 新增订阅源支持 GitHub、GitLab.com、Gitea.com 公开仓库；可读取对应平台分支列表并通过下拉框选择，默认分支置顶。
 - 手动刷新单个订阅源，并查看最近检查错误。
 - 打开项目目录中的 `gkd.json5` 订阅文件，或删除项目元数据。
 
@@ -63,6 +63,8 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/gkd.json5`
 
 其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。
+
+代码仓库来源目前仅支持 `github.com`、`gitlab.com` 和 `gitea.com` 的公开 HTTPS URL；GitLab 支持嵌套 Group 路径。自托管 GitLab/Gitea、私有仓库和自定义 Provider 主机暂不支持。
 
 ### 临时旧地址
 
@@ -112,7 +114,7 @@ wrangler.jsonc
 
 - Bun 1.4.5（与 packageManager 和 CI 锁定版本一致）
 - Cloudflare 账号（初次部署使用 workers.dev，不要求自定义域名）
-- GitHub 公开仓库
+- GitHub、GitLab.com、Gitea.com 公开仓库
 
 ### 1. 安装依赖
 
@@ -174,17 +176,19 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
 
-`https://github.com/<owner>/<repository>`。
+- GitHub：`https://github.com/<owner>/<repository>`
+- GitLab：`https://gitlab.com/<group>/<subgroup>/<project>`
+- Gitea：`https://gitea.com/<owner>/<repository>`
 
-服务将提取 ID、检查分支、dist 文件树和 Actions 工作流。相同 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：`https://gkd.example.com/<id>/gkd.json5`。不要使用目录页 URL。
+服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：`https://gkd.example.com/<id>/gkd.json5`。不要使用目录页 URL。
 
 ## 管理 API
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
 - `GET /admin/api/projects`：项目列表。
-- `GET /admin/api/repositories/branches?url=<repo-url>`：读取公开仓库默认分支与分支列表。
-- `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://github.com/owner/repo"}`。
+- `GET /admin/api/repositories/branches?url=<repo-url>`：读取受支持 Provider 的默认分支与分支列表。
+- `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://gitlab.com/group/project"}`。
 - `POST /admin/api/projects/:id/refresh`：立即刷新。
 - `DELETE /admin/api/projects/:id`：删除项目元数据。
 
@@ -208,11 +212,11 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 更新预测的边界
 
-目前 cron 字段用于识别和展示工作流调度配置；预测间隔主要依据最近成功的 workflow run 完成时间中位数，不是完整 cron 语法解释器。排队延迟、手动触发、取消运行和 GitHub 服务延迟都会影响预测。预测时间不等于上游内容发布时间保证。
+目前 GitHub Actions 的 cron 字段用于识别和展示工作流调度配置；预测间隔主要依据最近成功的 workflow run 完成时间中位数，不是完整 cron 语法解释器。GitLab CI 与 Gitea Actions 尚未映射到统一运行模型。排队延迟、手动触发、取消运行和 GitHub 服务延迟都会影响预测。预测时间不等于上游内容发布时间保证。
 
 ## 安全与数据
 
-KV 保存项目索引和元数据；订阅文件从公开 GitHub raw 按需读取。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；通知只接受已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
+KV 保存项目索引和元数据；订阅文件按 Provider 固定版本读取，当前支持 GitHub、GitLab.com、Gitea.com 公开仓库。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；当前通知入口仍仅识别已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。GitLab/Gitea Webhook 接入尚未实现。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
 
 ## 工程与贡献
 
