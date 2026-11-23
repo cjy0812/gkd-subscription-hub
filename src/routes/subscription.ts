@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
+import { renderJson5Preview } from '../utils/json5-preview'
 import { renderMarkdown } from '../utils/markdown'
 import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
 
@@ -73,11 +74,7 @@ app.all('*', async (c) => {
     const text = await r.text(),
       body = path.toLowerCase().endsWith('.md')
         ? renderMarkdown(text)
-        : '<h1>' +
-          escapeHtml(path) +
-          '</h1><pre><code>' +
-          escapeHtml(text) +
-          '</code></pre>',
+        : renderJson5Preview(text, path),
       out = new Response(documentPage(path, body, '?raw=1'), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
