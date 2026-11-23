@@ -7,9 +7,9 @@
 - **Cloudflare Worker**：统一 HTTP 入口，承载管理 API、订阅分发、Webhook 和 Cron。
 - **Admin SPA**：Vue 3 + Vite + Naive UI，通过 Worker Static Assets 托管在 /admin/。
 - **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照和 Webhook 冷却键。
-- **代码托管 Provider**：目标架构为 GitHub、GitLab、Gitea Adapter；当前代码仍只实现 GitHub API/Raw。
-- **版本与文件读取**：统一抽象仓库、默认分支、Ref/Commit/Tree、Release/Tag 和文件内容；每个平台的 API、Raw URL、认证、分页和限流由 Adapter 处理。
-- **CI 状态**：统一展示模型，但 GitHub Actions、GitLab CI、Gitea Actions 能力不假定完全等价。
+- **代码托管 Provider**：当前通过 `src/services/providers.ts` 支持 GitHub、GitLab.com、Gitea.com 的公开仓库 Adapter；自托管实例尚未开放。
+- **版本与文件读取**：统一抽象仓库、默认分支、Commit、Tree、分支列表和文件内容；固定版本文件分发由 Adapter 生成 URL。Release/Tag 和通知事件的统一抽象仍待后续阶段。
+- **CI 状态**：当前工作流扫描与运行记录仅支持 GitHub Actions；GitLab CI / Gitea Actions 尚未接入。
 
 ## 请求入口分流
 
@@ -47,10 +47,10 @@ Worker 入口位于 src/index.ts：
 ### 注册/刷新
 
 1. Admin 调用项目注册或刷新 API。
-2. 当前实现由 src/services/scanner.ts 直接读取 GitHub 仓库元数据、默认分支或指定分支、Git Ref、Commit 和递归 Git Tree；目标架构应改由 Provider Adapter 提供等价的统一能力。
+2. `parseRepositoryUrl()` 识别 GitHub、GitLab.com、Gitea.com；`scanner.ts` 通过 Provider Adapter 读取仓库元数据、默认/指定分支、Commit、Tree 和订阅源文件。
 3. 从 src/subscription.ts 提取订阅 ID；扫描 dist/ 文件列表，拒绝被截断的 Git Tree 和无效路径。
 4. 对 dist 文件路径、SHA 和大小排序后计算摘要。
-5. 当前仅读取 GitHub Actions workflow，提取 cron 字段并标记可能相关的工作流；其他 Provider 需要各自的 CI Adapter。
+5. 仅 GitHub Adapter 读取 Actions workflow 并提取 cron；GitLab/Gitea 项目暂时没有 CI 运行记录。
 6. src/services/actions.ts 读取最近 workflow runs，根据成功运行时间间隔中位数预测下一次检查时间。
 7. src/storage/projects.ts 保存项目元数据。
 
@@ -59,7 +59,7 @@ Worker 入口位于 src/index.ts：
 1. 请求 /{id}/...，从 KV 读取 project:{id}。
 2. 根路径展示当前已索引的 dist 文件目录。
 3. 文件路径必须通过路径校验，并且存在于项目 distFiles 索引中。
-4. 新登记项目的上游 URL 使用 Provider Adapter 生成的固定 commit SHA 文件引用；不得假设所有平台均使用 GitHub Raw URL。
+4. 新登记项目的上游文件 URL 由 Provider Adapter 生成：GitHub 按 commit SHA、GitLab 按 blob SHA、Gitea Media API 按 commit SHA；不在分发路由硬编码 GitHub Raw。
 5. 非浏览器请求获取原始内容；浏览器可将 Markdown 渲染为 HTML，或预览 JSON5。
 6. 目录页和预览页不代表上游仓库实时状态；固定 SHA 路径依赖对应 Provider 的文件读取能力，历史分支回退路径可能随分支更新而变化。
 
@@ -92,7 +92,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 ## 后续架构演进
 
 - 先建立 Provider Adapter 契约，再迁移 GitHub 现有实现，随后增加 GitLab 与 Gitea Adapter。
-- 各 Provider 的 API DTO 和运行时校验保持在 Adapter 边界内。
+- 各 Provider 的 API DTO 和运行时校验保持在 Adapter 边界内；自托管实例需另行设计 host allowlist、认证和 SSRF 防护。
 - 评估项目索引的 KV 并发一致性需求；不要未评估就引入 Durable Objects。
 - 共享 API DTO 仅在真实重复和兼容成本证明有收益时提取。
 - 管理端页面按复杂度逐步拆分，不按目录模板机械搬迁。
