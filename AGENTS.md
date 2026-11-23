@@ -6,7 +6,7 @@
 
 - 这是 GKD 订阅索引与分发服务，运行于 Cloudflare Workers。
 - Worker 使用 Hono；状态与项目元数据保存在 Cloudflare KV。
-- 管理端位于 `apps/admin`，使用 Vue 3、TypeScript、Vite、Naive UI 和 Vue Router；Pinia 已安装/初始化，是否保留待审计。
+- 管理端位于 `apps/admin`，使用 Vue 3、TypeScript、Vite、Naive UI 和 Vue Router；当前不引入 Pinia，跨页面共享状态由明确的模块边界和 Vue 原生响应式能力承担。
 - 包管理器固定为 Bun，版本以根目录 `package.json` 的 `packageManager` 和 CI 配置为准。
 - 上游 GitHub 仓库是数据源；本项目只扫描和分发，不应擅自向上游仓库写入内容。
 
