@@ -204,4 +204,64 @@ describe('two-phase Explorer discovery', () => {
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(1)
     expect(await explorerCatalog(env)).toEqual([])
   })
+
+  it('continues collecting later pages without verifying earlier pages', async () => {
+    const values = new Map<string, string>()
+    const state = {
+      async get(key: string, type?: string) {
+        const value = values.get(key)
+        if (value === undefined) return null
+        return type === 'json' ? JSON.parse(value) : value
+      },
+      async put(key: string, value: string) {
+        values.set(key, value)
+      },
+      async delete(key: string) {
+        values.delete(key)
+      },
+    }
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      id: index + 1,
+      full_name: `owner/repo-${index + 1}`,
+      default_branch: 'main',
+      private: false,
+      visibility: 'public',
+      fork: false,
+    }))
+    const secondPage = {
+      id: 101,
+      full_name: 'owner/repo-101',
+      default_branch: 'main',
+      private: false,
+      visibility: 'public',
+      fork: false,
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/search/repositories') && url.includes('page=1')) {
+        return new Response(JSON.stringify({ total_count: 101, items: firstPage }))
+      }
+      if (url.includes('/search/repositories') && url.includes('page=2')) {
+        return new Response(JSON.stringify({ total_count: 101, items: [secondPage] }))
+      }
+      if (url.includes('/search/')) return new Response(JSON.stringify({ total_count: 0, items: [] }))
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const env = { STATE: state } as unknown as Env
+
+    await startExplorer(env)
+    const first = await stepExplorer(env)
+    expect(first.phase).toBe('collecting')
+    expect(first.queryIndex).toBe(0)
+    expect(first.page).toBe(2)
+    expect(first.candidateCount).toBe(100)
+
+    const second = await stepExplorer(env)
+    expect(second.phase).toBe('collecting')
+    expect(second.queryIndex).toBe(1)
+    expect(second.candidateCount).toBe(101)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
+  })
+
 })
