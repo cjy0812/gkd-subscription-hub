@@ -1,0 +1,418 @@
+import type { DistFile, Env, ProjectProvider } from '../types'
+import { decode, gh } from './github'
+
+export interface RepositoryLocator {
+  provider: ProjectProvider
+  host: string
+  namespace: string
+  repo: string
+  fullPath: string
+}
+
+export interface ProviderRepository {
+  id: string
+  fullName: string
+  owner: string
+  repo: string
+  htmlUrl: string
+  defaultBranch: string
+  isPrivate: boolean
+  archived: boolean
+  fork: boolean
+  parentFullName: string | null
+}
+
+export interface BranchList {
+  defaultBranch: string
+  branches: string[]
+  truncated: boolean
+}
+
+export interface ProviderAdapter {
+  kind: ProjectProvider
+  parse(host: string, segments: string[]): RepositoryLocator | null
+  getRepository(env: Env, locator: RepositoryLocator): Promise<ProviderRepository>
+  listBranches(env: Env, locator: RepositoryLocator): Promise<BranchList>
+  getCommit(env: Env, locator: RepositoryLocator, branch: string): Promise<string>
+  listDistFiles(env: Env, locator: RepositoryLocator, commitSha: string): Promise<DistFile[]>
+  readFile(env: Env, locator: RepositoryLocator, path: string, ref: string): Promise<string>
+  rawFileUrl(project: ProjectSource, file: DistFile): string
+}
+
+export interface ProjectSource {
+  provider?: ProjectProvider
+  owner: string
+  repo: string
+  repositoryPath?: string
+  providerId?: string
+  commitSha?: string
+  branch: string
+}
+
+const MAX_PAGES = 10
+const PAGE_SIZE = 100
+
+function parsePath(host: string, segments: string[], provider: ProjectProvider, minimum: number) {
+  if (host !== (provider === 'github' ? 'github.com' : provider === 'gitlab' ? 'gitlab.com' : 'gitea.com')) {
+    return null
+  }
+  if (segments.length < minimum || segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+    return null
+  }
+  const repo = segments.at(-1)!.replace(/\.git$/i, '')
+  const namespace = segments.slice(0, -1).join('/')
+  if (!namespace || !repo) return null
+  return { provider, host, namespace, repo, fullPath: `${namespace}/${repo}` }
+}
+
+const githubAdapter: ProviderAdapter = {
+  kind: 'github',
+  parse: (host, segments) => (segments.length === 2 ? parsePath(host, segments, 'github', 2) : null),
+  async getRepository(env, locator) {
+    const data = await gh<{
+      id: number
+      full_name: string
+      html_url: string
+      default_branch: string
+      private: boolean
+      archived: boolean
+      fork: boolean
+      parent?: { full_name?: string } | null
+    }>(env, `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`)
+    return {
+      id: String(data.id),
+      fullName: data.full_name,
+      owner: locator.namespace,
+      repo: locator.repo,
+      htmlUrl: data.html_url,
+      defaultBranch: data.default_branch,
+      isPrivate: data.private,
+      archived: data.archived,
+      fork: data.fork,
+      parentFullName: data.parent?.full_name || null,
+    }
+  },
+  async listBranches(env, locator) {
+    const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const [metadata, firstPage] = await Promise.all([
+      gh<{ default_branch: string; private?: boolean; archived?: boolean }>(env, base),
+      gh<Array<{ name: string }>>(env, `${base}/branches?per_page=${PAGE_SIZE}&page=1`),
+    ])
+    if (metadata.private || metadata.archived) throw Error('仅支持未归档公开仓库')
+    const items = [...firstPage]
+    let page = 1
+    let pageItems = firstPage
+    while (pageItems.length === PAGE_SIZE && page < MAX_PAGES) {
+      page += 1
+      pageItems = await gh<Array<{ name: string }>>(
+        env,
+        `${base}/branches?per_page=${PAGE_SIZE}&page=${page}`,
+      )
+      items.push(...pageItems)
+    }
+    const names = [...new Set(items.map((item) => item.name))]
+    return {
+      defaultBranch: metadata.default_branch,
+      branches: [
+        metadata.default_branch,
+        ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
+      ],
+      truncated: page === MAX_PAGES && pageItems.length === PAGE_SIZE,
+    }
+  },
+  async getCommit(env, locator, branch) {
+    const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const refPath = branch.split('/').map(encodeURIComponent).join('/')
+    const ref = await gh<{ object: { sha: string } }>(env, `${base}/git/ref/heads/${refPath}`)
+    return ref.object.sha
+  },
+  async listDistFiles(env, locator, commitSha) {
+    const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const commit = await gh<{ tree: { sha: string } }>(env, `${base}/git/commits/${commitSha}`)
+    const tree = await gh<{
+      truncated: boolean
+      tree: Array<{ type: string; path: string; sha: string; size?: number }>
+    }>(env, `${base}/git/trees/${commit.data?.tree?.sha || commit.tree.sha}?recursive=1`)
+    if (tree.truncated) throw Error('GitHub Git Tree 被截断')
+    return tree.tree
+      .filter((item) => item.type === 'blob' && item.path.startsWith('dist/'))
+      .map((item) => ({ path: item.path.slice(5), sha: item.sha, size: item.size || 0 }))
+      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+  },
+  async readFile(env, locator, path, ref) {
+    const base = `/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const filePath = path.split('/').map(encodeURIComponent).join('/')
+    const file = await gh<{ content: string; encoding: string }>(
+      env,
+      `${base}/contents/${filePath}?ref=${encodeURIComponent(ref)}`,
+    )
+    return decode(file)
+  },
+  rawFileUrl(project, file) {
+    const ref = project.commitSha || encodeURIComponent(project.branch)
+    return `https://raw.githubusercontent.com/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/${ref}/dist/${file.path.split('/').map(encodeURIComponent).join('/')}`
+  },
+}
+
+async function providerJson<T>(url: string, provider: string): Promise<T> {
+  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (response.status === 403 || response.status === 429) {
+    throw Error(`${provider} API 触发限流（HTTP ${response.status}），请稍后重试。`)
+  }
+  if (!response.ok) throw Error(`${provider} API 请求失败：HTTP ${response.status}`)
+  return response.json() as Promise<T>
+}
+
+async function gitlabPage<T>(url: string): Promise<{ data: T; next: string | null }> {
+  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (response.status === 403 || response.status === 429) {
+    throw Error(`GitLab API 触发限流（HTTP ${response.status}），请稍后重试。`)
+  }
+  if (!response.ok) throw Error(`GitLab API 请求失败：HTTP ${response.status}`)
+  const link = response.headers.get('link') || ''
+  const nextLink = link.split(',').find((part) => /rel="?next"?/.test(part))
+  const next = nextLink?.match(/<([^>]+)>/)?.[1] || null
+  return { data: (await response.json()) as T, next }
+}
+
+const gitlabAdapter: ProviderAdapter = {
+  kind: 'gitlab',
+  parse: (host, segments) => parsePath(host, segments, 'gitlab', 2),
+  async getRepository(_env, locator) {
+    const data = await providerJson<{
+      id: number
+      path_with_namespace: string
+      web_url: string
+      default_branch: string
+      visibility: string
+      archived: boolean
+      forked_from_project?: { path_with_namespace?: string } | null
+    }>(
+      `https://gitlab.com/api/v4/projects/${encodeURIComponent(locator.fullPath)}`,
+      'GitLab',
+    )
+    const parts = data.path_with_namespace.split('/')
+    return {
+      id: String(data.id),
+      fullName: data.path_with_namespace,
+      owner: parts.slice(0, -1).join('/'),
+      repo: parts.at(-1) || locator.repo,
+      htmlUrl: data.web_url,
+      defaultBranch: data.default_branch,
+      isPrivate: data.visibility !== 'public',
+      archived: data.archived,
+      fork: Boolean(data.forked_from_project),
+      parentFullName: data.forked_from_project?.path_with_namespace || null,
+    }
+  },
+  async listBranches(_env, locator) {
+    const project = encodeURIComponent(locator.fullPath)
+    const first = await providerJson<Array<{ name: string }>>(
+      `https://gitlab.com/api/v4/projects/${project}/repository/branches?per_page=${PAGE_SIZE}&page=1`,
+      'GitLab',
+    )
+    const items = [...first]
+    let page = 1
+    let pageItems = first
+    while (pageItems.length === PAGE_SIZE && page < MAX_PAGES) {
+      page += 1
+      pageItems = await providerJson<Array<{ name: string }>>(
+        `https://gitlab.com/api/v4/projects/${project}/repository/branches?per_page=${PAGE_SIZE}&page=${page}`,
+        'GitLab',
+      )
+      items.push(...pageItems)
+    }
+    const metadata = await this.getRepository(_env, locator)
+    const names = [...new Set(items.map((item) => item.name))]
+    return {
+      defaultBranch: metadata.defaultBranch,
+      branches: [
+        metadata.defaultBranch,
+        ...names.filter((name) => name !== metadata.defaultBranch).sort((a, b) => a.localeCompare(b)),
+      ],
+      truncated: page === MAX_PAGES && pageItems.length === PAGE_SIZE,
+    }
+  },
+  async getCommit(_env, locator, branch) {
+    const project = encodeURIComponent(locator.fullPath)
+    const data = await providerJson<{ commit: { id: string } }>(
+      `https://gitlab.com/api/v4/projects/${project}/repository/branches/${encodeURIComponent(branch)}`,
+      'GitLab',
+    )
+    return data.commit.id
+  },
+  async listDistFiles(_env, locator, commitSha) {
+    const project = encodeURIComponent(locator.fullPath)
+    let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&per_page=${PAGE_SIZE}&pagination=keyset&ref=${encodeURIComponent(commitSha)}`
+    const files: Array<{ id: string; path: string; type: string; size?: number }> = []
+    let pages = 0
+    while (url && pages < MAX_PAGES) {
+      const page = await gitlabPage<Array<{ id: string; path: string; type: string; size?: number }>>(url)
+      files.push(...page.data)
+      url = page.next || ''
+      pages += 1
+    }
+    if (url) throw Error('GitLab dist/ 文件超过 1,000 条，暂不支持完整索引')
+    return files
+      .filter((item) => item.type === 'blob')
+      .map((item) => ({
+        path: item.path.startsWith('dist/') ? item.path.slice(5) : item.path,
+        sha: item.id,
+        size: item.size || 0,
+      }))
+      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+  },
+  async readFile(_env, locator, path, ref) {
+    const project = encodeURIComponent(locator.fullPath)
+    const filePath = encodeURIComponent(path)
+    const file = await providerJson<{ content: string; encoding: string }>(
+      `https://gitlab.com/api/v4/projects/${project}/repository/files/${filePath}?ref=${encodeURIComponent(ref)}`,
+      'GitLab',
+    )
+    return decode(file)
+  },
+  rawFileUrl(project, file) {
+    return `https://gitlab.com/api/v4/projects/${encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)}/repository/blobs/${file.sha}/raw`
+  },
+}
+
+const giteaAdapter: ProviderAdapter = {
+  kind: 'gitea',
+  parse: (host, segments) => (segments.length === 2 ? parsePath(host, segments, 'gitea', 2) : null),
+  async getRepository(_env, locator) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const data = await providerJson<{
+      id: number
+      full_name: string
+      html_url: string
+      default_branch: string
+      private: boolean
+      archived: boolean
+      fork: boolean
+      parent?: { full_name?: string } | null
+    }>(base, 'Gitea')
+    return {
+      id: String(data.id),
+      fullName: data.full_name,
+      owner: locator.namespace,
+      repo: locator.repo,
+      htmlUrl: data.html_url,
+      defaultBranch: data.default_branch,
+      isPrivate: data.private,
+      archived: data.archived,
+      fork: data.fork,
+      parentFullName: data.parent?.full_name || null,
+    }
+  },
+  async listBranches(_env, locator) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const items: Array<{ name: string }> = []
+    let page = 1
+    let pageItems: Array<{ name: string }> = []
+    do {
+      pageItems = await providerJson<Array<{ name: string }>>(
+        `${base}/branches?limit=50&page=${page}`,
+        'Gitea',
+      )
+      items.push(...pageItems)
+      page += 1
+    } while (pageItems.length === 50 && page <= 20)
+    const metadata = await this.getRepository(_env, locator)
+    const names = [...new Set(items.map((item) => item.name))]
+    return {
+      defaultBranch: metadata.defaultBranch,
+      branches: [
+        metadata.defaultBranch,
+        ...names.filter((name) => name !== metadata.defaultBranch).sort((a, b) => a.localeCompare(b)),
+      ],
+      truncated: page > 20 && pageItems.length === 50,
+    }
+  },
+  async getCommit(_env, locator, branch) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const data = await providerJson<{ commit: { id: string } }>(
+      `${base}/branches/${encodeURIComponent(branch)}`,
+      'Gitea',
+    )
+    return data.commit.id
+  },
+  async listDistFiles(_env, locator, commitSha) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const files: Array<{ type: string; path: string; sha: string; size?: number }> = []
+    let page = 1
+    let truncated = false
+    do {
+      const data = await providerJson<{
+        tree: Array<{ type: string; path: string; sha: string; size?: number }>
+        truncated: boolean
+      }>(`${base}/git/trees/${commitSha}?recursive=true&per_page=100&page=${page}`, 'Gitea')
+      files.push(...data.tree)
+      truncated = data.truncated
+      page += 1
+    } while (truncated && page <= MAX_PAGES)
+    if (truncated) throw Error('Gitea Git Tree 超过 1,000 条，暂不支持完整索引')
+    return files
+      .filter((item) => item.type === 'blob' && item.path.startsWith('dist/'))
+      .map((item) => ({ path: item.path.slice(5), sha: item.sha, size: item.size || 0 }))
+      .filter((item) => item.path && !item.path.split('/').some((part) => part === '.' || part === '..'))
+  },
+  async readFile(_env, locator, path, ref) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(locator.namespace)}/${encodeURIComponent(locator.repo)}`
+    const filePath = path.split('/').map(encodeURIComponent).join('/')
+    const file = await providerJson<{ content: string; encoding: string }>(
+      `${base}/contents/${filePath}?ref=${encodeURIComponent(ref)}`,
+      'Gitea',
+    )
+    return decode(file)
+  },
+  rawFileUrl(project, file) {
+    const owner = encodeURIComponent(project.owner)
+    const repo = encodeURIComponent(project.repo)
+    const ref = encodeURIComponent(project.commitSha || project.branch)
+    const path = ['dist', ...file.path.split('/')].map(encodeURIComponent).join('/')
+    return `https://gitea.com/api/v1/repos/${owner}/${repo}/media/${ref}/${path}`
+  },
+}
+
+const adapters: Record<ProjectProvider, ProviderAdapter> = {
+  github: githubAdapter,
+  gitlab: gitlabAdapter,
+  gitea: giteaAdapter,
+}
+
+export function parseRepositoryUrl(input: string): RepositoryLocator {
+  let url: URL
+  try {
+    url = new URL(input)
+  } catch {
+    throw Error('仓库 URL 无效')
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) {
+    throw Error('仅接受 HTTPS 公开仓库地址')
+  }
+  const segments = url.pathname.split('/').filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment)
+    } catch {
+      throw Error('仓库路径编码无效')
+    }
+  })
+  const adapter = Object.values(adapters).find((item) => item.parse(url.hostname, segments))
+  const locator = adapter?.parse(url.hostname, segments)
+  if (!locator) throw Error('当前仅支持 GitHub、GitLab.com 与 Gitea.com 的公开仓库 URL')
+  return locator
+}
+
+export function getProviderAdapter(provider: ProjectProvider | undefined): ProviderAdapter {
+  return adapters[provider || 'github']
+}
+
+export async function fetchProjectFile(env: Env, project: ProjectSource, file: DistFile) {
+  const provider = getProviderAdapter(project.provider)
+  const url = provider.rawFileUrl(project, file)
+  const response = await fetch(url, { cf: { cacheEverything: true, cacheTtl: 60 } })
+  if (response.status === 403 || response.status === 429) {
+    throw Error(`${provider.kind} 文件读取触发限流（HTTP ${response.status}），请稍后重试。`)
+  }
+  return response
+}
