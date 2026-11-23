@@ -20,7 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const showMobileNav = ref(false)
 
-const menuIcon = (name: string) => () =>
+const menuIcon = (name: 'layout-dashboard' | 'folder' | 'file-text' | 'activity' | 'search') => () =>
   h(NIcon, { size: 20 }, { default: () => h(AppIcon, { name, size: 20 }) })
 
 const menuOptions = [
