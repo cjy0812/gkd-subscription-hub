@@ -59,7 +59,9 @@ function parsePath(host: string, segments: string[], provider: ProjectProvider, 
   if (segments.length < minimum || segments.some((segment) => !segment || segment === '.' || segment === '..')) {
     return null
   }
-  const repo = segments.at(-1)!.replace(/\.git$/i, '')
+  const lastSegment = segments[segments.length - 1]
+  if (!lastSegment) return null
+  const repo = lastSegment.replace(/\.git$/i, '')
   const namespace = segments.slice(0, -1).join('/')
   if (!namespace || !repo) return null
   return { provider, host, namespace, repo, fullPath: `${namespace}/${repo}` }
@@ -117,7 +119,7 @@ const githubAdapter: ProviderAdapter = {
         metadata.default_branch,
         ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
       ],
-      truncated: page === MAX_PAGES && pageItems.length === PAGE_SIZE,
+      truncated: Boolean(next),
     }
   },
   async getCommit(env, locator, branch) {
@@ -132,7 +134,7 @@ const githubAdapter: ProviderAdapter = {
     const tree = await gh<{
       truncated: boolean
       tree: Array<{ type: string; path: string; sha: string; size?: number }>
-    }>(env, `${base}/git/trees/${commit.data?.tree?.sha || commit.tree.sha}?recursive=1`)
+    }>(env, `${base}/git/trees/${commit.tree.sha}?recursive=1`)
     if (tree.truncated) throw Error('GitHub Git Tree 被截断')
     return tree.tree
       .filter((item) => item.type === 'blob' && item.path.startsWith('dist/'))
@@ -207,22 +209,22 @@ const gitlabAdapter: ProviderAdapter = {
   },
   async listBranches(_env, locator) {
     const project = encodeURIComponent(locator.fullPath)
-    const first = await providerJson<Array<{ name: string }>>(
-      `https://gitlab.com/api/v4/projects/${project}/repository/branches?per_page=${PAGE_SIZE}&page=1`,
-      'GitLab',
-    )
-    const items = [...first]
-    let page = 1
-    let pageItems = first
-    while (pageItems.length === PAGE_SIZE && page < MAX_PAGES) {
-      page += 1
-      pageItems = await providerJson<Array<{ name: string }>>(
-        `https://gitlab.com/api/v4/projects/${project}/repository/branches?per_page=${PAGE_SIZE}&page=${page}`,
-        'GitLab',
-      )
-      items.push(...pageItems)
+    const [metadata, first] = await Promise.all([
+      this.getRepository(_env, locator),
+      gitlabPage<Array<{ name: string }>>(
+        `https://gitlab.com/api/v4/projects/${project}/repository/branches?per_page=${PAGE_SIZE}&pagination=keyset`,
+      ),
+    ])
+    const items = [...first.data]
+    let next = first.next
+    let pages = 1
+    while (next && pages < MAX_PAGES) {
+      if (new URL(next).hostname !== 'gitlab.com') throw Error('GitLab 分页链接主机无效')
+      const page = await gitlabPage<Array<{ name: string }>>(next)
+      items.push(...page.data)
+      next = page.next
+      pages += 1
     }
-    const metadata = await this.getRepository(_env, locator)
     const names = [...new Set(items.map((item) => item.name))]
     return {
       defaultBranch: metadata.defaultBranch,
@@ -243,7 +245,7 @@ const gitlabAdapter: ProviderAdapter = {
   },
   async listDistFiles(_env, locator, commitSha) {
     const project = encodeURIComponent(locator.fullPath)
-    let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&per_page=${PAGE_SIZE}&pagination=keyset&ref=${encodeURIComponent(commitSha)}`
+    let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&per_page=${PAGE_SIZE}&pagination=keyset&per_page=${PAGE_SIZE}&order_by=id&sort=asc&ref=${encodeURIComponent(commitSha)}`
     const files: Array<{ id: string; path: string; type: string; size?: number }> = []
     let pages = 0
     while (url && pages < MAX_PAGES) {
@@ -387,12 +389,14 @@ export function parseRepositoryUrl(input: string): RepositoryLocator {
   } catch {
     throw Error('仓库 URL 无效')
   }
-  if (url.protocol !== 'https:' || url.username || url.password) {
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash) {
     throw Error('仅接受 HTTPS 公开仓库地址')
   }
   const segments = url.pathname.split('/').filter(Boolean).map((segment) => {
     try {
-      return decodeURIComponent(segment)
+      const decoded = decodeURIComponent(segment)
+      if (decoded.includes('/') || decoded.includes('\\\\')) throw Error('仓库路径段无效')
+      return decoded
     } catch {
       throw Error('仓库路径编码无效')
     }
