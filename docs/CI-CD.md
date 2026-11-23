@@ -5,7 +5,7 @@
 本项目使用 Cloudflare 原生 Workers Builds + Worker Previews，不再由 GitHub Actions 创建、更新或清理 Preview Worker。
 
 - 所有分支 push：GitHub Actions 执行格式检查、Lint、类型检查、测试和管理端构建。
-- PR 创建或更新：GitHub Actions 执行 CI；Cloudflare Workers Builds 自动构建该分支的 Worker Preview，并在 PR 中评论预览地址。
+- PR 创建或更新：GitHub Actions 执行 CI；来自已连接仓库分支的 PR 由 Cloudflare Workers Builds 自动构建 Worker Preview，并在 PR 中评论预览地址。来自 Fork 的 PR 不会自动获得该 Preview；需要维护者在可信分支手动部署/验证，或采用单独授权的预览流程。
 - 同一分支后续 push：Cloudflare 更新该分支现有 Preview，PR 中的稳定预览地址继续指向最新提交。
 - main push：GitHub Actions 执行 CI；Cloudflare Workers Builds 构建并部署生产 Worker。
 - PR 关闭：Cloudflare 管理 Preview 生命周期，不需要仓库工作流删除 Worker。
