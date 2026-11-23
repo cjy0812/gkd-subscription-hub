@@ -32,6 +32,13 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+export function requireArrayField(value: unknown, field: string, context: string): unknown[] {
+  if (!isRecord(value) || !Array.isArray(value[field])) {
+    throw new Error(`${context} 响应格式无效：字段 ${field} 必须是数组`)
+  }
+  return value[field]
+}
+
 function isCandidate(value: unknown): value is Candidate {
   if (
     !isRecord(value) ||
@@ -350,7 +357,7 @@ async function verify(
   const treeData = await github(env, `/repos/${repository}/git/trees/${treeSha}?recursive=1`)
   if (!isRecord(treeData)) throw new Error(`Git Tree 响应格式无效：${repository}`)
   if (treeData.truncated === true) throw new Error(`Git Tree 被截断：${repository}`)
-  const files = (Array.isArray(treeData.tree) ? treeData.tree : [])
+  const files = requireArrayField(treeData, 'tree', 'Git Tree')
     .filter(isTreeBlob)
     .filter((file) => /^dist\/.*\.json5?$/i.test(file.path) && file.size <= MAX_ARTIFACT_SIZE)
     .sort((a, b) => {
@@ -427,7 +434,7 @@ export async function stepExplorer(env: Env) {
         `/search/${endpoint}?q=${encodeURIComponent(search.query)}&per_page=${PAGE_SIZE}&page=${job.page}`,
       )
       if (!isRecord(data)) throw new Error('GitHub Search 响应格式无效')
-      const rawItems: unknown[] = Array.isArray(data.items) ? data.items : []
+      const rawItems = requireArrayField(data, 'items', 'GitHub Search')
       const items: Candidate[] = rawItems
         .map((item) => candidateFromSearchItem(item, search.kind))
         .filter((item): item is Candidate => item !== null)
