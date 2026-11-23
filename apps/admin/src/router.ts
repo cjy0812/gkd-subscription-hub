@@ -3,6 +3,7 @@ import { getAdminToken } from './auth'
 import AdminLayout from './layouts/AdminLayout.vue'
 import DashboardPage from './pages/DashboardPage.vue'
 import ExplorerPage from './pages/ExplorerPage.vue'
+import FilesPage from './pages/FilesPage.vue'
 import LoginPage from './pages/LoginPage.vue'
 import MonitoringPage from './pages/MonitoringPage.vue'
 import ProjectsPage from './pages/ProjectsPage.vue'
@@ -18,6 +19,7 @@ const router = createRouter({
         { path: '', redirect: { name: 'dashboard' } },
         { path: 'dashboard', name: 'dashboard', component: DashboardPage },
         { path: 'projects', name: 'projects', component: ProjectsPage },
+        { path: 'files', name: 'files', component: FilesPage },
         { path: 'monitoring', name: 'monitoring', component: MonitoringPage },
         { path: 'explorer', name: 'explorer', component: ExplorerPage },
       ],

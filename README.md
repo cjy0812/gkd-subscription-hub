@@ -24,6 +24,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 订阅管理、仪表盘和 Explorer 共用 AdminLayout；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
 - 运行监控页聚合项目最近一次刷新时保存的 GitHub Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；该页面读取 KV 快照，不会自动轮询 GitHub。
+- 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
 - 新增订阅源时可指定分支；留空时使用 GitHub 仓库默认分支。
@@ -49,6 +50,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 所有服务共用一个主机名，通过路径分流，不再使用项目数字子域名：
 
 - 管理端：`https://gkd.example.com/admin/`
+- 文件管理：`https://gkd.example.com/admin/files`
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
 - 项目目录：`https://gkd.example.com/<id>/`
