@@ -3,6 +3,115 @@ import type { Env, Prediction, Project, WorkflowRun } from '../types'
 import { gh } from './github'
 import { scan } from './scanner'
 import { parseRepositoryUrl } from './providers'
+type GitLabPipeline = {
+  id: number
+  status: string
+  source: string
+  name?: string | null
+  created_at: string
+  updated_at: string
+  web_url: string
+  sha: string
+}
+
+type GiteaActionRun = {
+  id: number
+  path?: string
+  event: string
+  status: string
+  conclusion?: string | null
+  created_at: string
+  updated_at?: string
+  completed_at?: string
+  html_url: string
+  head_sha: string
+}
+
+async function gitlabRuns(p: Project): Promise<WorkflowRun[]> {
+  if (!p.providerId) return []
+  try {
+    const url = `https://gitlab.com/api/v4/projects/${encodeURIComponent(p.providerId)}/pipelines?ref=${encodeURIComponent(p.branch)}&per_page=10&order_by=id&sort=desc`
+    const response = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!response.ok) return []
+    const pipelines = (await response.json()) as GitLabPipeline[]
+    return pipelines.map((pipeline) => {
+      const conclusion =
+        pipeline.status === 'success'
+          ? 'success'
+          : pipeline.status === 'failed'
+            ? 'failure'
+            : pipeline.status === 'canceled'
+              ? 'cancelled'
+              : pipeline.status === 'skipped'
+                ? 'skipped'
+                : null
+      const status = conclusion
+        ? 'completed'
+        : ['created', 'waiting_for_resource', 'preparing', 'pending', 'manual', 'scheduled'].includes(
+              pipeline.status,
+            )
+          ? 'queued'
+          : 'in_progress'
+      return {
+        workflowId: pipeline.id,
+        workflowName: pipeline.name || 'GitLab CI',
+        event: pipeline.source,
+        status,
+        conclusion,
+        created_at: pipeline.created_at,
+        updated_at: pipeline.updated_at || pipeline.created_at,
+        html_url: pipeline.web_url,
+        head_sha: pipeline.sha,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+async function giteaRuns(p: Project): Promise<WorkflowRun[]> {
+  try {
+    const owner = encodeURIComponent(p.owner)
+    const repo = encodeURIComponent(p.repo)
+    const url = `https://gitea.com/api/v1/repos/${owner}/${repo}/actions/runs?branch=${encodeURIComponent(p.branch)}&limit=10&page=1`
+    const response = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (!response.ok) return []
+    const data = (await response.json()) as { workflow_runs: GiteaActionRun[] }
+    return data.workflow_runs.map((run) => {
+      const conclusion =
+        run.conclusion ||
+        (run.status === 'success'
+          ? 'success'
+          : run.status === 'failure'
+            ? 'failure'
+            : run.status === 'cancelled'
+              ? 'cancelled'
+              : run.status === 'skipped'
+                ? 'skipped'
+                : null)
+      const status = conclusion
+        ? 'completed'
+        : ['queued', 'pending', 'requested'].includes(run.status)
+          ? 'queued'
+          : 'in_progress'
+      const workflowName = run.path?.split('/').at(-1) || 'Gitea Actions'
+      return {
+        workflowId: run.id,
+        workflowName,
+        event: run.event,
+        status,
+        conclusion,
+        created_at: run.created_at,
+        updated_at: run.updated_at || run.completed_at || run.created_at,
+        html_url: run.html_url,
+        head_sha: run.head_sha,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 type GitHubWorkflowRun = {
   event: string
   status: string
@@ -14,7 +123,8 @@ type GitHubWorkflowRun = {
 }
 
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
-  if (p.provider && p.provider !== 'github') return []
+  if (p.provider === 'gitlab') return gitlabRuns(p)
+  if (p.provider === 'gitea') return giteaRuns(p)
   const groups = await Promise.all(
     p.workflows
       .filter((w) => w.relevant)
