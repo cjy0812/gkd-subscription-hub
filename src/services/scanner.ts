@@ -13,6 +13,20 @@ export function parseRepo(input: string) {
   if (a.length !== 2) throw Error('请输入 https://github.com/owner/repo')
   return { owner: a[0], repo: a[1].replace(/\.git$/, '') }
 }
+export async function listBranches(env: Env, owner: string, repo: string) {
+  const repositoryPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
+  const [metadata, items] = await Promise.all([
+    gh<{ default_branch: string }>(env, repositoryPath),
+    gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100`),
+  ])
+  const names = [...new Set(items.map((branch) => branch.name))]
+  const branches = [
+    metadata.default_branch,
+    ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
+  ]
+  return { defaultBranch: metadata.default_branch, branches }
+}
+
 export function extractId(s: string) {
   const m = s.match(/defineGkdSubscription\s*\(\s*\{[\s\S]*?\bid\s*:\s*(\d+)/)
   const n = Number(m?.[1])
