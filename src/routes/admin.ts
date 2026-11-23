@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { auth } from '../middleware/auth'
 import { predict, refresh, runs } from '../services/actions'
-import { parseRepo, scan } from '../services/scanner'
+import { listBranches, parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
 import { bad, json } from '../utils/http'
@@ -17,6 +17,17 @@ app.get('/api/config', async (c) => {
   return json({ ok: true, subscriptionDomain })
 })
 app.get('/api/projects', async (c) => json({ ok: true, projects: await all(c.env) }))
+app.get('/api/repositories/branches', async (c) => {
+  const url = c.req.query('url')
+  if (!url) return bad('缺少仓库 URL')
+  try {
+    const { owner, repo } = parseRepo(url)
+    return json({ ok: true, ...(await listBranches(c.env, owner, repo)) })
+  } catch (error) {
+    return bad(error instanceof Error ? error.message : '读取分支失败', 422)
+  }
+})
+
 app.post('/api/projects', async (c) => {
   try {
     const body = await c.req.json<{ url?: string; branch?: string; group?: string }>()
