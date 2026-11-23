@@ -262,7 +262,7 @@ const gitlabAdapter: ProviderAdapter = {
   },
   async listDistFiles(_env, locator, commitSha) {
     const project = encodeURIComponent(locator.fullPath)
-    let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&per_page=${PAGE_SIZE}&pagination=keyset&per_page=${PAGE_SIZE}&order_by=id&sort=asc&ref=${encodeURIComponent(commitSha)}`
+    let url = `https://gitlab.com/api/v4/projects/${project}/repository/tree?path=dist&recursive=true&pagination=keyset&per_page=${PAGE_SIZE}&order_by=id&sort=asc&ref=${encodeURIComponent(commitSha)}`
     const files: Array<{ id: string; path: string; type: string; size?: number }> = []
     let pages = 0
     while (url && pages < MAX_PAGES) {
