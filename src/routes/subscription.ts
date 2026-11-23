@@ -75,10 +75,10 @@ app.all('*', async (c) => {
         ? renderMarkdown(text)
         : '<h1>' +
           escapeHtml(path) +
-          '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' +
+          '</h1><pre><code>' +
           escapeHtml(text) +
           '</code></pre>',
-      out = new Response(documentPage(path, body), {
+      out = new Response(documentPage(path, body, '?raw=1'), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
           'cache-control': 'public,max-age=60',
