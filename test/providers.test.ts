@@ -23,13 +23,13 @@ describe('repository provider adapters', () => {
       'https://gitlab.com/api/v4/projects/group%2Fsubgroup%2Fproject/repository/branches?pagination=keyset&page_token=next'
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('page_token=next')) {
+        return new Response(JSON.stringify([{ name: 'develop' }]))
+      }
       if (url.includes('/repository/branches?')) {
         return new Response(JSON.stringify([{ name: 'release' }]), {
           headers: { link: `<${nextUrl}>; rel="next"` },
         })
-      }
-      if (url.includes('page_token=next')) {
-        return new Response(JSON.stringify([{ name: 'develop' }]))
       }
       return new Response(
         JSON.stringify({
