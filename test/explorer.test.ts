@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { candidateFromSearchItem, countRules, parseSubscription } from '../src/services/explorer'
+import { candidateFromSearchItem, countRules, parseSubscription, requireArrayField } from '../src/services/explorer'
 
 describe('Explorer data guards', () => {
   it('accepts valid repository search results and rejects malformed items', () => {
@@ -81,5 +81,15 @@ describe('Explorer data guards', () => {
         10,
       ),
     ).toBeNull()
+  })
+})
+
+
+describe('strict external array fields', () => {
+  it('accepts arrays and rejects missing or malformed array fields', () => {
+    expect(requireArrayField({ tree: [] }, 'tree', 'Git Tree')).toEqual([])
+    expect(() => requireArrayField({}, 'tree', 'Git Tree')).toThrow(/tree.*数组/)
+    expect(() => requireArrayField({ tree: {} }, 'tree', 'Git Tree')).toThrow(/tree.*数组/)
+    expect(() => requireArrayField(null, 'items', 'GitHub Search')).toThrow(/items.*数组/)
   })
 })
