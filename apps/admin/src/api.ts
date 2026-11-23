@@ -1,4 +1,4 @@
-import { clearAdminToken } from './auth'
+import { clearAdminToken, getAdminToken } from './auth'
 
 export class ApiError extends Error {
   constructor(
@@ -25,7 +25,7 @@ export async function api<T>(path: string, token: string, init: RequestInit = {}
     : await response.text().catch(() => '')
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && getAdminToken() === token) {
       clearAdminToken()
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('gkd:auth-expired'))
     }
