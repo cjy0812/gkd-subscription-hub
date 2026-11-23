@@ -91,7 +91,7 @@ describe('provider CI monitoring', () => {
   })
 
   it('maps Gitea Actions workflow runs into the shared workflow run model', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
       new Response(
         JSON.stringify({
           workflow_runs: [
