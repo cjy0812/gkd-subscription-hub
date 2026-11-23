@@ -128,22 +128,19 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 新增项目表单使用自由文本分支；Worker 注册 API 也只接收 `branch` 字符串。建议增加受控的分支列表 API/选择器，并在仓库 URL 验证后加载默认分支和分支列表；需处理网络失败、无权限/仓库不存在和分支删除竞态。
 
-### A-17（高，已确定方向、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
+### A-17（高，方向已确定、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
 
-此前产品讨论已明确：首批 Provider 为 GitHub、GitLab、Gitea；架构需允许未来增加其他平台。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描、Actions 运行记录和 Raw 文件分发均直接依赖 GitHub API/Raw，因此现状与已确定方向存在差距。
+此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
 
-统一接口至少覆盖：
-- 仓库 URL 解析、实例地址、命名空间/项目路径与默认分支；
-- 分支列表、Ref、Commit SHA、递归 Tree、文件内容读取；
-- Release / Tag / Commit 版本状态与更新事件；
-- CI 工作流/流水线状态（GitHub Actions、GitLab CI、Gitea Actions 等能力需按 Provider 映射；不可假设完全等价）；
-- API 认证、限流、分页、错误分类和 webhook 签名验证。
+此前明确的 Provider 抽象范围：
+- 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
+- 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
+- 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
+- Adapter 隔离平台 API、认证、限流、分页、事件签名验证和去重差异。
 
-更新策略已确定：本端 Cron/主动拉取为主；平台 Webhook 为可选加速。统一 `/hooks/notify`，不为每个项目创建独立 Webhook；收到通知后必须由本端重新拉取并验证，不信任通知载荷中的版本或文件内容。新系统接管后旧 Worker 退役，保留回滚脚本。
+更新策略已确定：本端主动轮询为主，平台通知为可选加速；统一通知入口 `/hooks/notify`，通知只触发本端拉取和验证，不信任通知载荷中的版本或内容。CI 状态不是此前已确认的统一能力，不能假定 GitHub Actions、GitLab CI、Gitea Actions 完全等价。
 
-订阅 URL 统一为 `https://gkd.chenge.eu.org/<id>/<dist>`；此前已决定不保留旧子域名和 `/s/<id>/` 兼容路径。
-
-这不是待确认产品范围；待设计/实现的是 Provider adapter、Project schema 迁移、认证配置和各平台能力差异。
+统一订阅入口为 `/<id>/<dist>`，不兼容旧订阅 URL；新系统接管域名后旧 Worker 退役，回滚脚本保留。各平台适配优先级、轮询周期和 API 限额仍需按实现阶段确定。
 
 ### A-18（中）：项目列表信息层级与源码入口
 
