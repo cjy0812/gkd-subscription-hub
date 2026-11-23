@@ -26,7 +26,7 @@ export function buildProjectFileUrl(
   }
 
   const url = new URL(`https://${host}/`)
-  if (url.hostname !== host || url.pathname !== '/' || url.search || url.hash) return null
+  if (url.host.toLowerCase() !== host.toLowerCase() || url.pathname !== '/' || url.search || url.hash) return null
   url.pathname = `/${projectId}/${path.split('/').map(encodeURIComponent).join('/')}`
   url.searchParams.set(mode, '1')
   return url.toString()
