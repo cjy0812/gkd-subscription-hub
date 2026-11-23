@@ -190,7 +190,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 | GET    | `/admin/api/repositories/branches?url=<repo-url>`  | 读取公开仓库默认分支与分支列表                            |
 | POST   | `/admin/api/projects`                              | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
 | POST   | `/admin/api/projects/:id/refresh`                  | 立即刷新                                                  |
-| DELETE | `/admin/api/projects/:id`                           | 删除项目元数据                                            |
+| DELETE | `/admin/api/projects/:id`                          | 删除项目元数据                                            |
 
 ### Explorer API
 
