@@ -171,5 +171,4 @@ describe('scanner helpers', () => {
     expect(project.distFiles).toEqual([{ path: 'gkd.json5', sha: 'gitea-blob', size: 80 }])
     expect(project.workflows).toEqual([])
   })
-
 })
