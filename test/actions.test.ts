@@ -36,8 +36,9 @@ describe('provider CI monitoring', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('maps GitLab pipelines into the shared workflow run model', async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
-      new Response(
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL) =>
+        new Response(
         JSON.stringify([
           {
             id: 901,
@@ -129,7 +130,10 @@ describe('provider CI monitoring', () => {
   })
 
   it('does not fail refresh when a provider hides its public CI runs', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('Forbidden', { status: 403 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('Forbidden', { status: 403 })),
+    )
     await expect(runs({} as never, project('gitea'))).resolves.toEqual([])
   })
 })
