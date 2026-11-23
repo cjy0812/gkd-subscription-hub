@@ -205,7 +205,10 @@ describe('two-phase Explorer discovery', () => {
     expect(completed.status).toBe('complete')
     expect(completed.phase).toBe('complete')
     expect(completed.candidateIndex).toBe(1)
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(1)
+    const commitRequestsAfterVerification = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes('/commits/'),
+    )
+    expect(commitRequestsAfterVerification).toHaveLength(1)
     expect(await explorerCatalog(env)).toEqual([])
   })
 
@@ -267,7 +270,10 @@ describe('two-phase Explorer discovery', () => {
     expect(second.phase).toBe('collecting')
     expect(second.queryIndex).toBe(1)
     expect(second.candidateCount).toBe(101)
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
+    const commitRequestsBeforeVerification = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes('/commits/'),
+    )
+    expect(commitRequestsBeforeVerification).toHaveLength(0)
   })
 
   it('does not replace the published catalog when a candidate batch is missing', async () => {
