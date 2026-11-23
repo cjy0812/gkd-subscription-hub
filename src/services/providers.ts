@@ -234,7 +234,7 @@ const gitlabAdapter: ProviderAdapter = {
       const page = await gitlabPage<Array<{ name: string }>>(next)
       items.push(...page.data)
       next = page.next
-      if (!next && page.data.length === PAGE_SIZE) {
+      if (!next && page.data.length === PAGE_SIZE && pages + 1 < MAX_PAGES) {
         throw Error('GitLab 分支列表返回满页但缺少下一页链接，无法确认完整性')
       }
       pages += 1
