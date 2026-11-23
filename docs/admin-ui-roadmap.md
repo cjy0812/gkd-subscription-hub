@@ -176,7 +176,7 @@
 1. 登录页占位提示已改为面向用户的管理员密码文案。
 2. `AdminLayout.vue` 当前源码中桌面侧栏在主内容之前，移动端使用左侧 Drawer；线上显示位置异常仍待复现。
 3. 项目新增表单已改为 GitHub 分支发现 + 可搜索下拉选择。
-4. 注册服务当前只接受 GitHub URL，扫描和分发依赖 GitHub API/Raw。
+4. 注册服务已支持 GitHub、GitLab.com、Gitea.com 公开仓库；Explorer 搜索、Actions 监控和 Webhook 仍有 GitHub-only 能力边界。
 5. 项目表格已把仓库名设为主信息、ID 降为次级，并增加源码入口。
 6. JSON5 浏览器预览已增加有界树形视图，原始文件入口仍可用。
 7. Explorer 已按两阶段执行：先收集搜索页，再每步最多验证 4 个候选；Code Search 已支持分页到每查询 1,000 条上限。
