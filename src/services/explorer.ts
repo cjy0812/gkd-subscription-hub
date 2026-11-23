@@ -210,10 +210,14 @@ async function readCandidateAt(env: Env, job: Job, index: number, cache: Map<str
     if (index < offset + batch.count) {
       let candidates = cache.get(batch.key)
       if (!candidates) {
-        candidates = (await env.STATE.get<Candidate[]>(batch.key, 'json')) || []
+        const stored = await env.STATE.get<Candidate[]>(batch.key, 'json')
+        if (!stored) throw new Error('候选队列数据已过期，请重新开始扫描；已发布目录保持不变。')
+        candidates = stored
         cache.set(batch.key, candidates)
       }
-      return candidates[index - offset] || null
+      const candidate = candidates[index - offset]
+      if (!candidate) throw new Error('候选队列数据不完整，请重新开始扫描；已发布目录保持不变。')
+      return candidate
     }
     offset += batch.count
   }
@@ -588,10 +592,6 @@ export async function stepExplorer(env: Env) {
     const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidateCount)
     for (; job.candidateIndex < end; job.candidateIndex++) {
       const candidate = await readCandidateAt(env, job, job.candidateIndex, batchCache)
-      if (!candidate) {
-        job.incomplete = true
-        continue
-      }
       try {
         const entry = await verify(
           env,
