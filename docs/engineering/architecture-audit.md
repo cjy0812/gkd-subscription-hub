@@ -127,21 +127,18 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 新增项目表单已改为显式读取分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 使用 GitHub 仓库元数据与分支 API，默认分支置顶，分页最多读取 1,000 项；加载错误显示在表单中。当前仅适配 GitHub，Provider Adapter 完成后需将分支发现纳入统一接口。
 
-### A-17（高，方向已确定、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
+### A-17（部分完成）：GitHub / GitLab.com / Gitea.com Provider Adapter
 
-此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
+已新增 `src/services/providers.ts`，将仓库 URL 解析、公开仓库元数据、分支列表、Commit、dist Tree、订阅源文件读取和固定版本原始文件分发抽象为 Provider Adapter。当前实现支持 GitHub、GitLab.com、Gitea.com；GitLab 嵌套 Group 路径可解析，旧项目记录缺少 provider 字段时默认按 GitHub 处理。
 
-此前明确的 Provider 抽象范围：
+安全与边界：
+- 只允许 HTTPS 和三个明确的公共主机；不接受自托管 GitLab/Gitea、自定义实例、任意 URL 或私有仓库。
+- GitLab Tree/Branches 使用 keyset Link 分页；若满页却缺少下一页链接，安全失败，不假设结果完整。
+- GitLab 原始文件按 blob SHA 读取；GitHub 按 commit SHA；Gitea Media API 使用 commit SHA，避免分支移动造成内容漂移。
+- GitHub Actions 工作流监控仍只适配 GitHub；GitLab CI/Gitea Actions 的统一运行状态尚未实现，不应展示为已支持。
+- Explorer 候选搜索仍仅使用 GitHub Search API；多 Provider Explorer 搜索尚未接入。
 
-- 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
-- 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
-- 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
-- Adapter 隔离平台 API、认证、限流、分页、事件签名验证和去重差异。
-
-更新策略已确定：本端主动轮询为主，平台通知为可选加速；统一通知入口 `/hooks/notify`，通知只触发本端拉取和验证，不信任通知载荷中的版本或内容。CI 状态不是此前已确认的统一能力，不能假定 GitHub Actions、GitLab CI、Gitea Actions 完全等价。
-
-统一订阅入口为 `/<id>/<dist>`，不兼容旧订阅 URL；新系统接管域名后旧 Worker 退役，回滚脚本保留。各平台适配优先级、轮询周期和 API 限额仍需按实现阶段确定。
-
+此前确定的主动轮询优先、统一 `/hooks/notify` 可选通知加速、通知后重新拉取验证等架构决策仍待后续阶段落实。
 ### A-18（中）：项目列表信息层级与源码入口
 
 当前表格在“订阅源”单元格把 ID 放在仓库名上方；项目操作只有“打开订阅、刷新、删除”，没有直达上游源码仓库的独立入口。重新设计为仓库名优先、ID 作为次级元信息，并加入上游仓库链接。图标按钮须提供 Tooltip/aria-label；删除仍需确认。
