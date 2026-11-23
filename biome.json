@@ -36,9 +36,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "apps/admin/**/*.vue"
-      ],
+      "includes": ["apps/admin/**/*.vue"],
       "formatter": {
         "enabled": false
       }
