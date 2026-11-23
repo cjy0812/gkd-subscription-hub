@@ -19,6 +19,7 @@ import {
 } from 'naive-ui'
 import { api } from '../api'
 import { getAdminToken } from '../auth'
+import type { ExplorerBooleanFilter, ExplorerSortBy } from '../explorer-filter'
 import {
   collectExplorerAuthors,
   collectExplorerTopics,
@@ -40,11 +41,11 @@ const job = ref<ExplorerJobStatus | null>(null)
 const quota = ref<ExplorerQuota | null>(null)
 const loading = ref(false)
 const searching = ref('')
-const forkFilter = ref('all')
-const archivedFilter = ref('all')
+const forkFilter = ref<ExplorerBooleanFilter>('all')
+const archivedFilter = ref<ExplorerBooleanFilter>('all')
 const authorFilter = ref('')
 const topicFilter = ref('')
-const sortBy = ref('pushed')
+const sortBy = ref<ExplorerSortBy>('pushed')
 const selected = ref<ExplorerEntry | null>(null)
 
 const authors = computed(() => collectExplorerAuthors(entries.value))
