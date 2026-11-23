@@ -3,10 +3,12 @@ import { buildProjectFileUrl } from './project-files'
 
 describe('buildProjectFileUrl', () => {
   it('builds preview and raw links with encoded path segments', () => {
-    expect(buildProjectFileUrl('gkd.example.com', 123, 'gkd.json5', 'view'))
-      .toBe('https://gkd.example.com/123/gkd.json5?view=1')
-    expect(buildProjectFileUrl('https://gkd.example.com/', 123, 'nested/file.md', 'raw'))
-      .toBe('https://gkd.example.com/123/nested/file.md?raw=1')
+    expect(buildProjectFileUrl('gkd.example.com', 123, 'gkd.json5', 'view')).toBe(
+      'https://gkd.example.com/123/gkd.json5?view=1',
+    )
+    expect(buildProjectFileUrl('https://gkd.example.com/', 123, 'nested/file.md', 'raw')).toBe(
+      'https://gkd.example.com/123/nested/file.md?raw=1',
+    )
   })
 
   it('rejects missing domains, invalid IDs, and unsafe paths', () => {

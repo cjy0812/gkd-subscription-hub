@@ -8,10 +8,17 @@ export function buildProjectFileUrl(
   path: string,
   mode: 'raw' | 'view',
 ): string | null {
-  const host = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  const host = domain
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
   if (!host || !Number.isSafeInteger(projectId) || projectId < 1) return null
   if (
-    path.split('/').some((segment) => !segment || segment === '.' || segment === '..' || segment.startsWith('.')) ||
+    path
+      .split('/')
+      .some(
+        (segment) => !segment || segment === '.' || segment === '..' || segment.startsWith('.'),
+      ) ||
     path.includes('\\') ||
     !/^[A-Za-z0-9_@.+/-]+$/.test(path)
   ) {
