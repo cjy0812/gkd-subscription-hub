@@ -52,8 +52,8 @@
 
 ## 内容阅读器
 
-- Markdown：保留原文语义结构，支持标题、目录锚点、表格、引用、列表、任务列表和代码块；原始 HTML 默认关闭；外链安全处理。
-- JSON5：先按 JSON5 语法解析，不得直接 JSON.parse；提供树形/源码视图，保留原始内容入口；解析失败时展示错误并回退原文。
+- Markdown：保留现有 `markdown-it`，完善标题、目录锚点、表格、引用、列表、任务列表、代码块与安全链接；代码高亮优先评估 `@shikijs/markdown-it`，但需先验证 Cloudflare Worker 兼容性、冷启动/包体积；若成本过高，使用轻量 `highlight.js`。
+- JSON5：首选 `json-editor-vue`（底层 `vanilla-jsoneditor`）+ `json5` parser；其底层类型声明暴露 `parser.parse/stringify`，可适配 JSON5。默认只读，提供 tree/text/table、搜索、格式化；保留原始内容入口；解析失败时展示错误并回退原文。
 - 只读预览与上游原始文件分离；任何格式化不得改变分发给客户端的字节内容。
 - 大文件设置尺寸保护和虚拟滚动；禁止无上限展开导致页面卡死。
 
@@ -69,6 +69,12 @@
 - [ ] 大列表/大文件有性能保护。
 - [ ] 减少动态效果并尊重 prefers-reduced-motion。
 - [ ] CI 通过；真实浏览器验收另行记录，不能以 CI 代替。
+
+## 阅读器依赖选型证据
+
+- `json-editor-vue` 0.19.2：MIT，Vue 2/3，树形/文本/表格模式；底层 `vanilla-jsoneditor` 支持自定义 `JSONParser`（parse/stringify），可注入 `json5`。需在项目 fixture 上验证，不把 npm 宣称的大文件上限当作本项目性能保证。
+- `vue-json-pretty` 2.6.0：MIT、零运行时依赖、Vue 3 树形视图，作为简化备选；它本身不解决 JSON5 文本解析与源码模式。
+- Markdown 高亮：`@shikijs/markdown-it` 可接入现有 markdown-it；Shiki 的 Worker 包体积与初始化成本必须实测。
 
 ## 上游 Skill 来源
 
