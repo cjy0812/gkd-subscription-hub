@@ -136,7 +136,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 - 只允许 HTTPS 和三个明确的公共主机；不接受自托管 GitLab/Gitea、自定义实例、任意 URL 或私有仓库。
 - GitLab Tree/Branches 使用 keyset Link 分页；若满页却缺少下一页链接，安全失败，不假设结果完整。
 - GitLab 原始文件按 blob SHA 读取；GitHub 按 commit SHA；Gitea Media API 使用 commit SHA，避免分支移动造成内容漂移。
-- GitHub Actions 工作流监控仍只适配 GitHub；GitLab CI/Gitea Actions 的统一运行状态尚未实现，不应展示为已支持。
+- GitHub Actions、GitLab Pipelines、Gitea Actions 的近期运行记录已在 `actions.ts` 归一化；工作流配置发现与 cron 解析仍仅支持 GitHub。GitLab/Gitea 的运行 API 不可见或返回非 2xx 时按无可用记录处理，不阻断订阅扫描。
 - Explorer 候选搜索仍仅使用 GitHub Search API；多 Provider Explorer 搜索尚未接入。
 
 此前确定的主动轮询优先、统一 `/hooks/notify` 可选通知加速、通知后重新拉取验证等架构决策仍待后续阶段落实。
