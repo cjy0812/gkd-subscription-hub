@@ -31,13 +31,13 @@ src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInf
 
 基线代码中 src/services/explorer.ts 的 Candidate 使用 Record<string, any>，GitHub Search、Commit、Tree 和 Rate Limit 响应也直接使用 any。PR #26 已改为 unknown + 运行时类型守卫并补测试，当前 CI 通过；仍待 PR 合并后从基线移除此项。
 
-### A-04（高）：Pinia 可能未使用
+### A-04（已解决，PR #28）：移除未使用的 Pinia
 
-Pinia 在 package.json 安装且 main.ts 初始化；已检查源码未发现 defineStore。完整搜索后决定移除，不迁移状态来证明依赖有用。
+全仓库搜索 `defineStore` 无结果；`createPinia` 只在 `apps/admin/src/main.ts` 用于初始化，没有 Store 定义或使用。PR #28 已从 Admin 依赖、应用装配和锁文件移除 Pinia；frozen install、格式检查、Lint、类型检查、测试和 Admin build 均通过。
 
 ### A-05（中）：Vue SFC 工具覆盖仍需观察
 
-已移除 Prettier 和 `.prettierignore`，不再存在 ProjectsPage.vue 的格式检查例外。仓库锁定的 Biome 2.6.8 启用实验性 HTML super-language 支持，对 Vue SFC 提供格式化与 Lint；该能力仍可能存在边缘语法/规则缺口，不能等同于完整 Vue 专属规则集。`vue-tsc` 继续负责模板/脚本类型检查。当前选择接受实验性覆盖，不额外引入 ESLint/Prettier；若 CI 或实际开发发现可复现缺口，再基于证据评估。
+Biome 2.6.8 的实验性 HTML super-language 用于 Vue SFC Lint，但 Vue SFC 格式化明确关闭：CI 证明启用后会对 ProjectsPage.vue 产生较大模板格式重排，且该格式化器仍属实验性。CI 还确认 `correctness/noUnusedImports` 会把模板中实际使用的 Naive UI 组件误报为未使用，因此仅对 Vue SFC 关闭该规则，JS/TS 仍启用。`vue-tsc` 继续负责模板/脚本类型检查。当前接受 Vue SFC 格式化与该规则覆盖缺口，不额外引入 ESLint/Prettier；若后续发现可复现质量缺口，再基于证据评估。
 
 ### A-06（已修复）：质量脚本重复
 
@@ -63,7 +63,6 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 - [ ] 在 CI 中验证 Biome 2.6.8 对全部 Vue SFC 的格式化与 Lint；实验性支持的边缘语法/规则覆盖仍需观察。
 
-- [ ] 全仓搜索 Pinia Store 是否存在动态使用。
 - [ ] 执行 frozen install、format、lint、typecheck、Vitest、Admin build。
 - [ ] 浏览器验证登录、401、批量跨筛选选择、部分失败和窄屏。
 - [ ] 评估 Workers Vitest Integration 是否覆盖 workerd 差异。

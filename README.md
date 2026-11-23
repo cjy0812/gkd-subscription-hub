@@ -71,7 +71,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ## 技术栈
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
-- **前端**：Vue 3、Vite、Naive UI、Vue Router；Pinia 当前已安装并初始化，实际 Store 使用情况待审计确认。
+- **前端**：Vue 3、Vite、Naive UI、Vue Router；当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
 - **后端**：Cloudflare Workers、Hono、KV。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it。
