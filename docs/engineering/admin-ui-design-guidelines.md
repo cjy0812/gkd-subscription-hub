@@ -76,7 +76,7 @@
 
 - `json-editor-vue` 0.19.2：MIT，Vue 2/3，树形/文本/表格模式；底层 `vanilla-jsoneditor` 支持自定义 `JSONParser`（parse/stringify），可注入 `json5`。需在项目 fixture 上验证，不把 npm 宣称的大文件上限当作本项目性能保证。
 - `vue-json-pretty` 2.6.0：MIT、零运行时依赖、Vue 3 树形视图，作为简化备选；它本身不解决 JSON5 文本解析与源码模式。
-- Markdown 高亮：`@shikijs/markdown-it` 可接入现有 markdown-it；Shiki 的 Worker 包体积与初始化成本必须实测。
+- 不引入 Shiki：当前渲染运行在 Cloudflare Worker 请求路径，使用 `highlight.js/lib/core` + 显式语言子集，避免 Shiki 主题/语法引擎带来的额外 Worker 包体积与初始化成本。
 
 ## 上游 Skill 来源
 
