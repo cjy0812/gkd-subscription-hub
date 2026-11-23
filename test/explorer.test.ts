@@ -243,10 +243,10 @@ describe('two-phase Explorer discovery', () => {
     }
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.includes('/search/repositories') && url.includes('page=1')) {
+      if (url.includes('/search/repositories') && url.endsWith('page=1')) {
         return new Response(JSON.stringify({ total_count: 101, items: firstPage }))
       }
-      if (url.includes('/search/repositories') && url.includes('page=2')) {
+      if (url.includes('/search/repositories') && url.endsWith('page=2')) {
         return new Response(JSON.stringify({ total_count: 101, items: [secondPage] }))
       }
       if (url.includes('/search/')) {
