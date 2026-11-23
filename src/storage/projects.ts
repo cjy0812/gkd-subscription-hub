@@ -5,10 +5,10 @@ export async function ids(e: Env) {
   return (await e.STATE.get<number[]>(KEY, 'json')) || []
 }
 export async function get(e: Env, id: number) {
-  return e.STATE.get<Project>('project:' + id, 'json')
+  return e.STATE.get<Project>(`project:${id}`, 'json')
 }
 export async function save(e: Env, p: Project) {
-  await e.STATE.put('project:' + p.id, JSON.stringify(p))
+  await e.STATE.put(`project:${p.id}`, JSON.stringify(p))
   const a = await ids(e)
   if (!a.includes(p.id)) {
     a.push(p.id)
