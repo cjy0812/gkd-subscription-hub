@@ -38,8 +38,7 @@ export function buildMonitoringOverview(
     })),
   )
   allRuns.sort(
-    (left, right) =>
-      (Date.parse(right.updated_at) || 0) - (Date.parse(left.updated_at) || 0),
+    (left, right) => (Date.parse(right.updated_at) || 0) - (Date.parse(left.updated_at) || 0),
   )
 
   return {

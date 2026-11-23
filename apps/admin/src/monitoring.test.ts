@@ -15,12 +15,7 @@ function project(
   }
 }
 
-function run(
-  workflowId: number,
-  updatedAt: string,
-  status: string,
-  conclusion: string | null,
-) {
+function run(workflowId: number, updatedAt: string, status: string, conclusion: string | null) {
   return {
     workflowId,
     workflowName: `Workflow ${workflowId}`,
@@ -37,10 +32,14 @@ function run(
 describe('buildMonitoringOverview', () => {
   it('aggregates runs across projects and counts non-success and unfinished runs', () => {
     const projects = [
-      project(1, [
-        run(1, '2026-01-01T00:00:00Z', 'completed', 'success'),
-        run(2, '2026-01-02T00:00:00Z', 'completed', 'failure'),
-      ], 'Index refresh failed'),
+      project(
+        1,
+        [
+          run(1, '2026-01-01T00:00:00Z', 'completed', 'success'),
+          run(2, '2026-01-02T00:00:00Z', 'completed', 'failure'),
+        ],
+        'Index refresh failed',
+      ),
       project(2, [
         run(3, '2026-01-03T00:00:00Z', 'in_progress', null),
         run(4, '2026-01-04T00:00:00Z', 'completed', 'cancelled'),
