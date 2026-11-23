@@ -126,7 +126,7 @@ md.renderer.rules.link_open = (tokens, index, options, env, self) => {
 
 const defaultImage =
   md.renderer.rules.image ||
-  ((tokens, index, options, env, self) => self.renderToken(tokens, index, options))
+  ((tokens, index, options, _env, self) => self.renderToken(tokens, index, options))
 
 md.renderer.rules.image = (tokens, index, options, env, self) => {
   tokens[index].attrSet('loading', 'lazy')
