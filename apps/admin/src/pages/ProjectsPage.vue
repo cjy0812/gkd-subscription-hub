@@ -808,7 +808,18 @@ onMounted(() => {
 .status-filter {
   width: 130px;
 }
-.repo-url-row {\n  width: 100%;\n}\n.repo-url-row :deep(.n-input) {\n  flex: 1;\n  min-width: 0;\n}\n.branch-error {\n  display: block;\n  margin-top: 6px;\n}\n.form-hint {
+.repo-url-row {
+  width: 100%;
+}
+.repo-url-row :deep(.n-input) {
+  flex: 1;
+  min-width: 0;
+}
+.branch-error {
+  display: block;
+  margin-top: 6px;
+}
+.form-hint {
   margin: -4px 0 18px;
   font-size: 12px;
 }
