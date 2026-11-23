@@ -186,5 +186,4 @@ describe('Explorer filters', () => {
     ])
     expect(conflicts).toEqual([{ id: 233, repositories: ['owner/first', 'owner/second'] }])
   })
-
 })
