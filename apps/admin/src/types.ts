@@ -33,6 +33,10 @@ export interface DistFile {
 
 export interface Project {
   id: number
+  provider?: 'github' | 'gitlab' | 'gitea'
+  providerId?: string
+  instanceUrl?: string
+  repositoryPath?: string
   owner: string
   repo: string
   branch: string
