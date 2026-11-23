@@ -36,7 +36,10 @@ app.post('/api/projects', async (c) => {
     const project = await scan(c.env, repository, body.branch)
     project.group = body.group?.trim().slice(0, 40) || '默认分组'
     const existing = await get(c.env, project.id)
-    if (existing) return bad(`ID ${project.id} 已被 ${existing.owner}/${existing.repo} 占用`, 409)
+    if (existing) {
+      const provider = existing.provider || 'github'
+      return bad(`ID ${project.id} 已被 ${provider}:${existing.owner}/${existing.repo} 占用`, 409)
+    }
     project.lastRuns = await runs(c.env, project)
     project.lastCheckedAt = new Date().toISOString()
     project.lastDistHash = project.distHash
