@@ -34,7 +34,7 @@ async function login() {
   <main class="login-page">
     <n-card class="login-card" :bordered="false">
       <div class="brand-mark">GKD</div>
-      <p class="eyebrow">SUBSCRIPTION HUB</p>
+      <p class="eyebrow">订阅管理平台</p>
       <h1>管理中心</h1>
       <p class="muted">登录后管理订阅源、检查上游更新。</p>
       <n-form @submit.prevent="login">
@@ -43,7 +43,7 @@ async function login() {
             v-model:value="password"
             type="password"
             show-password-on="click"
-            placeholder="输入 ADMIN_PASSWORD"
+            placeholder="请输入管理员密码…"
             @keyup.enter="login"
           />
         </n-form-item>
