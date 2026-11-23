@@ -79,7 +79,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 1. [x] 删除 ProjectsPage.vue 格式检查例外，并移除 Prettier 配置。
 2. [x] 分离 format/lint/typecheck，避免重复执行（提交 66a8aa3）。
-3. [~] 移除临时下载的 Prettier 与独立配置；统一由锁定的 Biome 负责格式化和 Lint，并启用实验性 Vue SFC 支持，待 CI 验证。
+3. [x] 移除临时下载的 Prettier 与独立配置；Biome 统一负责受支持文件格式化与 Lint，Vue SFC 保留实验性 Lint 和 vue-tsc 类型检查，暂不格式化。
 4. [x] 全量 CI 已通过（Run #45084606662）。
 
 ### P1：契约与边界
