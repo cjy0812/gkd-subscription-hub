@@ -242,7 +242,14 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.file-action-link {\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n  color: var(--color-accent);\n}\n\n.file-path {
+.file-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-accent);
+}
+
+.file-path {
   overflow-wrap: anywhere;
 }
 
