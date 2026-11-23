@@ -15,10 +15,11 @@ async function login() {
     message.warning('请输入管理员密码')
     return
   }
+  const credential = password.value
   submitting.value = true
   try {
-    await api('/api/projects', password.value)
-    setAdminToken(password.value)
+    await api('/api/projects', credential)
+    setAdminToken(credential)
     message.success('登录成功')
     await router.replace({ name: 'projects' })
   } catch (error) {
