@@ -37,11 +37,9 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 
 管理端使用 Vue 3 + Naive UI，采用 Desktop-first、Mobile-adaptive：
 
-| 屏幕                   | 布局                                               |
-| ---------------------- | -------------------------------------------------- |
-| 桌面端（> 760px）      | 左侧 72px 图标导航轨道、统计卡片、完整项目表格     |
-| 平板/窄桌面（≤ 960px） | 保持左侧图标导航，内容区自适应                     |
-| 手机端（≤ 760px）      | 抽屉导航、统计卡片重排、项目卡片列表               |
+- 桌面端（> 760px）：左侧 72px 图标导航轨道、统计卡片、完整项目表格。
+- 平板/窄桌面（≤ 960px）：保持左侧图标导航，内容区自适应。
+- 手机端（≤ 760px）：抽屉导航、统计卡片重排、项目卡片列表。
 
 Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive UI 主题和业务样式从同一组 CSS Variables 读取圆角、颜色和间距，避免各页面独立维护第二套设计参数。
 
@@ -184,13 +182,11 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
-| 方法   | 路径                                                | 作用                                                      |
-| ------ | --------------------------------------------------- | --------------------------------------------------------- |
-| GET    | `/admin/api/projects`                              | 项目列表                                                  |
-| GET    | `/admin/api/repositories/branches?url=<repo-url>`  | 读取公开仓库默认分支与分支列表                            |
-| POST   | `/admin/api/projects`                              | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
-| POST   | `/admin/api/projects/:id/refresh`                  | 立即刷新                                                  |
-| DELETE | `/admin/api/projects/:id`                          | 删除项目元数据                                            |
+- `GET /admin/api/projects`：项目列表。
+- `GET /admin/api/repositories/branches?url=<repo-url>`：读取公开仓库默认分支与分支列表。
+- `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://github.com/owner/repo"}`。
+- `POST /admin/api/projects/:id/refresh`：立即刷新。
+- `DELETE /admin/api/projects/:id`：删除项目元数据。
 
 ### Explorer API
 
