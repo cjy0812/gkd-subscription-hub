@@ -264,4 +264,95 @@ describe('two-phase Explorer discovery', () => {
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
   })
 
+
+  it('does not replace the published catalog when a candidate batch is missing', async () => {
+    const values = new Map<string, string>()
+    const state = {
+      async get(key: string, type?: string) {
+        const value = values.get(key)
+        if (value === undefined) return null
+        return type === 'json' ? JSON.parse(value) : value
+      },
+      async put(key: string, value: string) {
+        values.set(key, value)
+      },
+      async delete(key: string) {
+        values.delete(key)
+      },
+    }
+    const published = [{ repository: { id: 99, full_name: 'owner/previous' } }]
+    values.set('explorer:catalog', JSON.stringify(published))
+    values.set(
+      'explorer:job',
+      JSON.stringify({
+        status: 'verifying',
+        phase: 'verifying',
+        runId: 'run-1',
+        queryIndex: 6,
+        page: 1,
+        candidateBatches: [{ key: 'explorer:queue:run-1:0', count: 1 }],
+        candidateCount: 1,
+        candidateIndex: 0,
+        sourceById: { '42': ['repository-search'] },
+        entries: [],
+        verifiedCount: 0,
+        matchedCount: 0,
+        seen: [42],
+        startedAt: '2026-11-23T00:00:00.000Z',
+        updatedAt: '2026-11-23T00:00:00.000Z',
+        error: null,
+        incomplete: false,
+        scannedPages: 6,
+      }),
+    )
+    const env = { STATE: state } as unknown as Env
+    const result = await stepExplorer(env)
+    expect(result.status).toBe('error')
+    expect(result.error).toContain('候选队列数据已过期')
+    expect(await explorerCatalog(env)).toEqual(published)
+  })
+
+  it('requires a fresh scan when loading a legacy single-phase job', async () => {
+    const values = new Map<string, string>([
+      [
+        'explorer:job',
+        JSON.stringify({
+          status: 'searching',
+          queryIndex: 2,
+          page: 3,
+          candidates: [],
+          candidateIndex: 0,
+          entries: [],
+          seen: [],
+          startedAt: '2026-11-23T00:00:00.000Z',
+          updatedAt: '2026-11-23T00:00:00.000Z',
+        }),
+      ],
+    ])
+    const state = {
+      async get(key: string, type?: string) {
+        const value = values.get(key)
+        if (value === undefined) return null
+        return type === 'json' ? JSON.parse(value) : value
+      },
+      async put(key: string, value: string) {
+        values.set(key, value)
+      },
+      async delete(key: string) {
+        values.delete(key)
+      },
+    }
+    const env = { STATE: state } as unknown as Env
+    const legacy = await explorerStatus(env)
+    expect(legacy.status).toBe('paused')
+    expect(legacy.error).toContain('请重新开始扫描')
+    const unchanged = await stepExplorer(env)
+    expect(unchanged.status).toBe('paused')
+    expect(unchanged.error).toContain('请重新开始扫描')
+    const restarted = await startExplorer(env)
+    expect(restarted.status).toBe('searching')
+    expect(restarted.phase).toBe('collecting')
+    expect(restarted.queryIndex).toBe(0)
+  })
+
 })
