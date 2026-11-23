@@ -27,6 +27,7 @@ import { runSequentialBatch } from '../batch'
 import { toggleSelection, updateScopedSelection, updateVisibleSelection } from '../selection'
 import { clearAdminToken, getAdminToken } from '../auth'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
+import AppIcon from '../components/AppIcon.vue'
 
 const message = useMessage()
 const token = ref(getAdminToken())
@@ -322,12 +323,12 @@ const columns: DataTableColumns<Project> = [
                 rel: 'noopener noreferrer',
                 class: 'repo-source-link',
               },
-              '源码',
+              [h(AppIcon, { name: 'external-link', size: 14 }), h('span', '源码')],
             ),
             h(
               NButton,
               { size: 'small', tertiary: true, disabled: batchBusy.value, onClick: () => openSubscription(row.id) },
-              { default: () => '打开订阅' },
+              { icon: () => h(AppIcon, { name: 'file-text' }), default: () => '打开订阅' },
             ),
             h(
               NButton,
@@ -338,7 +339,7 @@ const columns: DataTableColumns<Project> = [
                 disabled: batchBusy.value,
                 onClick: () => refreshProject(row.id),
               },
-              { default: () => '刷新' },
+              { icon: () => h(AppIcon, { name: 'refresh-cw' }), default: () => '刷新' },
             ),
             h(
               NButton,
@@ -349,7 +350,7 @@ const columns: DataTableColumns<Project> = [
                 disabled: batchBusy.value,
                 onClick: () => removeProject(row.id),
               },
-              { default: () => '删除' },
+              { icon: () => h(AppIcon, { name: 'trash-2' }), default: () => '删除' },
             ),
           ],
         },
@@ -449,7 +450,10 @@ onMounted(() => {
           <p class="muted">管理已登记的订阅仓库，并查看订阅源分发状态。</p>
         </div>
         <n-space>
-          <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
+          <n-button type="primary" @click="showAdd = true">
+            <template #icon><AppIcon name="plus" /></template>
+            添加订阅源
+          </n-button>
         </n-space>
       </header>
 
@@ -480,7 +484,9 @@ onMounted(() => {
               clearable
               placeholder="搜索 ID、仓库、分支或分组"
               class="project-search"
-            />
+            >
+              <template #prefix><AppIcon name="search" /></template>
+            </n-input>
             <n-checkbox
               :checked="allFilteredSelected"
               :indeterminate="someFilteredSelected"
@@ -499,7 +505,10 @@ onMounted(() => {
               ]"
               class="status-filter"
             />
-            <n-button secondary :loading="loading" :disabled="batchBusy" @click="loadProjects">刷新列表</n-button>
+            <n-button secondary :loading="loading" :disabled="batchBusy" @click="loadProjects">
+              <template #icon><AppIcon name="refresh-cw" /></template>
+              刷新列表
+            </n-button>
           </n-space>
         </div>
         <div v-if="selectedProjects.length" class="batch-toolbar">
@@ -520,6 +529,7 @@ onMounted(() => {
               :disabled="batchBusy"
               @click="batchRefresh"
             >
+              <template #icon><AppIcon name="refresh-cw" /></template>
               批量刷新
             </n-button>
             <n-button
@@ -530,6 +540,7 @@ onMounted(() => {
               :disabled="batchBusy"
               @click="batchDelete"
             >
+              <template #icon><AppIcon name="trash-2" /></template>
               批量删除
             </n-button>
             <n-button size="small" quaternary :disabled="batchBusy" @click="clearSelection">
@@ -731,7 +742,10 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
-.repo-source-link {
+ .repo-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--color-accent);
   font-size: 13px;
   text-decoration: none;
