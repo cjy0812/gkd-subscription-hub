@@ -3,7 +3,9 @@ import { renderMarkdown } from '../src/utils/markdown'
 
 describe('Markdown preview renderer', () => {
   it('renders GitHub-flavored tables and a linked table of contents', () => {
-    const html = renderMarkdown('# 概览\n\n## 安装步骤\n\n| 名称 | 状态 |\n| --- | --- |\n| GKD | 正常 |')
+    const html = renderMarkdown(
+      '# 概览\n\n## 安装步骤\n\n| 名称 | 状态 |\n| --- | --- |\n| GKD | 正常 |',
+    )
     expect(html).toContain('class="markdown-toc"')
     expect(html).toContain('href="#md-安装步骤"')
     expect(html).toContain('<table>')
@@ -25,7 +27,9 @@ describe('Markdown preview renderer', () => {
   })
 
   it('highlights registered code languages and safely escapes unknown languages', () => {
-    const html = renderMarkdown('```typescript\nconst answer: number = 42\n```\n\n```unknown-lang\n<svg onload=alert(1)>\n```')
+    const html = renderMarkdown(
+      '```typescript\nconst answer: number = 42\n```\n\n```unknown-lang\n<svg onload=alert(1)>\n```',
+    )
     expect(html).toContain('class="hljs language-typescript"')
     expect(html).toContain('hljs-keyword')
     expect(html).toContain('&lt;svg')
@@ -33,7 +37,9 @@ describe('Markdown preview renderer', () => {
   })
 
   it('adds safe external-link attributes and lazy image loading', () => {
-    const html = renderMarkdown('[docs](https://example.com)\n\n![image](https://example.com/a.png)')
+    const html = renderMarkdown(
+      '[docs](https://example.com)\n\n![image](https://example.com/a.png)',
+    )
     expect(html).toContain('target="_blank"')
     expect(html).toContain('rel="noopener noreferrer"')
     expect(html).toContain('loading="lazy"')
