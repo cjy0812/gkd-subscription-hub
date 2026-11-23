@@ -138,7 +138,6 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 - Tests cover JSON5 parsing, subscription validation, repository deduplication, Fork metadata, filters, and partial-search handling.
 - Existing CI checks remain green.
 
-
 ## 维护者反馈：扫描分页、筛选与 ID 冲突（2026-11-23）
 
 ### 当前实现行为（源码确认）
