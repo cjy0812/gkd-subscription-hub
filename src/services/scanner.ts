@@ -16,9 +16,10 @@ export function parseRepo(input: string) {
 export async function listBranches(env: Env, owner: string, repo: string) {
   const repositoryPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
   const [metadata, firstPage] = await Promise.all([
-    gh<{ default_branch: string }>(env, repositoryPath),
+    gh<{ default_branch: string; private?: boolean; archived?: boolean }>(env, repositoryPath),
     gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100&page=1`),
   ])
+  if (metadata.private || metadata.archived) throw Error('仅支持未归档公开仓库')
   const items = [...firstPage]
   let page = 1
   let pageItems = firstPage
