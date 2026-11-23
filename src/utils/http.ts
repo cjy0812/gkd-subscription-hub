@@ -20,7 +20,8 @@ export function wantsHtml(req: Request) {
   if (mode === 'cors' || mode === 'no-cors' || dest === 'empty') return false
   return (req.headers.get('accept') || '').toLowerCase().includes('text/html')
 }
-export function documentPage(title: string, body: string) {
+export function documentPage(title: string, body: string, rawHref?: string) {
+  const rawLink = rawHref ? `<a href="${escapeHtml(rawHref)}">查看原始文件</a>` : ''
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -83,7 +84,7 @@ export function documentPage(title: string, body: string) {
 </head>
 <body>
   <main class="page-shell">
-    <div class="page-top"><span>GKD 订阅文件预览</span><a href="?raw=1">查看原始文件</a></div>
+    <div class="page-top"><span>GKD 订阅文件预览</span>${rawLink}</div>
     <article class="markdown-body">${body}</article>
   </main>
   <script>
