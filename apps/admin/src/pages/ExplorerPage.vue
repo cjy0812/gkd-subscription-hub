@@ -252,8 +252,9 @@ onMounted(() => {
         <div>
           <strong>扫描状态：{{ job?.status || '未知' }}</strong>
           <p class="muted">
-            {{ phaseLabel }} · 已收集 {{ job?.candidateCount || 0 }} 个候选 · 已验证
-            {{ job?.verifiedCount || 0 }} 个仓库 · 已搜索 {{ job?.scannedPages || 0 }} 页
+            {{ phaseLabel }} · 已收集 {{ job?.candidateCount || 0 }} 个候选 · 已处理
+            {{ job?.verifiedCount || 0 }} 个候选，命中 {{ job?.matchedCount || 0 }} 个仓库 · 已搜索
+            {{ job?.scannedPages || 0 }} 页
           </p>
         </div>
         <n-tag v-if="job?.incomplete" type="warning">搜索结果可能不完整</n-tag>
