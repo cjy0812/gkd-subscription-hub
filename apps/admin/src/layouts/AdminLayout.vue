@@ -121,11 +121,8 @@ function logout() {
   font-size: 15px;
 }
 
-.brand span {
+ .brand span {
   color: var(--color-text-secondary);
-}
-
-.brand span {
   font-size: 11px;
   letter-spacing: 0.08em;
 }
