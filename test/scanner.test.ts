@@ -140,9 +140,7 @@ describe('scanner helpers', () => {
         return new Response(JSON.stringify({ commit: { id: 'gitea-commit' } }))
       }
       if (url.includes('/contents/src/subscription.ts')) {
-        return new Response(
-          JSON.stringify({ content: btoa(source), encoding: 'base64' }),
-        )
+        return new Response(JSON.stringify({ content: btoa(source), encoding: 'base64' }))
       }
       if (url.includes('/git/trees/gitea-commit')) {
         return new Response(
