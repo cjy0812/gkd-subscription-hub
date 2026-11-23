@@ -28,6 +28,7 @@ describe('scanner helpers', () => {
     expect(result).toEqual({
       defaultBranch: 'main',
       branches: ['main', 'alpha', 'zeta'],
+      truncated: false,
     })
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
