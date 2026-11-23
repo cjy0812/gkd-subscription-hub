@@ -9,7 +9,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter �
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
 - 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
 - `?raw=1` 强制原始内容。
-- GitHub 项目读取 Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间；GitLab CI / Gitea Actions 运行监控尚未接入。
+- GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
 - Vue 管理端支持登录、新增、刷新、删除项目；项目可指定分组，管理界面按组展示，桌面端使用数据表格，手机端切换为卡片列表。
 - GKD Rules Explorer 采用两阶段扫描：先收集 GitHub 搜索候选并按仓库 ID 去重，再分批验证 Commit、Tree 和 JSON5 订阅文件；扫描期间保留上次已发布目录。支持 Fork 来源、订阅元信息、自定义字段、模糊搜索、订阅 ID 精确筛选、跨仓库重复 ID 提示和排序。
@@ -212,7 +212,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 更新预测的边界
 
-目前 GitHub Actions 的 cron 字段用于识别和展示工作流调度配置；预测间隔主要依据最近成功的 workflow run 完成时间中位数，不是完整 cron 语法解释器。GitLab CI 与 Gitea Actions 尚未映射到统一运行模型。排队延迟、手动触发、取消运行和 GitHub 服务延迟都会影响预测。预测时间不等于上游内容发布时间保证。
+目前仅 GitHub Actions 的 cron 字段会被解析和展示；GitLab CI 与 Gitea Actions 的运行状态已映射到统一运行模型，但尚未解析各平台工作流文件中的调度表达式。预测间隔主要依据最近成功的运行完成时间中位数，不是完整 cron 语法解释器。排队延迟、手动触发、取消运行和 GitHub 服务延迟都会影响预测。预测时间不等于上游内容发布时间保证。
 
 ## 安全与数据
 
