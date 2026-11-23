@@ -136,7 +136,7 @@ export function documentPage(title: string, body: string, rawHref?: string) {
     jsonSearch?.addEventListener('input', () => {
       const query = jsonSearch.value.trim().toLocaleLowerCase()
       for (const entry of jsonEntries) {
-        const matches = !query || entry.textContent.toLocaleLowerCase().includes(query)
+        const matches = !query || (entry.textContent || '').toLocaleLowerCase().includes(query)
         entry.hidden = !matches
         if (query && matches && entry instanceof HTMLDetailsElement) entry.open = true
       }
