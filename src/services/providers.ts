@@ -119,7 +119,7 @@ const githubAdapter: ProviderAdapter = {
         metadata.default_branch,
         ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
       ],
-      truncated: Boolean(next),
+      truncated: Boolean(next) || items.length >= PAGE_SIZE * MAX_PAGES,
     }
   },
   async getCommit(env, locator, branch) {
@@ -223,6 +223,9 @@ const gitlabAdapter: ProviderAdapter = {
       const page = await gitlabPage<Array<{ name: string }>>(next)
       items.push(...page.data)
       next = page.next
+      if (!next && page.data.length === PAGE_SIZE) {
+        throw Error('GitLab 分支列表返回满页但缺少下一页链接，无法确认完整性')
+      }
       pages += 1
     }
     const names = [...new Set(items.map((item) => item.name))]
@@ -252,6 +255,9 @@ const gitlabAdapter: ProviderAdapter = {
       const page = await gitlabPage<Array<{ id: string; path: string; type: string; size?: number }>>(url)
       files.push(...page.data)
       url = page.next || ''
+      if (!url && page.data.length === PAGE_SIZE) {
+        throw Error('GitLab dist/ 返回满页但缺少下一页链接，无法确认目录完整性')
+      }
       pages += 1
     }
     if (url) throw Error('GitLab dist/ 文件超过 1,000 条，暂不支持完整索引')
@@ -401,6 +407,9 @@ export function parseRepositoryUrl(input: string): RepositoryLocator {
       throw Error('仓库路径编码无效')
     }
   })
+  if (url.hostname === 'gitlab.com' && segments.includes('-')) {
+    throw Error('请填写 GitLab 项目根地址，不要附带 /-/tree 等页面路径')
+  }
   const adapter = Object.values(adapters).find((item) => item.parse(url.hostname, segments))
   const locator = adapter?.parse(url.hostname, segments)
   if (!locator) throw Error('当前仅支持 GitHub、GitLab.com 与 Gitea.com 的公开仓库 URL')
