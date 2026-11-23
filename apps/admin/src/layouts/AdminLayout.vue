@@ -51,11 +51,20 @@ function logout() {
       </div>
       <div class="topbar-actions">
         <n-tag :bordered="false" type="success">Worker 在线管理</n-tag>
-        <n-button quaternary size="small" @click="logout">退出</n-button>
+        <n-button quaternary size="small" @click="logout">
+          <template #icon><AppIcon name="log-out" /></template>
+          退出
+        </n-button>
       </div>
       <div class="mobile-actions">
-        <n-button quaternary size="small" @click="showMobileNav = true">菜单</n-button>
-        <n-button quaternary size="small" @click="logout">退出</n-button>
+        <n-button quaternary size="small" @click="showMobileNav = true">
+          <template #icon><AppIcon name="menu" /></template>
+          菜单
+        </n-button>
+        <n-button quaternary size="small" @click="logout">
+          <template #icon><AppIcon name="log-out" /></template>
+          退出
+        </n-button>
       </div>
     </n-layout-header>
     <n-layout has-sider class="workspace" dir="ltr">
