@@ -37,6 +37,7 @@ const branchName = ref<string | null>(null)
 const branchOptions = ref<Array<{ label: string; value: string }>>([])
 const branchLoading = ref(false)
 const branchesLoaded = ref(false)
+const branchesTruncated = ref(false)
 const branchError = ref('')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'normal' | 'error' | 'unknown'>('all')
@@ -51,6 +52,7 @@ watch(repositoryUrl, () => {
   branchName.value = null
   branchOptions.value = []
   branchesLoaded.value = false
+  branchesTruncated.value = false
   branchError.value = ''
 })
 const subscriptionDomain = ref('')
@@ -396,14 +398,19 @@ async function loadBranches() {
   branchLoading.value = true
   branchError.value = ''
   try {
-    const result = await api<{ defaultBranch: string; branches: string[] }>(
+    const result = await api<{ defaultBranch: string; branches: string[]; truncated?: boolean }>(
       `/api/repositories/branches?url=${encodeURIComponent(url)}`,
       token.value,
     )
     branchOptions.value = result.branches.map((name) => ({ label: name, value: name }))
     branchName.value = result.defaultBranch
     branchesLoaded.value = true
-    message.success(`已读取 ${result.branches.length} 个分支，默认分支为 ${result.defaultBranch}`)
+    branchesTruncated.value = Boolean(result.truncated)
+    if (branchesTruncated.value) {
+      message.warning('分支数量超过 1,000，仅显示前 1,000 个；请使用默认分支或稍后筛选')
+    } else {
+      message.success(`已读取 ${result.branches.length} 个分支，默认分支为 ${result.defaultBranch}`)
+    }
   } catch (error) {
     branchError.value = error instanceof Error ? error.message : '读取分支失败'
     message.error(branchError.value)
@@ -702,6 +709,9 @@ onMounted(() => {
           placeholder="先读取仓库分支；留空使用默认分支"
         />
         <n-text v-if="branchError" type="error" class="branch-error">{{ branchError }}</n-text>
+        <n-text v-else-if="branchesTruncated" type="warning" class="branch-error">
+          仓库分支超过 1,000 个，当前仅展示前 1,000 个。
+        </n-text>
       </n-form-item>
       <n-form-item label="所属分组">
         <n-input
