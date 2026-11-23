@@ -478,34 +478,40 @@ export async function startExplorer(env: Env) {
   if (existing.status === 'searching' || existing.status === 'verifying') {
     return explorerStatus(env)
   }
-  const job: Job = {
-    status: 'searching',
-    queryIndex: 0,
-    page: 1,
-    candidates: [],
-    candidateIndex: 0,
-    entries: [],
-    seen: [],
-    startedAt: now(),
-    updatedAt: now(),
-    error: null,
-    incomplete: false,
-    scannedPages: 0,
-  }
+  const job = emptyJob()
+  job.status = 'searching'
+  job.startedAt = now()
   await write(env, 'job', job)
   return explorerStatus(env)
 }
+
+function compactCandidate(candidate: Candidate): Candidate {
+  return {
+    ...repositoryData(candidate),
+    parent: candidate.parent ?? null,
+  } as Candidate
+}
+
 export async function stepExplorer(env: Env) {
   const job = await loadJob(env)
   if (job.status === 'paused' || job.status === 'error') {
-    job.status = 'searching'
+    job.status = job.phase === 'verifying' ? 'verifying' : 'searching'
     job.error = null
   }
   if (job.status !== 'searching' && job.status !== 'verifying') {
     return explorerStatus(env)
   }
+
   try {
-    if (job.candidateIndex >= job.candidates.length && job.queryIndex < SEARCH_QUERIES.length) {
+    if (job.phase === 'collecting') {
+      if (job.queryIndex >= SEARCH_QUERIES.length) {
+        job.phase = 'verifying'
+        job.status = 'verifying'
+        job.updatedAt = now()
+        await write(env, 'job', job)
+        return explorerStatus(env)
+      }
+
       const search = SEARCH_QUERIES[job.queryIndex]
       const endpoint = search.kind === 'code' ? 'code' : 'repositories'
       const data = await github(
@@ -516,8 +522,8 @@ export async function stepExplorer(env: Env) {
       const rawItems = requireArrayField(data, 'items', 'GitHub Search')
       const parsed = parseSearchCandidates(rawItems, search.kind)
       const items = parsed.items
-
       const totalCount = Number(data.total_count || 0)
+
       job.incomplete ||= parsed.incomplete
       job.incomplete ||= data.incomplete_results === true
       job.incomplete ||= search.kind === 'code' && totalCount > items.length
@@ -525,13 +531,33 @@ export async function stepExplorer(env: Env) {
       job.scannedPages++
 
       const known = new Set(job.seen)
-      const fresh = items.filter((repository) => !known.has(Number(repository.id)))
-      for (const repository of fresh) {
-        repository.__source = search.query
-        job.seen.push(Number(repository.id))
+      const fresh: Candidate[] = []
+      for (const repository of items) {
+        const id = Number(repository.id)
+        const idKey = String(id)
+        const sources = job.sourceById[idKey] || []
+        if (known.has(id)) {
+          if (!sources.includes(search.query)) {
+            job.sourceById[idKey] = [...sources, search.query]
+          }
+          continue
+        }
+        known.add(id)
+        job.seen.push(id)
+        job.sourceById[idKey] = [search.query]
+        fresh.push(compactCandidate(repository))
       }
-      job.candidates = fresh
-      job.candidateIndex = 0
+
+      if (fresh.length) {
+        const batchKey = await writeCandidateBatch(
+          env,
+          job.runId,
+          job.candidateBatches.length,
+          fresh,
+        )
+        job.candidateBatches.push({ key: batchKey, count: fresh.length })
+        job.candidateCount += fresh.length
+      }
 
       if (items.length < PAGE_SIZE || job.page >= (search.kind === 'code' ? 1 : 10)) {
         job.queryIndex++
@@ -539,7 +565,16 @@ export async function stepExplorer(env: Env) {
       } else {
         job.page++
       }
-      job.status = 'verifying'
+
+      if (job.queryIndex >= SEARCH_QUERIES.length) {
+        job.phase = 'verifying'
+        job.status = 'verifying'
+      } else {
+        job.status = 'searching'
+      }
+      job.updatedAt = now()
+      await write(env, 'job', job)
+      return explorerStatus(env)
     }
 
     const cachedEntries = await read<Entry[]>(env, 'catalog', [])
@@ -549,14 +584,19 @@ export async function stepExplorer(env: Env) {
         return typeof id === 'number' && Number.isSafeInteger(id) ? [[id, entry] as const] : []
       }),
     )
-    const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidates.length)
+    const batchCache = new Map<string, Candidate[]>()
+    const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidateCount)
     for (; job.candidateIndex < end; job.candidateIndex++) {
-      const candidate = job.candidates[job.candidateIndex]
+      const candidate = await readCandidateAt(env, job, job.candidateIndex, batchCache)
+      if (!candidate) {
+        job.incomplete = true
+        continue
+      }
       try {
         const entry = await verify(
           env,
           candidate,
-          candidate.__source ? [candidate.__source] : [],
+          job.sourceById[String(candidate.id)] || [],
           cacheById.get(Number(candidate.id)),
         )
         if (entry) job.entries.push(entry)
@@ -570,21 +610,26 @@ export async function stepExplorer(env: Env) {
       }
     }
 
-    if (
-      job.status !== 'paused' &&
-      job.queryIndex >= SEARCH_QUERIES.length &&
-      job.candidateIndex >= job.candidates.length
-    ) {
+    job.verifiedCount = job.entries.length
+    if (job.status !== 'paused' && job.candidateIndex >= job.candidateCount) {
       job.status = 'complete'
+      job.phase = 'complete'
       await write(env, 'catalog', job.entries)
+      job.entries = []
+      job.candidateBatches = []
+      job.seen = []
+      job.sourceById = {}
     } else if (job.status !== 'paused') {
-      job.status = job.candidateIndex < job.candidates.length ? 'verifying' : 'searching'
+      job.status = 'verifying'
     }
+
     job.updatedAt = now()
     await write(env, 'job', job)
     return explorerStatus(env)
   } catch (error) {
-    job.status = 'error'
+    job.status = error instanceof Error && error.message.startsWith('GitHub API 限流')
+      ? 'paused'
+      : 'error'
     job.error = error instanceof Error ? error.message : '扫描失败'
     job.updatedAt = now()
     await write(env, 'job', job)
@@ -592,9 +637,7 @@ export async function stepExplorer(env: Env) {
   }
 }
 export async function explorerCatalog(env: Env) {
-  const catalog = await read<Entry[]>(env, 'catalog', [])
-  const job = await loadJob(env)
-  return job.entries.length ? job.entries : catalog
+  return read<Entry[]>(env, 'catalog', [])
 }
 
 export async function explorerQuota(env: Env) {
