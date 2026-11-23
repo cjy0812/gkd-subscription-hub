@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
+import { fetchProjectFile } from '../services/providers'
 import { renderJson5Preview } from '../utils/json5-preview'
 import { renderMarkdown } from '../utils/markdown'
 import {
@@ -59,24 +60,12 @@ app.all('*', async (c) => {
     !/^[A-Za-z0-9_@.+/-]+$/.test(path)
   )
     return bad('Not found', 404)
-  if (!p.distFiles.some((f) => f.path === path)) return bad('File not found', 404)
-  const immutableRef = p.commitSha || encodeURIComponent(p.branch)
-  const upstream =
-      'https://raw.githubusercontent.com/' +
-      p.owner +
-      '/' +
-      p.repo +
-      '/' +
-      immutableRef +
-      '/dist/' +
-      path.split('/').map(encodeURIComponent).join('/'),
-    r = await fetch(upstream, {
-      method: req.method,
-      headers: req.headers.get('if-none-match')
-        ? { 'if-none-match': req.headers.get('if-none-match')! }
-        : {},
-      cf: { cacheEverything: true, cacheTtl: 60 },
-    })
+  const file = p.distFiles.find((item) => item.path === path)
+  if (!file) return bad('File not found', 404)
+  const r = await fetchProjectFile(c.env, p, file, {
+    method: req.method,
+    ifNoneMatch: req.headers.get('if-none-match') || undefined,
+  })
   if (!r.ok) return new Response(r.body, { status: r.status, headers: r.headers })
   if (
     wantsHtml(req) &&
