@@ -5,16 +5,16 @@ describe('Markdown preview renderer', () => {
   it('renders GitHub-flavored tables and a linked table of contents', () => {
     const html = renderMarkdown('# 概览\n\n## 安装步骤\n\n| 名称 | 状态 |\n| --- | --- |\n| GKD | 正常 |')
     expect(html).toContain('class="markdown-toc"')
-    expect(html).toContain('href="#安装步骤"')
+    expect(html).toContain('href="#md-安装步骤"')
     expect(html).toContain('<table>')
     expect(html).toContain('<th>名称</th>')
   })
 
   it('generates stable unique ids for duplicate headings', () => {
     const html = renderMarkdown('## 配置\n\n## 配置')
-    expect(html).toContain('id="配置"')
-    expect(html).toContain('id="配置-2"')
-    expect(html).toContain('href="#配置-2"')
+    expect(html).toContain('id="md-配置"')
+    expect(html).toContain('id="md-配置-2"')
+    expect(html).toContain('href="#md-配置-2"')
   })
 
   it('does not render raw HTML or executable links', () => {
