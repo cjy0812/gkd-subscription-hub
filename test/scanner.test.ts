@@ -106,8 +106,11 @@ describe('scanner helpers', () => {
       }
       if (url.includes('/repository/tree?')) {
         return new Response(
-          JSON.stringify([{ id: 'blob-sha', path: 'dist/gkd.json5', type: 'blob', size: 100 }]),
+          JSON.stringify([{ id: 'blob-sha', path: 'dist/gkd.json5', type: 'blob' }]),
         )
+      }
+      if (url.endsWith('/repository/blobs/blob-sha')) {
+        return new Response(JSON.stringify({ size: 100 }))
       }
       return new Response(
         JSON.stringify({
