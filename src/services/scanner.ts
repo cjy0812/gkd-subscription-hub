@@ -15,16 +15,25 @@ export function parseRepo(input: string) {
 }
 export async function listBranches(env: Env, owner: string, repo: string) {
   const repositoryPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
-  const [metadata, items] = await Promise.all([
+  const [metadata, firstPage] = await Promise.all([
     gh<{ default_branch: string }>(env, repositoryPath),
-    gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100`),
+    gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100&page=1`),
   ])
+  const items = [...firstPage]
+  for (let page = 2; page <= 10 && items.length % 100 === 0; page += 1) {
+    const nextPage = await gh<Array<{ name: string }>>(
+      env,
+      `${repositoryPath}/branches?per_page=100&page=${page}`,
+    )
+    items.push(...nextPage)
+    if (nextPage.length < 100) break
+  }
   const names = [...new Set(items.map((branch) => branch.name))]
   const branches = [
     metadata.default_branch,
     ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
   ]
-  return { defaultBranch: metadata.default_branch, branches }
+  return { defaultBranch: metadata.default_branch, branches, truncated: items.length >= 1000 }
 }
 
 export function extractId(s: string) {
