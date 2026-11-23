@@ -128,9 +128,22 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 新增项目表单使用自由文本分支；Worker 注册 API 也只接收 `branch` 字符串。建议增加受控的分支列表 API/选择器，并在仓库 URL 验证后加载默认分支和分支列表；需处理网络失败、无权限/仓库不存在和分支删除竞态。
 
-### A-17（待决策）：项目 Provider 仅支持 GitHub
+### A-17（高，已确定方向、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
 
-`src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`；注册、扫描、Actions 运行记录和 Raw 文件分发均直接依赖 GitHub API/Raw。多 Provider 支持不是只放宽 URL 校验，需要 Provider adapter、仓库/分支/Commit/Tree/文件读取能力和 CI/Actions 等价能力评估。旧需求是否明确包含 GitLab/Gitea 等来源尚未在本轮证据中确认，标记为待产品范围确认。
+此前产品讨论已明确：首批 Provider 为 GitHub、GitLab、Gitea；架构需允许未来增加其他平台。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描、Actions 运行记录和 Raw 文件分发均直接依赖 GitHub API/Raw，因此现状与已确定方向存在差距。
+
+统一接口至少覆盖：
+- 仓库 URL 解析、实例地址、命名空间/项目路径与默认分支；
+- 分支列表、Ref、Commit SHA、递归 Tree、文件内容读取；
+- Release / Tag / Commit 版本状态与更新事件；
+- CI 工作流/流水线状态（GitHub Actions、GitLab CI、Gitea Actions 等能力需按 Provider 映射；不可假设完全等价）；
+- API 认证、限流、分页、错误分类和 webhook 签名验证。
+
+更新策略已确定：本端 Cron/主动拉取为主；平台 Webhook 为可选加速。统一 `/hooks/notify`，不为每个项目创建独立 Webhook；收到通知后必须由本端重新拉取并验证，不信任通知载荷中的版本或文件内容。新系统接管后旧 Worker 退役，保留回滚脚本。
+
+订阅 URL 统一为 `https://gkd.chenge.eu.org/<id>/<dist>`；此前已决定不保留旧子域名和 `/s/<id>/` 兼容路径。
+
+这不是待确认产品范围；待设计/实现的是 Provider adapter、Project schema 迁移、认证配置和各平台能力差异。
 
 ### A-18（中）：项目列表信息层级与源码入口
 
