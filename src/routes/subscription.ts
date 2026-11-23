@@ -1,11 +1,10 @@
 import { Hono } from 'hono'
-import MarkdownIt from 'markdown-it'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
+import { renderMarkdown } from '../utils/markdown'
 import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
 
-const app = new Hono<{ Bindings: Env }>(),
-  md = new MarkdownIt({ html: false, linkify: false, typographer: false })
+const app = new Hono<{ Bindings: Env }>()
 
 function directory(p: Project) {
   const prefix = `/${p.id}/`
@@ -73,7 +72,7 @@ app.all('*', async (c) => {
   ) {
     const text = await r.text(),
       body = path.toLowerCase().endsWith('.md')
-        ? md.render(text)
+        ? renderMarkdown(text)
         : '<h1>' +
           escapeHtml(path) +
           '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' +
