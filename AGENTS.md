@@ -100,3 +100,11 @@ bun run build:admin
 ## 管理端 UI 设计约束
 
 修改 `apps/admin/**` 的页面、组件或样式前，必须阅读 `docs/engineering/admin-ui-design-guidelines.md`。遵循其中基于 Addy Osmani `frontend-ui-engineering` 与 Vercel `web-design-guidelines` 的可访问性、响应式、组件边界和设计 Tokens 规则；不要引入第二套 UI framework。UI 变更必须记录真实浏览器验收视口与结果，CI 通过不能替代浏览器验收。
+
+## Provider Adapter 约束
+
+- 代码托管平台 URL 解析、API 请求、分页、限流、Commit/Tree、文件读取和固定版本 Raw URL 统一放在 `src/services/providers.ts`；业务层不得硬编码 GitHub URL 或直接调用某个平台 API。
+- 当前明确支持 GitHub、GitLab.com、Gitea.com 的公开 HTTPS 仓库；不得在没有 SSRF/认证/限流设计前放开任意主机或自托管实例。
+- 新增 Provider 必须覆盖仓库 URL 解析、默认分支/分支列表、Commit 固定、dist Tree、订阅源文件读取、固定版本文件分发和分页上限测试。
+- 旧 Project 记录缺少 `provider` 时按 GitHub 兼容；新增字段保持向后兼容，并同步 README、架构概览和路线图。
+- CI 工作流状态、Webhook、Release/Tag 等能力按 Provider 分别验证；不得假定 GitHub Actions、GitLab CI、Gitea Actions API 完全等价。
