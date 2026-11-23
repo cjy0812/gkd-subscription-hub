@@ -110,12 +110,10 @@ describe('malformed upstream entries', () => {
         { type: 'blob', path: 'dist/gkd.json5', sha: 'abc', size: 10 },
       ]),
     ).toBe(false)
-    expect(
-      hasMalformedSubscriptionBlob([{ type: 'blob', path: 'dist/gkd.json5', size: 10 }]),
-    ).toBe(true)
-    expect(
-      hasMalformedSubscriptionBlob([{ type: 'tree', path: 'dist/folder' }]),
-    ).toBe(false)
+    expect(hasMalformedSubscriptionBlob([{ type: 'blob', path: 'dist/gkd.json5', size: 10 }])).toBe(
+      true,
+    )
+    expect(hasMalformedSubscriptionBlob([{ type: 'tree', path: 'dist/folder' }])).toBe(false)
   })
 })
 
