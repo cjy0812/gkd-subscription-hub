@@ -5,6 +5,7 @@ export type ExplorerBooleanFilter = 'all' | 'yes' | 'no'
 
 export interface ExplorerFilters {
   query: string
+  exactSubscriptionId: string
   fork: ExplorerBooleanFilter
   archived: ExplorerBooleanFilter
   author: string
@@ -26,6 +27,30 @@ export function collectExplorerAuthors(entries: readonly ExplorerEntry[]): strin
 
 export function collectExplorerTopics(entries: readonly ExplorerEntry[]): string[] {
   return [...new Set(entries.flatMap((entry) => entry.repository.topics ?? []))].sort()
+}
+
+export interface ExplorerIdConflict {
+  id: number
+  repositories: string[]
+}
+
+export function collectSubscriptionIdConflicts(
+  entries: readonly ExplorerEntry[],
+): ExplorerIdConflict[] {
+  const repositoriesById = new Map<number, Set<string>>()
+  for (const entry of entries) {
+    const repository = entry.repository.full_name
+    for (const subscription of entry.subscriptions) {
+      if (!Number.isSafeInteger(subscription.id) || subscription.id <= 0) continue
+      const repositories = repositoriesById.get(subscription.id) || new Set<string>()
+      repositories.add(repository)
+      repositoriesById.set(subscription.id, repositories)
+    }
+  }
+  return [...repositoriesById.entries()]
+    .filter(([, repositories]) => repositories.size > 1)
+    .map(([id, repositories]) => ({ id, repositories: [...repositories].sort() }))
+    .sort((left, right) => left.id - right.id)
 }
 
 function matchesBooleanFilter(filter: ExplorerBooleanFilter, value: boolean): boolean {
@@ -53,6 +78,7 @@ export function filterExplorerEntries(
   filters: ExplorerFilters,
 ): ExplorerEntry[] {
   const query = filters.query.trim().toLowerCase()
+  const exactId = filters.exactSubscriptionId.trim()
   const filtered = entries.filter((entry) => {
     const repository = entry.repository
     const searchableText = [
@@ -63,7 +89,6 @@ export function filterExplorerEntries(
       ...entry.subscriptions.flatMap((subscription) => [
         subscription.name,
         subscription.author,
-        String(subscription.id),
         subscription.version,
         JSON.stringify(subscription.customFields),
       ]),
@@ -74,6 +99,7 @@ export function filterExplorerEntries(
 
     return (
       (!query || searchableText.includes(query)) &&
+      (!exactId || entry.subscriptions.some((subscription) => String(subscription.id) === exactId)) &&
       matchesBooleanFilter(filters.fork, entry.fork) &&
       matchesBooleanFilter(filters.archived, Boolean(repository.archived)) &&
       (!filters.author ||
