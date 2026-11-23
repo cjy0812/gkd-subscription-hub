@@ -21,6 +21,6 @@ export async function all(e: Env) {
   return p.filter((x): x is Project => !!x)
 }
 export async function remove(e: Env, id: number) {
-  await e.STATE.delete('project:' + id)
+  await e.STATE.delete(`project:${id}`)
   await e.STATE.put(KEY, JSON.stringify((await ids(e)).filter((x) => x !== id)))
 }
