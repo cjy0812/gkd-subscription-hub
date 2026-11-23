@@ -228,6 +228,7 @@ const gitlabAdapter: ProviderAdapter = {
       }
       pages += 1
     }
+    if (metadata.isPrivate || metadata.archived) throw Error('仅支持未归档公开仓库')
     const names = [...new Set(items.map((item) => item.name))]
     return {
       defaultBranch: metadata.defaultBranch,
@@ -326,6 +327,7 @@ const giteaAdapter: ProviderAdapter = {
       page += 1
     } while (pageItems.length === 50 && page <= 20)
     const metadata = await this.getRepository(_env, locator)
+    if (metadata.isPrivate || metadata.archived) throw Error('仅支持未归档公开仓库')
     const names = [...new Set(items.map((item) => item.name))]
     return {
       defaultBranch: metadata.defaultBranch,
