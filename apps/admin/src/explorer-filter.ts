@@ -99,7 +99,8 @@ export function filterExplorerEntries(
 
     return (
       (!query || searchableText.includes(query)) &&
-      (!exactId || entry.subscriptions.some((subscription) => String(subscription.id) === exactId)) &&
+      (!exactId ||
+        entry.subscriptions.some((subscription) => String(subscription.id) === exactId)) &&
       matchesBooleanFilter(filters.fork, entry.fork) &&
       matchesBooleanFilter(filters.archived, Boolean(repository.archived)) &&
       (!filters.author ||
