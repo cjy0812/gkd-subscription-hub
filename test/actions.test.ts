@@ -40,36 +40,36 @@ describe('provider CI monitoring', () => {
       async (_input: RequestInfo | URL) =>
         new Response(
           JSON.stringify([
-              {
-                id: 901,
-                status: 'success',
-                source: 'push',
-                name: 'Build and test',
-                created_at: '2026-11-22T10:00:00.000Z',
-                updated_at: '2026-11-22T10:03:00.000Z',
-                web_url: 'https://gitlab.com/group/project/-/pipelines/901',
-                sha: 'abc123',
-              },
-              {
-                id: 902,
-                status: 'running',
-                source: 'schedule',
-                created_at: '2026-11-22T11:00:00.000Z',
-                updated_at: '2026-11-22T11:01:00.000Z',
-                web_url: 'https://gitlab.com/group/project/-/pipelines/902',
-                sha: 'def456',
-              },
-              {
-                id: 903,
-                status: 'waiting_for_callback',
-                source: 'web',
-                created_at: '2026-11-22T12:00:00.000Z',
-                updated_at: '2026-11-22T12:01:00.000Z',
-                web_url: 'https://gitlab.com/group/project/-/pipelines/903',
-                sha: 'ghi789',
-              },
-        ]),
-      ),
+            {
+              id: 901,
+              status: 'success',
+              source: 'push',
+              name: 'Build and test',
+              created_at: '2026-11-22T10:00:00.000Z',
+              updated_at: '2026-11-22T10:03:00.000Z',
+              web_url: 'https://gitlab.com/group/project/-/pipelines/901',
+              sha: 'abc123',
+            },
+            {
+              id: 902,
+              status: 'running',
+              source: 'schedule',
+              created_at: '2026-11-22T11:00:00.000Z',
+              updated_at: '2026-11-22T11:01:00.000Z',
+              web_url: 'https://gitlab.com/group/project/-/pipelines/902',
+              sha: 'def456',
+            },
+            {
+              id: 903,
+              status: 'waiting_for_callback',
+              source: 'web',
+              created_at: '2026-11-22T12:00:00.000Z',
+              updated_at: '2026-11-22T12:01:00.000Z',
+              web_url: 'https://gitlab.com/group/project/-/pipelines/903',
+              sha: 'ghi789',
+            },
+          ]),
+        ),
     )
     vi.stubGlobal('fetch', fetchMock)
     const result = await runs({} as never, project('gitlab'))
@@ -116,21 +116,21 @@ describe('provider CI monitoring', () => {
       async (_input: RequestInfo | URL) =>
         new Response(
           JSON.stringify({
-              workflow_runs: [
-                {
-                  id: 701,
-                  path: '.gitea/workflows/build.yml',
-                  event: 'push',
-                  status: 'success',
-                  conclusion: 'success',
-                  created_at: '2026-11-22T12:00:00.000Z',
-                  updated_at: '2026-11-22T12:02:00.000Z',
-                  html_url: 'https://gitea.com/owner/project/actions/runs/701',
-                  head_sha: 'ghi789',
-                },
-              ],
-        }),
-      ),
+            workflow_runs: [
+              {
+              id: 701,
+              path: '.gitea/workflows/build.yml',
+              event: 'push',
+              status: 'success',
+              conclusion: 'success',
+              created_at: '2026-11-22T12:00:00.000Z',
+              updated_at: '2026-11-22T12:02:00.000Z',
+              html_url: 'https://gitea.com/owner/project/actions/runs/701',
+              head_sha: 'ghi789',
+              },
+            ],
+          }),
+        ),
     )
     vi.stubGlobal('fetch', fetchMock)
     const result = await runs({} as never, project('gitea'))
