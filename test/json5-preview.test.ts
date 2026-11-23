@@ -18,7 +18,10 @@ describe('JSON5 read-only tree preview', () => {
   })
 
   it('escapes values and keys before rendering HTML', () => {
-    const html = renderJson5Preview("{ '<img src=x onerror=alert(1)>': '<script>alert(1)</script>' }", 'x.json5')
+    const html = renderJson5Preview(
+      "{ '<img src=x onerror=alert(1)>': '<script>alert(1)</script>' }",
+      'x.json5',
+    )
     expect(html).not.toContain('<img src=x')
     expect(html).not.toContain('<script>')
     expect(html).toContain('&lt;img')
