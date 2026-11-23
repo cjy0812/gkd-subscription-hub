@@ -11,6 +11,12 @@ describe('buildProjectFileUrl', () => {
     )
   })
 
+  it('normalizes case-insensitive DNS hostnames', () => {
+    expect(buildProjectFileUrl('GKD.Example.COM', 123, 'gkd.json5', 'view')).toBe(
+      'https://gkd.example.com/123/gkd.json5?view=1',
+    )
+  })
+
   it('rejects missing domains, invalid IDs, and unsafe paths', () => {
     expect(buildProjectFileUrl('', 123, 'gkd.json5', 'view')).toBeNull()
     expect(buildProjectFileUrl('gkd.example.com', 0, 'gkd.json5', 'view')).toBeNull()
