@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  fetchProjectFile,
-  getProviderAdapter,
-  parseRepositoryUrl,
-} from '../src/services/providers'
+import { fetchProjectFile, getProviderAdapter, parseRepositoryUrl } from '../src/services/providers'
 import type { Env } from '../src/types'
 
 describe('repository provider adapters', () => {
@@ -68,9 +64,7 @@ describe('repository provider adapters', () => {
       },
       { path: 'gkd.json5', sha: 'blob-sha', size: 10 },
     )
-    expect(url).toBe(
-      'https://gitlab.com/api/v4/projects/123/repository/blobs/blob-sha/raw',
-    )
+    expect(url).toBe('https://gitlab.com/api/v4/projects/123/repository/blobs/blob-sha/raw')
   })
 
   it('lists Gitea branches and builds a commit-pinned media URL', async () => {
