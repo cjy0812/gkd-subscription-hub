@@ -128,7 +128,7 @@ const githubAdapter: ProviderAdapter = {
           .filter((name) => name !== metadata.default_branch)
           .sort((a, b) => a.localeCompare(b)),
       ],
-      truncated: Boolean(next) || items.length >= PAGE_SIZE * MAX_PAGES,
+      truncated: page === MAX_PAGES && pageItems.length === PAGE_SIZE,
     }
   },
   async getCommit(env, locator, branch) {
