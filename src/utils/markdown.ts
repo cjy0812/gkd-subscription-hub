@@ -85,7 +85,7 @@ function addHeadingIds(tokens: ReturnType<typeof md.parse>) {
     const inline = tokens[index + 1]
     if (!inline || inline.type !== 'inline') continue
 
-    const base = slugify(inline.content)
+    const base = `md-${slugify(inline.content)}`
     const count = used.get(base) || 0
     used.set(base, count + 1)
     const id = count ? `${base}-${count + 1}` : base
