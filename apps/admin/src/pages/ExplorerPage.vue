@@ -19,6 +19,11 @@ import {
 } from 'naive-ui'
 import { api } from '../api'
 import { getAdminToken } from '../auth'
+import {
+  collectExplorerAuthors,
+  collectExplorerTopics,
+  filterExplorerEntries,
+} from '../explorer-filter'
 import type {
   ExplorerCatalogResponse,
   ExplorerEntry,
@@ -42,72 +47,18 @@ const topicFilter = ref('')
 const sortBy = ref('pushed')
 const selected = ref<ExplorerEntry | null>(null)
 
-const authors = computed(() =>
-  [
-    ...new Set(
-      entries.value
-        .flatMap((entry) => entry.subscriptions.map((subscription) => subscription.author))
-        .filter(Boolean) as string[],
-    ),
-  ].sort(),
+const authors = computed(() => collectExplorerAuthors(entries.value))
+const topics = computed(() => collectExplorerTopics(entries.value))
+const filtered = computed(() =>
+  filterExplorerEntries(entries.value, {
+    query: searching.value,
+    fork: forkFilter.value,
+    archived: archivedFilter.value,
+    author: authorFilter.value,
+    topic: topicFilter.value,
+    sortBy: sortBy.value,
+  }),
 )
-const topics = computed(() =>
-  [
-    ...new Set(entries.value.flatMap((entry) => (entry.repository.topics || []) as string[])),
-  ].sort(),
-)
-
-const filtered = computed(() => {
-  const query = searching.value.trim().toLowerCase()
-  const result = entries.value.filter((entry) => {
-    const repository = entry.repository
-    const searchableText = [
-      repository.full_name,
-      repository.description,
-      repository.owner?.login,
-      ...(repository.topics || []),
-      ...entry.subscriptions.flatMap((subscription) => [
-        subscription.name,
-        subscription.author,
-        String(subscription.id),
-        subscription.version,
-        JSON.stringify(subscription.customFields),
-      ]),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-
-    return (
-      (!query || searchableText.includes(query)) &&
-      (forkFilter.value === 'all' || (forkFilter.value === 'yes') === entry.fork) &&
-      (archivedFilter.value === 'all' ||
-        (archivedFilter.value === 'yes') === Boolean(repository.archived)) &&
-      (!authorFilter.value ||
-        entry.subscriptions.some((subscription) => subscription.author === authorFilter.value)) &&
-      (!topicFilter.value || (repository.topics || []).includes(topicFilter.value))
-    )
-  })
-
-  const sortValue = (entry: ExplorerEntry) => {
-    const repository = entry.repository
-    if (sortBy.value === 'stars') return Number(repository.stargazers_count || 0)
-    if (sortBy.value === 'forks') return Number(repository.forks_count || 0)
-    if (sortBy.value === 'rules') {
-      return entry.subscriptions.reduce((total, subscription) => total + subscription.ruleCount, 0)
-    }
-    if (sortBy.value === 'name') return String(repository.full_name || '').toLowerCase()
-    return Date.parse(String(repository.pushed_at || repository.updated_at || '')) || 0
-  }
-
-  return result.sort((left, right) => {
-    const leftValue = sortValue(left)
-    const rightValue = sortValue(right)
-    return typeof leftValue === 'string'
-      ? leftValue.localeCompare(rightValue as string)
-      : Number(rightValue) - Number(leftValue)
-  })
-})
 
 const columns: DataTableColumns<ExplorerEntry> = [
   {
