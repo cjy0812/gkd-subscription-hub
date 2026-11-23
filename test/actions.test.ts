@@ -87,6 +87,17 @@ describe('provider CI monitoring', () => {
         html_url: 'https://gitlab.com/group/project/-/pipelines/902',
         head_sha: 'def456',
       },
+      {
+        workflowId: 903,
+        workflowName: 'GitLab CI',
+        event: 'web',
+        status: 'queued',
+        conclusion: null,
+        created_at: '2026-11-22T12:00:00.000Z',
+        updated_at: '2026-11-22T12:01:00.000Z',
+        html_url: 'https://gitlab.com/group/project/-/pipelines/903',
+        head_sha: 'ghi789',
+      },
     ])
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/projects/123/pipelines?ref=main')
   })
