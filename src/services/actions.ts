@@ -1,50 +1,14 @@
 import { save } from '../storage/projects'
 import type { Env, Prediction, Project, WorkflowRun } from '../types'
-import { gh } from './github'
 import { scan } from './scanner'
-import { parseRepositoryUrl } from './providers'
-type GitHubWorkflowRun = {
-  event: string
-  status: string
-  conclusion: string | null
-  created_at: string
-  updated_at: string
-  html_url: string
-  head_sha: string
-}
-
+import { getProviderAdapter, parseRepositoryUrl } from './providers'
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
-  if (p.provider && p.provider !== 'github') return []
-  const groups = await Promise.all(
-    p.workflows
-      .filter((w) => w.relevant)
-      .slice(0, 6)
-      .map(async (w) => {
-        try {
-          const d = await gh<{ workflow_runs: GitHubWorkflowRun[] }>(
-            e,
-            `/repos/${encodeURIComponent(p.owner)}/${encodeURIComponent(p.repo)}/actions/workflows/${w.id}/runs?per_page=10`,
-          )
-          return d.workflow_runs.map((r) => ({
-            workflowId: w.id,
-            workflowName: w.name,
-            event: r.event,
-            status: r.status,
-            conclusion: r.conclusion,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-            html_url: r.html_url,
-            head_sha: r.head_sha,
-          }))
-        } catch {
-          return []
-        }
-      }),
-  )
-  return groups
-    .flat()
-    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-    .slice(0, 30)
+  try {
+    return await getProviderAdapter(p.provider).listWorkflowRuns(e, p)
+  } catch {
+    // CI availability must not block subscription scanning.
+    return []
+  }
 }
 function median(a: number[]) {
   if (!a.length) return null

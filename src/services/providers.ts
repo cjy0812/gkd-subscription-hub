@@ -1,4 +1,4 @@
-import type { DistFile, Env, ProjectProvider } from '../types'
+import type { DistFile, Env, ProjectProvider, WorkflowInfo, WorkflowRun } from '../types'
 import { decode, gh } from './github'
 
 export interface RepositoryLocator {
@@ -36,6 +36,7 @@ export interface ProviderAdapter {
   getCommit(env: Env, locator: RepositoryLocator, branch: string): Promise<string>
   listDistFiles(env: Env, locator: RepositoryLocator, commitSha: string): Promise<DistFile[]>
   readFile(env: Env, locator: RepositoryLocator, path: string, ref: string): Promise<string>
+  listWorkflowRuns(env: Env, project: ProjectSource): Promise<WorkflowRun[]>
   rawFileUrl(project: ProjectSource, file: DistFile): string
 }
 
@@ -47,6 +48,7 @@ export interface ProjectSource {
   providerId?: string
   commitSha?: string
   branch: string
+  workflows?: WorkflowInfo[]
 }
 
 const MAX_PAGES = 10
@@ -160,6 +162,48 @@ const githubAdapter: ProviderAdapter = {
       `${base}/contents/${filePath}?ref=${encodeURIComponent(ref)}`,
     )
     return decode(file)
+  },
+  async listWorkflowRuns(env, project) {
+    const groups = await Promise.all(
+      (project.workflows || [])
+        .filter((workflow) => workflow.relevant)
+        .slice(0, 6)
+        .map(async (workflow) => {
+          try {
+            const data = await gh<{
+              workflow_runs: Array<{
+                event: string
+                status: string
+                conclusion: string | null
+                created_at: string
+                updated_at: string
+                html_url: string
+                head_sha: string
+              }>
+            }>(
+              env,
+              `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/workflows/${workflow.id}/runs?per_page=10`,
+            )
+            return data.workflow_runs.map((run) => ({
+              workflowId: workflow.id,
+              workflowName: workflow.name,
+              event: run.event,
+              status: run.status,
+              conclusion: run.conclusion,
+              created_at: run.created_at,
+              updated_at: run.updated_at,
+              html_url: run.html_url,
+              head_sha: run.head_sha,
+            }))
+          } catch {
+            return []
+          }
+        }),
+    )
+    return groups
+      .flat()
+      .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+      .slice(0, 30)
   },
   rawFileUrl(project, file) {
     const ref = project.commitSha || encodeURIComponent(project.branch)
@@ -325,6 +369,60 @@ const gitlabAdapter: ProviderAdapter = {
     )
     return decode(file)
   },
+  async listWorkflowRuns(_env, project) {
+    if (!project.providerId) return []
+    const pipelines = await providerJson<
+      Array<{
+        id: number
+        status: string
+        source: string
+        name?: string | null
+        created_at: string
+        updated_at: string
+        web_url: string
+        sha: string
+      }>
+    >(
+      `https://gitlab.com/api/v4/projects/${encodeURIComponent(project.providerId)}/pipelines?ref=${encodeURIComponent(project.branch)}&per_page=10&order_by=id&sort=desc`,
+      'GitLab',
+    )
+    return pipelines.map((pipeline) => {
+      const conclusion =
+        pipeline.status === 'success'
+          ? 'success'
+          : pipeline.status === 'failed'
+            ? 'failure'
+            : pipeline.status === 'canceled'
+              ? 'cancelled'
+              : pipeline.status === 'skipped'
+                ? 'skipped'
+                : null
+      const status = conclusion
+        ? 'completed'
+        : [
+              'created',
+              'waiting_for_callback',
+              'waiting_for_resource',
+              'preparing',
+              'pending',
+              'manual',
+              'scheduled',
+            ].includes(pipeline.status)
+          ? 'queued'
+          : 'in_progress'
+      return {
+        workflowId: pipeline.id,
+        workflowName: pipeline.name || 'GitLab CI',
+        event: pipeline.source,
+        status,
+        conclusion,
+        created_at: pipeline.created_at,
+        updated_at: pipeline.updated_at || pipeline.created_at,
+        html_url: pipeline.web_url,
+        head_sha: pipeline.sha,
+      }
+    })
+  },
   rawFileUrl(project, file) {
     return `https://gitlab.com/api/v4/projects/${encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)}/repository/blobs/${file.sha}/raw`
   },
@@ -423,6 +521,54 @@ const giteaAdapter: ProviderAdapter = {
       'Gitea',
     )
     return decode(file)
+  },
+  async listWorkflowRuns(_env, project) {
+    const data = await providerJson<{
+      workflow_runs: Array<{
+        id: number
+        path?: string
+        event: string
+        status: string
+        conclusion?: string | null
+        created_at: string
+        updated_at?: string
+        completed_at?: string
+        html_url: string
+        head_sha: string
+      }>
+    }>(
+      `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs?branch=${encodeURIComponent(project.branch)}&limit=10&page=1`,
+      'Gitea',
+    )
+    return data.workflow_runs.map((run) => {
+      const conclusion =
+        run.conclusion ||
+        (run.status === 'success'
+          ? 'success'
+          : run.status === 'failure'
+            ? 'failure'
+            : run.status === 'cancelled'
+              ? 'cancelled'
+              : run.status === 'skipped'
+                ? 'skipped'
+                : null)
+      const status = conclusion
+        ? 'completed'
+        : ['queued', 'pending', 'requested'].includes(run.status)
+          ? 'queued'
+          : 'in_progress'
+      return {
+        workflowId: run.id,
+        workflowName: run.path?.split('/').at(-1) || 'Gitea Actions',
+        event: run.event,
+        status,
+        conclusion,
+        created_at: run.created_at,
+        updated_at: run.updated_at || run.completed_at || run.created_at,
+        html_url: run.html_url,
+        head_sha: run.head_sha,
+      }
+    })
   },
   rawFileUrl(project, file) {
     const owner = encodeURIComponent(project.owner)
