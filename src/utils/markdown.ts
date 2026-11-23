@@ -137,13 +137,8 @@ md.renderer.rules.image = (tokens, index, options, env, self) => {
 md.renderer.rules.fence = (tokens, index, options, env, self) => {
   const token = tokens[index]
   const language = token.info.trim().split(/\s+/, 1)[0]
-  const highlighted = options.highlight
-    ? options.highlight(token.content, language, '')
-    : ''
-  const code =
-    highlighted && highlighted !== token.content
-      ? highlighted
-      : md.utils.escapeHtml(token.content)
+  const highlighted = options.highlight ? options.highlight(token.content, language, '') : ''
+  const code = highlighted && highlighted !== token.content ? highlighted : md.utils.escapeHtml(token.content)
   const label = language ? md.utils.escapeHtml(language) : '纯文本'
   return (
     `<div class="code-block"><div class="code-block-toolbar"><span>${label}</span>` +
@@ -159,10 +154,7 @@ export function renderMarkdown(source: string): string {
   if (!headings.length) return content
 
   const items = headings
-    .map(
-      ({ id, label, level }) =>
-        `<li class="toc-level-${level}"><a href="#${id}">${label}</a></li>`,
-    )
+    .map(({ id, label, level }) => `<li class="toc-level-${level}"><a href="#${id}">${label}</a></li>`)
     .join('')
   return `<nav class="markdown-toc" aria-label="文章目录"><strong>目录</strong><ol>${items}</ol></nav>${content}`
 }
