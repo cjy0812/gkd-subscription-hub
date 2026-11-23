@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   candidateFromSearchItem,
+  explorerCatalog,
+  explorerStatus,
   countRules,
   hasMalformedSubscriptionBlob,
   parseSearchCandidates,
   parseSubscription,
   requireArrayField,
+  startExplorer,
+  stepExplorer,
 } from '../src/services/explorer'
+import type { Env } from '../src/types'
 
 describe('Explorer data guards', () => {
   it('accepts valid repository search results and rejects malformed items', () => {
@@ -123,5 +128,78 @@ describe('strict external array fields', () => {
     expect(() => requireArrayField({}, 'tree', 'Git Tree')).toThrow(/tree.*数组/)
     expect(() => requireArrayField({ tree: {} }, 'tree', 'Git Tree')).toThrow(/tree.*数组/)
     expect(() => requireArrayField(null, 'items', 'GitHub Search')).toThrow(/items.*数组/)
+  })
+})
+
+
+describe('two-phase Explorer discovery', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('collects all search candidates before verifying content and preserves the published catalog', async () => {
+    const values = new Map<string, string>()
+    const state = {
+      async get(key: string, type?: string) {
+        const value = values.get(key)
+        if (value === undefined) return null
+        return type === 'json' ? JSON.parse(value) : value
+      },
+      async put(key: string, value: string) {
+        values.set(key, value)
+      },
+      async delete(key: string) {
+        values.delete(key)
+      },
+    }
+    const published = [{ repository: { id: 99, full_name: 'owner/previous' } }]
+    values.set('explorer:catalog', JSON.stringify(published))
+    const env = { STATE: state } as unknown as Env
+    const candidate = {
+      id: 42,
+      full_name: 'owner/repo',
+      default_branch: 'main',
+      private: false,
+      visibility: 'public',
+      fork: false,
+      owner: { login: 'owner' },
+      html_url: 'https://github.com/owner/repo',
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/search/')) {
+        const duplicate = url.includes('topic%3Agkd-rules')
+        const items = url.includes('topic%3Agkd-subscription') || duplicate ? [candidate] : []
+        return new Response(JSON.stringify({ total_count: items.length, items }))
+      }
+      if (url.endsWith('/repos/owner/repo/commits/main')) {
+        return new Response(JSON.stringify({ sha: 'commit-1', commit: { tree: { sha: 'tree-1' } } }))
+      }
+      if (url.endsWith('/repos/owner/repo/git/trees/tree-1?recursive=1')) {
+        return new Response(JSON.stringify({ truncated: false, tree: [] }))
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const started = await startExplorer(env)
+    expect(started.phase).toBe('collecting')
+
+    for (let index = 0; index < 6; index += 1) {
+      await stepExplorer(env)
+    }
+
+    const collected = await explorerStatus(env)
+    expect(collected.phase).toBe('verifying')
+    expect(collected.status).toBe('verifying')
+    expect(collected.candidateCount).toBe(1)
+    expect(collected.candidateIndex).toBe(0)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(0)
+    expect(await explorerCatalog(env)).toEqual(published)
+
+    const completed = await stepExplorer(env)
+    expect(completed.status).toBe('complete')
+    expect(completed.phase).toBe('complete')
+    expect(completed.candidateIndex).toBe(1)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/commits/'))).toHaveLength(1)
+    expect(await explorerCatalog(env)).toEqual([])
   })
 })
