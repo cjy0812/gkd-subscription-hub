@@ -110,6 +110,7 @@ export interface ExplorerEntry {
 }
 
 export interface ExplorerJobStatus {
+  phase: 'collecting' | 'verifying' | 'complete'
   status: 'idle' | 'searching' | 'verifying' | 'complete' | 'paused' | 'error'
   queryIndex: number
   page: number
