@@ -411,12 +411,17 @@ export function getProviderAdapter(provider: ProjectProvider | undefined): Provi
   return adapters[provider || 'github']
 }
 
-export async function fetchProjectFile(env: Env, project: ProjectSource, file: DistFile) {
+export async function fetchProjectFile(
+  _env: Env,
+  project: ProjectSource,
+  file: DistFile,
+  options: { method?: string; ifNoneMatch?: string } = {},
+) {
   const provider = getProviderAdapter(project.provider)
   const url = provider.rawFileUrl(project, file)
-  const response = await fetch(url, { cf: { cacheEverything: true, cacheTtl: 60 } })
-  if (response.status === 403 || response.status === 429) {
-    throw Error(`${provider.kind} 文件读取触发限流（HTTP ${response.status}），请稍后重试。`)
-  }
-  return response
+  return fetch(url, {
+    method: options.method || 'GET',
+    headers: options.ifNoneMatch ? { 'if-none-match': options.ifNoneMatch } : {},
+    cf: { cacheEverything: true, cacheTtl: 60 },
+  })
 }
