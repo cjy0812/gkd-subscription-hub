@@ -9,7 +9,7 @@
 - **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照和 Webhook 冷却键。
 - **代码托管 Provider**：当前通过 `src/services/providers.ts` 支持 GitHub、GitLab.com、Gitea.com 的公开仓库 Adapter；自托管实例尚未开放。
 - **版本与文件读取**：统一抽象仓库、默认分支、Commit、Tree、分支列表和文件内容；固定版本文件分发由 Adapter 生成 URL。Release/Tag 和通知事件的统一抽象仍待后续阶段。
-- **CI 状态**：当前工作流扫描与运行记录仅支持 GitHub Actions；GitLab CI / Gitea Actions 尚未接入。
+- **CI 状态**：GitHub Actions、GitLab Pipelines、Gitea Actions 运行记录统一映射到 `WorkflowRun`；工作流配置发现和 cron 解析仍仅支持 GitHub。
 
 ## 请求入口分流
 
@@ -50,7 +50,7 @@ Worker 入口位于 src/index.ts：
 2. `parseRepositoryUrl()` 识别 GitHub、GitLab.com、Gitea.com；`scanner.ts` 通过 Provider Adapter 读取仓库元数据、默认/指定分支、Commit、Tree 和订阅源文件。
 3. 从 src/subscription.ts 提取订阅 ID；扫描 dist/ 文件列表，拒绝被截断的 Git Tree 和无效路径。
 4. 对 dist 文件路径、SHA 和大小排序后计算摘要。
-5. 仅 GitHub Adapter 读取 Actions workflow 并提取 cron；GitLab/Gitea 项目暂时没有 CI 运行记录。
+5. GitHub Adapter 读取 Actions workflow 并提取 cron；GitLab Adapter 读取 Pipelines，Gitea Adapter 读取 Actions runs。GitLab/Gitea 的 workflow 文件和 cron 表达式尚未解析。
 6. src/services/actions.ts 读取最近 workflow runs，根据成功运行时间间隔中位数预测下一次检查时间。
 7. src/storage/projects.ts 保存项目元数据。
 
@@ -91,7 +91,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 
 ## 后续架构演进
 
-- 扩展 GitLab CI / Gitea Actions 运行记录映射、Release/Tag 与统一通知事件；评估是否开放自托管实例和多 Provider Explorer。
+- 继续实现 Release/Tag 与统一通知事件；评估是否开放自托管实例和多 Provider Explorer。
 - 各 Provider 的 API DTO 和运行时校验保持在 Adapter 边界内；自托管实例需另行设计 host allowlist、认证和 SSRF 防护。
 - 评估项目索引的 KV 并发一致性需求；不要未评估就引入 Durable Objects。
 - 共享 API DTO 仅在真实重复和兼容成本证明有收益时提取。
