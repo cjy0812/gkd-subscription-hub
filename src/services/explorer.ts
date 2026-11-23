@@ -200,7 +200,12 @@ async function loadJob(env: Env): Promise<Job> {
   return { ...emptyJob(), ...stored } as Job
 }
 
-async function writeCandidateBatch(env: Env, runId: string, index: number, candidates: Candidate[]) {
+async function writeCandidateBatch(
+  env: Env,
+  runId: string,
+  index: number,
+  candidates: Candidate[],
+) {
   const batchKey = `${PREFIX}queue:${runId}:${index}`
   await env.STATE.put(batchKey, JSON.stringify(candidates), { expirationTtl: 7 * 24 * 60 * 60 })
   return batchKey
@@ -631,9 +636,8 @@ export async function stepExplorer(env: Env) {
     await write(env, 'job', job)
     return explorerStatus(env)
   } catch (error) {
-    job.status = error instanceof Error && error.message.startsWith('GitHub API 限流')
-      ? 'paused'
-      : 'error'
+    job.status =
+      error instanceof Error && error.message.startsWith('GitHub API 限流') ? 'paused' : 'error'
     job.error = error instanceof Error ? error.message : '扫描失败'
     job.updatedAt = now()
     await write(env, 'job', job)
