@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  toggleSelection,
-  updateScopedSelection,
-  updateVisibleSelection,
-} from './selection'
+import { toggleSelection, updateScopedSelection, updateVisibleSelection } from './selection'
 
 describe('project selection helpers', () => {
   it('selects visible projects without dropping hidden selections or duplicating IDs', () => {
