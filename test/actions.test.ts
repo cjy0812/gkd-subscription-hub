@@ -36,7 +36,7 @@ describe('provider CI monitoring', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('maps GitLab pipelines into the shared workflow run model', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
       new Response(
         JSON.stringify([
           {
