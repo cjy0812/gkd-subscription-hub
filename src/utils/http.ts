@@ -70,6 +70,33 @@ export function documentPage(title: string, body: string, rawHref?: string) {
     .markdown-toc .toc-level-3{margin-left:2em;font-size:.94em}
     .heading-anchor{margin-left:.45em;opacity:0;color:var(--muted)!important;font-size:.8em;text-decoration:none}
     h1:hover .heading-anchor,h2:hover .heading-anchor,h3:hover .heading-anchor,h4:hover .heading-anchor,.heading-anchor:focus{opacity:1}
+    .json-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0 12px}
+    .json-toolbar input{flex:1 1 220px;min-width:0;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);padding:8px 10px;font:inherit}
+    .json-toolbar button{border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);padding:7px 10px;font:inherit;cursor:pointer}
+    .json-toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+    .json-toolbar :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .json-viewer{padding:12px;border:1px solid var(--border);border-radius:9px;background:var(--code);overflow:auto}
+    .json-entry[hidden]{display:none}
+    .json-node{margin:2px 0}
+    .json-node>summary{display:flex;align-items:baseline;gap:9px;min-height:28px;cursor:pointer;list-style:none;overflow-wrap:anywhere}
+    .json-node>summary::-webkit-details-marker{display:none}
+    .json-node>summary:before{content:"▸";display:inline-block;width:12px;color:var(--muted);transition:transform .12s ease}
+    .json-node[open]>summary:before{transform:rotate(90deg)}
+    .json-children{margin-left:12px;padding-left:13px;border-left:1px solid var(--border)}
+    .json-leaf{display:flex;align-items:baseline;gap:10px;min-height:27px;padding:3px 0 3px 21px;overflow-wrap:anywhere}
+    .json-key{color:var(--text);font-weight:600}
+    .json-kind,.json-meta{color:var(--muted);font-size:12px}
+    .json-value{overflow-wrap:anywhere;white-space:pre-wrap}
+    .json-string{color:#0a7a42}
+    .json-number{color:#0969da}
+    .json-boolean{color:#8250df}
+    .json-null{color:var(--muted);font-style:italic}
+    .json-notice,.json-error{margin:14px 0;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--soft);overflow-wrap:anywhere}
+    .json-error{border-color:#cf222e;color:#cf222e}
+    .json-summary{color:var(--muted);font-size:13px}
+    .json-source{max-height:65vh;overflow:auto;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--code);white-space:pre-wrap;overflow-wrap:anywhere}
+    @media(prefers-color-scheme:dark){.json-string{color:#7ee787}.json-number{color:#79c0ff}.json-boolean{color:#d2a8ff}.json-error{border-color:#f85149;color:#ff7b72}}
+    @media(max-width:600px){.json-viewer{padding:8px}.json-leaf{padding-left:16px;gap:7px}.json-children{margin-left:7px;padding-left:8px}}
     .hljs{color:var(--text)}
     .hljs-comment,.hljs-quote{color:#6a737d;font-style:italic}
     .hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-name{color:#d73a49}
@@ -89,6 +116,7 @@ export function documentPage(title: string, body: string, rawHref?: string) {
   </main>
   <script>
     document.addEventListener('click', async (event) => {
+      if (!(event.target instanceof Element)) return
       const button = event.target.closest('.copy-code')
       if (!button) return
       const code = button.closest('.code-block')?.querySelector('code')?.innerText
@@ -101,6 +129,25 @@ export function documentPage(title: string, body: string, rawHref?: string) {
         button.textContent = '复制失败'
       }
       window.setTimeout(() => { button.textContent = original }, 1600)
+    })
+
+    const jsonSearch = document.getElementById('json-search')
+    const jsonEntries = Array.from(document.querySelectorAll('.json-entry'))
+    jsonSearch?.addEventListener('input', () => {
+      const query = jsonSearch.value.trim().toLocaleLowerCase()
+      for (const entry of jsonEntries) {
+        const matches = !query || entry.textContent.toLocaleLowerCase().includes(query)
+        entry.hidden = !matches
+        if (query && matches && entry instanceof HTMLDetailsElement) entry.open = true
+      }
+    })
+    document.getElementById('json-expand')?.addEventListener('click', () => {
+      document.querySelectorAll('.json-node').forEach((node) => { node.open = true })
+    })
+    document.getElementById('json-collapse')?.addEventListener('click', () => {
+      document.querySelectorAll('.json-node').forEach((node) => { node.open = false })
+      const root = document.querySelector('.json-node')
+      if (root) root.open = true
     })
   </script>
 </body>
