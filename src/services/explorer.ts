@@ -530,8 +530,7 @@ export async function stepExplorer(env: Env) {
 
       job.incomplete ||= parsed.incomplete
       job.incomplete ||= data.incomplete_results === true
-      job.incomplete ||= search.kind === 'code' && totalCount > items.length
-      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && totalCount > 1000
+      job.incomplete ||= totalCount > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
@@ -563,7 +562,7 @@ export async function stepExplorer(env: Env) {
         job.candidateCount += fresh.length
       }
 
-      if (items.length < PAGE_SIZE || job.page >= (search.kind === 'code' ? 1 : 10)) {
+      if (items.length < PAGE_SIZE || job.page >= 10) {
         job.queryIndex++
         job.page = 1
       } else {
