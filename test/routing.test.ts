@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import worker from '../src/index'
 import type { Env } from '../src/types'
 
@@ -21,6 +21,7 @@ function environment(overrides: Partial<Env> = {}) {
 const context = { waitUntil: vi.fn() } as unknown as ExecutionContext
 
 describe('top-level routing', () => {
+  afterEach(() => vi.unstubAllGlobals())
   it('serves the public portal at the root without redirecting to Admin', async () => {
     const env = environment()
     const response = await worker.fetch(new Request('https://gkd.example.com/'), env, context)
@@ -92,6 +93,38 @@ describe('top-level routing', () => {
     expect(response.headers.get('location')).toBe(
       'https://gkd.example.com/preview/233?file=gkd.json5',
     )
+  })
+
+  it('serves raw JSON5 when the browser explicitly requests raw=1', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      commitSha: 'commit-sha',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:1}')))
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/gkd.json5?raw=1', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/json5')
+    expect(await response.text()).toBe('{id:233,version:1}')
   })
 
   it('accepts Unicode JSON5 filenames in indexed dist paths', async () => {
