@@ -26,6 +26,7 @@ function makeSubscription(): RawSubscription {
           name: '规则组 ' + index,
           desc: '组说明',
           enable: true,
+          fastQuery: true,
           activityIds: ['.MainActivity'],
           rules: Array.from({ length: 60 }, (_, ruleIndex) => ({
             key: ruleIndex + 1,

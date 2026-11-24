@@ -1,4 +1,4 @@
-name: Refresh preview branch lockfile # retry after preview test fixes
+name: Refresh preview branch lockfile # retry after GKD group fixture fix
 
 on:
   push:
