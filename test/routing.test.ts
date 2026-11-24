@@ -94,6 +94,31 @@ describe('top-level routing', () => {
     )
   })
 
+  it('accepts Unicode JSON5 filenames in indexed dist paths', async () => {
+    const project = {
+      id: 233,
+      distFiles: [{ path: '规则说明.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('https://gkd.example.com/preview/233?file=%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5')
+  })
+
   it('keeps the preview deep-link routed to Static Assets', async () => {
     const env = environment()
     const response = await worker.fetch(

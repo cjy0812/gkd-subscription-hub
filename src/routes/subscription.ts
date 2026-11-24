@@ -118,8 +118,8 @@ app.all('*', async (c) => {
     path
       .split('/')
       .some((part) => !part || part === '.' || part === '..' || part.startsWith('.')) ||
-    path.includes('\\') ||
-    !/^[A-Za-z0-9_@.+/-]+$/.test(path)
+    path.includes(String.fromCharCode(92)) ||
+    path.includes(String.fromCharCode(0))
   )
     return bad('Not found', 404)
 
