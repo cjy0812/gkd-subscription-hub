@@ -4,7 +4,14 @@ import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
 import { renderJson5Preview } from '../utils/json5-preview'
 import { renderMarkdown } from '../utils/markdown'
-import { bad, documentPage, escapeHtml, htmlPreviewSecurityHeaders, mime, wantsHtml } from '../utils/http'
+import {
+  bad,
+  documentPage,
+  escapeHtml,
+  htmlPreviewSecurityHeaders,
+  mime,
+  wantsHtml,
+} from '../utils/http'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -46,14 +53,26 @@ app.all('*', async (c) => {
   }
   if (!path || path === 'dist' || path === 'dist/') {
     const out = new Response(directory(project), {
-      headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store', ...htmlPreviewSecurityHeaders },
+      headers: {
+        'content-type': 'text/html;charset=utf-8',
+        'cache-control': 'no-store',
+        ...htmlPreviewSecurityHeaders,
+      },
     })
-    return req.method === 'HEAD' ? new Response(null, { status: out.status, headers: out.headers }) : out
+    return req.method === 'HEAD'
+      ? new Response(null, { status: out.status, headers: out.headers })
+      : out
   }
   if (path.startsWith('dist/')) path = path.slice(5)
   if (!path) return bad('Not found', 404)
-  if (path.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.')) ||
-      path.includes('\\') || !/^[A-Za-z0-9_@.+/-]+$/.test(path)) return bad('Not found', 404)
+  if (
+    path
+      .split('/')
+      .some((part) => !part || part === '.' || part === '..' || part.startsWith('.')) ||
+    path.includes('\\') ||
+    !/^[A-Za-z0-9_@.+/-]+$/.test(path)
+  )
+    return bad('Not found', 404)
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
@@ -61,18 +80,28 @@ app.all('*', async (c) => {
     method: req.method,
     ifNoneMatch: req.headers.get('if-none-match') || undefined,
   })
-  if (!response.ok) return new Response(response.body, { status: response.status, headers: response.headers })
+  if (!response.ok)
+    return new Response(response.body, { status: response.status, headers: response.headers })
 
-  if (wantsHtml(req) && (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.json5'))) {
+  if (
+    wantsHtml(req) &&
+    (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.json5'))
+  ) {
     const text = await response.text()
     const body = path.toLowerCase().endsWith('.md')
       ? renderMarkdown(text)
       : renderJson5Preview(text, path, url.searchParams.get('preview') === 'full')
     const out = new Response(documentPage(path, body, '?raw=1'), {
-      headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'public,max-age=60',
-        vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest', ...htmlPreviewSecurityHeaders },
+      headers: {
+        'content-type': 'text/html;charset=utf-8',
+        'cache-control': 'public,max-age=60',
+        vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
+        ...htmlPreviewSecurityHeaders,
+      },
     })
-    return req.method === 'HEAD' ? new Response(null, { status: out.status, headers: out.headers }) : out
+    return req.method === 'HEAD'
+      ? new Response(null, { status: out.status, headers: out.headers })
+      : out
   }
 
   const headers = new Headers(response.headers)

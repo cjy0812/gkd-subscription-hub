@@ -21,7 +21,7 @@ Worker 入口位于 src/index.ts：
 - /admin/api/*：去掉 /admin 前缀后交给 Hono Admin Router；API 路由通过 auth middleware。
 - 其他 /admin/*：交给 Worker Static Assets，Vue Router 处理受保护管理页面。
 - POST /hooks/notify：验证 NOTIFY_TOKEN、校验仓库格式、确认仓库已登记、检查 KV 冷却键，再用 waitUntil 异步刷新。
-- /api/public/*：交给只读公共 API，仅注册 GET 路由。\n- /{numeric-id}/*：交给订阅分发 Router；`/<id>/dist/` 展示目录，`/<id>/dist/<file>` 访问文件。
+- /api/public/_：交给只读公共 API，仅注册 GET 路由。\n- /{numeric-id}/_：交给订阅分发 Router；`/<id>/dist/` 展示目录，`/<id>/dist/<file>` 访问文件。
 - 其他路径：404。
 - Cron：每 6 小时触发一次，按项目预测时间检查是否需要刷新。
 

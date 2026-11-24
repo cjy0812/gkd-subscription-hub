@@ -10,9 +10,15 @@ const app = new Hono<{ Bindings: Env }>()
 app.get('/subscriptions', async (c) => {
   const projects = await all(c.env)
   const subscriptions = projects.map((project) => ({
-    id: project.id, provider: project.provider || 'github', owner: project.owner, repo: project.repo,
-    branch: project.branch, group: project.group || '默认分组', repoUrl: project.repoUrl,
-    registeredAt: project.registeredAt, lastCheckedAt: project.lastCheckedAt,
+    id: project.id,
+    provider: project.provider || 'github',
+    owner: project.owner,
+    repo: project.repo,
+    branch: project.branch,
+    group: project.group || '默认分组',
+    repoUrl: project.repoUrl,
+    registeredAt: project.registeredAt,
+    lastCheckedAt: project.lastCheckedAt,
     fileCount: project.distFiles.length,
     hasSubscription: project.distFiles.some((file) => file.path.toLowerCase() === 'gkd.json5'),
   }))
@@ -38,16 +44,25 @@ app.get('/explorer', async (c) => {
       homepage: entry.repository.homepage,
       created_at: entry.repository.created_at,
     },
-    fork: entry.fork, parent: entry.parent,
+    fork: entry.fork,
+    parent: entry.parent,
     subscriptions: entry.subscriptions.map((subscription) => ({
-      id: subscription.id, name: subscription.name, version: subscription.version,
-      author: subscription.author, updateUrl: subscription.updateUrl, checkUpdateUrl: subscription.checkUpdateUrl,
-      artifactPath: subscription.artifactPath, artifactSize: subscription.artifactSize,
-      categoriesCount: subscription.categoriesCount, appsCount: subscription.appsCount,
-      globalGroupsCount: subscription.globalGroupsCount, ruleCount: subscription.ruleCount,
+      id: subscription.id,
+      name: subscription.name,
+      version: subscription.version,
+      author: subscription.author,
+      updateUrl: subscription.updateUrl,
+      checkUpdateUrl: subscription.checkUpdateUrl,
+      artifactPath: subscription.artifactPath,
+      artifactSize: subscription.artifactSize,
+      categoriesCount: subscription.categoriesCount,
+      appsCount: subscription.appsCount,
+      globalGroupsCount: subscription.globalGroupsCount,
+      ruleCount: subscription.ruleCount,
       customFields: subscription.customFields,
     })),
-    discoveredBy: entry.discoveredBy, verifiedAt: entry.verifiedAt,
+    discoveredBy: entry.discoveredBy,
+    verifiedAt: entry.verifiedAt,
   }))
   return json({ ok: true, entries: publicEntries })
 })

@@ -26,7 +26,13 @@ function project(
     lastError,
   }
 }
-function run(workflowId: number, updatedAt: string, status: string, conclusion: string | null, runId = workflowId) {
+function run(
+  workflowId: number,
+  updatedAt: string,
+  status: string,
+  conclusion: string | null,
+  runId = workflowId,
+) {
   return {
     workflowId,
     workflowName: `Workflow ${workflowId}`,
@@ -47,7 +53,13 @@ describe('buildMonitoringOverview', () => {
         1,
         [
           { id: 1, name: 'Build', path: '.github/workflows/build.yml', cron: [], relevant: true },
-          { id: 2, name: 'Release', path: '.github/workflows/release.yml', cron: [], relevant: true },
+          {
+            id: 2,
+            name: 'Release',
+            path: '.github/workflows/release.yml',
+            cron: [],
+            relevant: true,
+          },
         ],
         [
           run(1, '2026-01-01T00:00:00Z', 'completed', 'success'),
@@ -73,12 +85,19 @@ describe('buildMonitoringOverview', () => {
   })
 
   it('applies a limit to recent runs and handles empty projects', () => {
-    const overview = buildMonitoringOverview([
-      project(1, [], [
-        run(1, '2026-01-01T00:00:00Z', 'completed', 'success', 1),
-        run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 2),
-      ]),
-    ], 1)
+    const overview = buildMonitoringOverview(
+      [
+        project(
+          1,
+          [],
+          [
+            run(1, '2026-01-01T00:00:00Z', 'completed', 'success', 1),
+            run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 2),
+          ],
+        ),
+      ],
+      1,
+    )
     expect(overview.recentRuns).toHaveLength(1)
     expect(buildMonitoringOverview([])).toMatchObject({
       monitoredProjects: 0,

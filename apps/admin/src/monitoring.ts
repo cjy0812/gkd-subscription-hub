@@ -30,7 +30,10 @@ export interface MonitoringOverview {
   projectWorkflows: MonitoringProject[]
   projectErrors: Array<Pick<Project, 'id' | 'owner' | 'repo' | 'lastError'>>
 }
-type MonitoringProjectInput = Pick<Project, 'id' | 'owner' | 'repo' | 'lastError' | 'lastRuns' | 'workflows'>
+type MonitoringProjectInput = Pick<
+  Project,
+  'id' | 'owner' | 'repo' | 'lastError' | 'lastRuns' | 'workflows'
+>
 
 function groupWorkflows(project: MonitoringProjectInput): MonitoringWorkflow[] {
   const runGroups = new Map<number, MonitoringRun[]>()
@@ -46,41 +49,51 @@ function groupWorkflows(project: MonitoringProjectInput): MonitoringWorkflow[] {
     group.push(value)
     runGroups.set(run.workflowId, group)
   }
-  const workflowMetadata = new Map<number, WorkflowInfo>(project.workflows.map((item) => [item.id, item]))
+  const workflowMetadata = new Map<number, WorkflowInfo>(
+    project.workflows.map((item) => [item.id, item]),
+  )
   const ids = new Set<number>([...workflowMetadata.keys(), ...runGroups.keys()])
-  return [...ids].map((workflowId) => {
-    const metadata = workflowMetadata.get(workflowId)
-    const runs = (runGroups.get(workflowId) || []).sort(
-      (a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0),
-    )
-    return {
-      key: `${project.id}:${workflowId}`,
-      workflowId,
-      name: metadata?.name || runs[0]?.workflowName || 'CI Workflow',
-      path: metadata?.path || '工作流文件路径未记录（非 GitHub Workflow）',
-      relevant: metadata?.relevant ?? true,
-      runs,
-    }
-  }).sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name))
+  return [...ids]
+    .map((workflowId) => {
+      const metadata = workflowMetadata.get(workflowId)
+      const runs = (runGroups.get(workflowId) || []).sort(
+        (a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0),
+      )
+      return {
+        key: `${project.id}:${workflowId}`,
+        workflowId,
+        name: metadata?.name || runs[0]?.workflowName || 'CI Workflow',
+        path: metadata?.path || '工作流文件路径未记录（非 GitHub Workflow）',
+        relevant: metadata?.relevant ?? true,
+        runs,
+      }
+    })
+    .sort((a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name))
 }
 
 export function buildMonitoringOverview(
   projects: readonly MonitoringProjectInput[],
   limit = 30,
 ): MonitoringOverview {
-  const projectWorkflows = projects.map((project) => ({
-    id: project.id,
-    owner: project.owner,
-    repo: project.repo,
-    lastError: project.lastError,
-    workflows: groupWorkflows(project),
-  })).filter((project) => project.workflows.length > 0 || Boolean(project.lastError))
-  const allRuns = projectWorkflows.flatMap((project) => project.workflows.flatMap((workflow) => workflow.runs))
+  const projectWorkflows = projects
+    .map((project) => ({
+      id: project.id,
+      owner: project.owner,
+      repo: project.repo,
+      lastError: project.lastError,
+      workflows: groupWorkflows(project),
+    }))
+    .filter((project) => project.workflows.length > 0 || Boolean(project.lastError))
+  const allRuns = projectWorkflows.flatMap((project) =>
+    project.workflows.flatMap((workflow) => workflow.runs),
+  )
   allRuns.sort((a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0))
   return {
     monitoredProjects: projects.filter((project) => project.lastRuns.length > 0).length,
     runCount: allRuns.length,
-    nonSuccessfulCount: allRuns.filter((run) => run.status === 'completed' && run.conclusion !== 'success').length,
+    nonSuccessfulCount: allRuns.filter(
+      (run) => run.status === 'completed' && run.conclusion !== 'success',
+    ).length,
     inProgressCount: allRuns.filter((run) => run.status !== 'completed').length,
     recentRuns: allRuns.slice(0, Math.max(0, limit)),
     projectWorkflows,
