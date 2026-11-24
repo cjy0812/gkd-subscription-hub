@@ -98,7 +98,7 @@ const invalidFilePath = computed(() => {
   if (typeof value !== 'string' || !value.trim()) return true
   return (
     value.startsWith('/') ||
-    value.includes('\\\\') ||
+    value.includes(String.fromCharCode(92)) ||
     value.includes(String.fromCharCode(0)) ||
     value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
   )
@@ -110,9 +110,7 @@ const sourceUrl = computed(() => {
   const path = filePath.value.split('/').map(encodeURIComponent).join('/')
   return `/${subscriptionId.value}/dist/${path}?raw=1`
 })
-const metadataLinkBase = computed(() =>
-  version.value ? `/${subscriptionId.value}/gkd.json5` : sourceUrl.value,
-)
+const metadataLinkBase = computed(() => sourceUrl.value)
 const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
 const safeSupportUrl = computed(() => safeHttpUrl(meta.value?.supportUri, metadataLinkBase.value))
 const safeCheckUrl = computed(() =>
@@ -380,8 +378,6 @@ async function loadSubscription(allowLarge = false) {
   rulesRequestId += 1
   detailRequestId += 1
   categoriesRequestId += 1
-  pendingActionRequests = 0
-  actionLoading.value = false
   activeTab.value = 'apps'
   groupScope.value = 'app'
   appQuery.value = ''
@@ -576,7 +572,7 @@ onBeforeUnmount(() => {
             <n-tab-pane name="apps" tab="应用规则">
               <div class="tab-toolbar">
                 <div><h2>应用列表</h2><p>按应用分页浏览，每页 50 项；选择应用后才加载它的规则组。</p></div>
-                <n-input v-model:value="appQuery" clearable size="small" placeholder="搜索包名或应用名称" class="search-input" />
+                <n-input v-model:value="appQuery" clearable size="small" aria-label="搜索包名或应用名称" placeholder="搜索包名或应用名称" class="search-input" />
               </div>
               <n-spin :show="actionLoading">
                 <n-empty v-if="apps && apps.items.length === 0" description="没有匹配的应用" />
@@ -608,13 +604,16 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="tab-toolbar compact-toolbar">
                   <span>规则组 · {{ groups?.total ?? selectedApp.groupCount }}</span>
-                  <n-input v-model:value="groupQuery" clearable size="small" placeholder="搜索规则组名称" class="search-input" />
+                  <n-input v-model:value="groupQuery" clearable size="small" aria-label="搜索规则组名称" placeholder="搜索规则组名称" class="search-input" />
                 </div>
                 <n-empty v-if="groups && !groups.items.length" description="没有匹配的规则组" />
                 <div class="group-list">
                   <article v-for="group in groups?.items || []" :key="group.index" class="group-row">
                     <button class="group-summary" type="button" @click="selectGroup(group)">
-                      <span class="group-state" :class="{ disabled: !group.enabled }">{{ group.enabled ? '启用' : '禁用' }}</span>
+                      <span
+                        class="group-state"
+                        :class="{ disabled: group.enabled === false }"
+                      >{{ group.enabled === null ? '默认启用' : group.enabled ? '启用' : '禁用' }}</span>
                       <span class="group-title"><strong>{{ group.name }}</strong><small>#{{ group.key }} · {{ group.ruleCount }} 条规则</small></span>
                       <AppIcon name="chevron-right" :size="17" />
                     </button>
@@ -627,7 +626,7 @@ onBeforeUnmount(() => {
                     <div v-if="selectedGroup?.index === group.index && groupScope === 'app'" class="rule-panel">
                       <div class="tab-toolbar compact-toolbar">
                         <span>规则列表</span>
-                        <n-input v-model:value="ruleQuery" clearable size="small" placeholder="搜索规则名、选择器或动作" class="search-input" />
+                        <n-input v-model:value="ruleQuery" clearable size="small" aria-label="搜索规则名、选择器或动作" placeholder="搜索规则名、选择器或动作" class="search-input" />
                       </div>
                       <n-empty v-if="rules && !rules.items.length" description="该规则组没有匹配的规则" />
                       <div v-for="rule in rules?.items || []" :key="rule.index" class="rule-row">
@@ -655,13 +654,16 @@ onBeforeUnmount(() => {
             <n-tab-pane name="global" tab="全局规则">
               <div class="tab-toolbar">
                 <div><h2>全局规则组</h2><p>只在打开此标签时加载全局规则组；规则详情按需读取。</p></div>
-                <n-input v-model:value="groupQuery" clearable size="small" placeholder="搜索全局规则组" class="search-input" />
+                <n-input v-model:value="groupQuery" clearable size="small" aria-label="搜索全局规则组" placeholder="搜索全局规则组" class="search-input" />
               </div>
               <n-empty v-if="groups && !groups.items.length" description="没有全局规则组" />
               <div class="group-list">
                 <article v-for="group in groups?.items || []" :key="group.index" class="group-row">
                   <button class="group-summary" type="button" @click="selectGroup(group)">
-                    <span class="group-state" :class="{ disabled: !group.enabled }">{{ group.enabled ? '启用' : '禁用' }}</span>
+                    <span
+                      class="group-state"
+                      :class="{ disabled: group.enabled === false }"
+                    >{{ group.enabled === null ? '默认启用' : group.enabled ? '启用' : '禁用' }}</span>
                     <span class="group-title"><strong>{{ group.name }}</strong><small>#{{ group.key }} · {{ group.ruleCount }} 条规则</small></span>
                     <AppIcon name="chevron-right" :size="17" />
                   </button>
@@ -700,7 +702,7 @@ onBeforeUnmount(() => {
             <n-tab-pane name="categories" tab="分类">
               <div class="tab-toolbar">
                 <div><h2>订阅分类</h2><p>分类默认状态决定捕获的应用规则组是否启用。</p></div>
-                <n-input v-model:value="categoryQuery" clearable size="small" placeholder="搜索分类名称或 Key" class="search-input" />
+                <n-input v-model:value="categoryQuery" clearable size="small" aria-label="搜索分类名称或 Key" placeholder="搜索分类名称或 Key" class="search-input" />
               </div>
               <n-empty v-if="categories && !categories.items.length" description="没有分类" />
               <div v-for="category in categories?.items || []" :key="category.key" class="category-row">
