@@ -52,7 +52,7 @@ export interface GroupPreviewSummary {
   key: number
   name: string
   desc?: string
-  enabled: boolean
+  enabled: boolean | null
   ruleCount: number
   attributes: Array<{ key: string; value: string }>
 }
@@ -106,7 +106,8 @@ export function isRawSubscription(value: unknown): value is RawSubscription {
           isRecord(group) &&
           typeof group.key === 'number' &&
           typeof group.name === 'string' &&
-          Array.isArray(group.rules),
+          Array.isArray(group.rules) &&
+          group.rules.every(isRecord),
       ))
   const categoriesValid =
     value.categories === undefined ||
@@ -313,7 +314,7 @@ function summarizeGroup(
     key: group.key,
     name: group.name,
     desc: group.desc,
-    enabled: group.enable !== false,
+    enabled: group.enable ?? null,
     ruleCount: getRules(group).length,
     attributes,
   }

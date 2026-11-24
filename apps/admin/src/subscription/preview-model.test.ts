@@ -136,6 +136,28 @@ describe('GKD subscription preview model', () => {
     })
   })
 
+  it('preserves the distinction between inherited and explicitly disabled groups', () => {
+    const value = makeSubscription()
+    const group = value.apps?.[0]?.groups[0]
+    if (!group) throw new Error('Expected an app rule group')
+    group.enable = undefined
+    expect(getGroupsPage(value, 'app', 0, 1, 50).items[0].enabled).toBeNull()
+  })
+
+  it('bounds selector text in rule summaries while keeping details available', () => {
+    const value = makeSubscription()
+    const group = value.apps?.[0]?.groups[0]
+    const rules = group?.rules
+    if (!rules || !Array.isArray(rules) || typeof rules[0] === 'string' || !rules[0]) {
+      throw new Error('Expected a structured rule list')
+    }
+    rules[0].matches = 'x'.repeat(4000)
+    const summary = getRulesPage(value, 'app', 0, 0, 1, 50).items[0]
+    expect(summary.matches).toHaveLength(2001)
+    const detail = getRuleDetail(value, 'app', 0, 0, 0)
+    expect(detail).toMatchObject({ matches: 'x'.repeat(4000) })
+  })
+
   it('supports global rules and categories through separate lazy requests', () => {
     const value = makeSubscription()
     expect(getGroupsPage(value, 'global', undefined, 1, 50).items[0]).toMatchObject({
