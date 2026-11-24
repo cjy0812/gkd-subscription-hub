@@ -1,0 +1,57 @@
+name: Refresh preview branch lockfile
+
+on:
+  push:
+    branches:
+      - feat/ux-public-portal-subscription-history
+    paths:
+      - .github/workflows/refresh-preview-lockfile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/ux-public-portal-subscription-history
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+
+      - name: Update dependency lockfile
+        run: bun install
+
+      - name: Format changed and existing files
+        run: bun run format
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type-check Worker and Admin
+        run: bun run typecheck
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Build Admin
+        run: bun run build:admin
+
+      - name: Commit lockfile and formatter output
+        run: |
+          if git diff --quiet; then
+            echo "No lockfile or formatting changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git add bun.lock
+          git commit -m "chore: refresh Bun lockfile and format preview changes"
+          git push origin HEAD:feat/ux-public-portal-subscription-history
