@@ -4,8 +4,6 @@ import {
   NAlert,
   NButton,
   NCard,
-  NDescriptions,
-  NDescriptionsItem,
   NEmpty,
   NGrid,
   NGridItem,
@@ -40,7 +38,8 @@ const PAGE_SIZE = 50
 
 const client = ref<SubscriptionPreviewWorkerClient>()
 const abortController = ref<AbortController>()
-const source = ref('')
+const rawSource = ref<string | null>(null)
+const rawLoading = ref(false)
 const meta = ref<SubscriptionMeta>()
 const stats = ref<SubscriptionStats>()
 const loading = ref(false)
@@ -61,7 +60,7 @@ const rules = ref<PageResult<RulePreviewSummary>>()
 const rulePage = ref(1)
 const ruleQuery = ref('')
 const selectedRule = ref<RulePreviewSummary>()
-const ruleDetail = ref<Record<string, unknown>>()
+const ruleDetail = ref<unknown>()
 const categories = ref<PageResult<CategoryPreviewSummary>>()
 const categoryPage = ref(1)
 const categoryQuery = ref('')
@@ -225,7 +224,7 @@ async function selectRule(rule: RulePreviewSummary) {
   if (!instance || !group) return
   actionLoading.value = true
   try {
-    ruleDetail.value = await instance.request<Record<string, unknown>>({
+    ruleDetail.value = await instance.request<unknown>({
       type: 'rule-detail',
       scope: groupScope.value,
       appIndex: groupScope.value === 'app' ? selectedApp.value?.index : undefined,
@@ -277,7 +276,7 @@ async function loadSubscription() {
   groupQuery.value = ''
   ruleQuery.value = ''
   categoryQuery.value = ''
-  source.value = ''
+  rawSource.value = null
   meta.value = undefined
   stats.value = undefined
   error.value = ''
@@ -288,18 +287,20 @@ async function loadSubscription() {
   client.value = instance
 
   try {
-    const raw = await instance.loadSource(sourceUrl.value, controller.signal)
+    const bytes = await instance.loadSourceBytes(sourceUrl.value, controller.signal)
     if (controller.signal.aborted) return
-    source.value = raw
     const parsed = await instance.request<{
       meta: SubscriptionMeta
       stats: SubscriptionStats
       idMatches: boolean
-    }>({
-      type: 'parse',
-      source: raw,
-      expectedId: id,
-    })
+    }>(
+      {
+        type: 'parse',
+        source: bytes,
+        expectedId: id,
+      },
+      [bytes],
+    )
     if (controller.signal.aborted) return
     meta.value = parsed.meta
     stats.value = parsed.stats
@@ -310,6 +311,24 @@ async function loadSubscription() {
     }
   } finally {
     if (!controller.signal.aborted) loading.value = false
+  }
+}
+
+async function loadRawSource() {
+  const instance = client.value
+  const controller = abortController.value
+  if (!instance || !controller || rawLoading.value || rawSource.value !== null) return
+  rawLoading.value = true
+  error.value = ''
+  try {
+    const raw = await instance.loadRawSource(sourceUrl.value, controller.signal)
+    if (!controller.signal.aborted) rawSource.value = raw
+  } catch (cause) {
+    if (!controller.signal.aborted) {
+      error.value = cause instanceof Error ? cause.message : '读取原始 JSON5 失败'
+    }
+  } finally {
+    if (!controller.signal.aborted) rawLoading.value = false
   }
 }
 
@@ -563,7 +582,16 @@ onBeforeUnmount(() => {
 
             <n-tab-pane name="raw" tab="原始 JSON5">
               <div class="tab-toolbar"><div><h2>原始 JSON5</h2><p>该区域仅在主动打开此标签时渲染完整原文。</p></div></div>
-              <textarea class="raw-source" :value="source" readonly spellcheck="false" />
+              <n-spin :show="rawLoading" description="按需读取原始 JSON5…">
+                <textarea
+                  v-if="rawSource !== null"
+                  class="raw-source"
+                  :value="rawSource"
+                  readonly
+                  spellcheck="false"
+                />
+                <n-empty v-else-if="!rawLoading" description="选择原始 JSON5 标签后读取文件内容" />
+              </n-spin>
             </n-tab-pane>
           </n-tabs>
         </n-card>

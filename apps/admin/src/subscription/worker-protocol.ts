@@ -1,7 +1,7 @@
 export type PreviewScope = 'app' | 'global'
 
 export type SubscriptionPreviewWorkerRequest =
-  | { id: number; type: 'parse'; source: string; expectedId: number }
+  | { id: number; type: 'parse'; source: ArrayBuffer; expectedId: number }
   | { id: number; type: 'apps-page'; page: number; pageSize: number; query: string }
   | { id: number; type: 'groups-page'; scope: PreviewScope; appIndex?: number; page: number; pageSize: number; query: string }
   | { id: number; type: 'rules-page'; scope: PreviewScope; appIndex?: number; groupIndex: number; page: number; pageSize: number; query: string }

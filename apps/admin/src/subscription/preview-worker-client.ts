@@ -54,7 +54,7 @@ export class SubscriptionPreviewWorkerClient {
     this.pending.clear()
   }
 
-  request<T>(request: RequestWithoutId): Promise<T> {
+  request<T>(request: RequestWithoutId, transfer: Transferable[] = []): Promise<T> {
     if (this.disposed) return Promise.reject(new Error('预览任务已关闭'))
     const id = ++this.requestId
     return new Promise<T>((resolve, reject) => {
@@ -63,7 +63,7 @@ export class SubscriptionPreviewWorkerClient {
         reject,
       })
       try {
-        this.worker.postMessage({ ...request, id })
+        this.worker.postMessage({ ...request, id }, transfer)
       } catch (error) {
         this.pending.delete(id)
         reject(error instanceof Error ? error : new Error(String(error)))
@@ -71,7 +71,7 @@ export class SubscriptionPreviewWorkerClient {
     })
   }
 
-  async loadSource(url: string, signal?: AbortSignal): Promise<string> {
+  private async fetchSourceBytes(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
     const response = await fetch(url, {
       headers: { accept: 'application/json, application/json5;q=0.9, */*;q=0.1' },
       signal,
@@ -81,12 +81,20 @@ export class SubscriptionPreviewWorkerClient {
     if (declaredLength > MAX_PREVIEW_BYTES) {
       throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
     }
-    const source = await response.text()
-    const byteLength = new TextEncoder().encode(source).byteLength
-    if (byteLength > MAX_PREVIEW_BYTES) {
+    const bytes = await response.arrayBuffer()
+    if (bytes.byteLength > MAX_PREVIEW_BYTES) {
       throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
     }
-    return source
+    return bytes
+  }
+
+  loadSourceBytes(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+    return this.fetchSourceBytes(url, signal)
+  }
+
+  async loadRawSource(url: string, signal?: AbortSignal): Promise<string> {
+    const bytes = await this.fetchSourceBytes(url, signal)
+    return new TextDecoder().decode(bytes)
   }
 
   dispose() {

@@ -28,10 +28,11 @@ function requireSubscription(): RawSubscription {
 function handleMessage(message: SubscriptionPreviewWorkerRequest): unknown {
   switch (message.type) {
     case 'parse': {
-      if (new TextEncoder().encode(message.source).byteLength > MAX_PREVIEW_BYTES) {
+      if (message.source.byteLength > MAX_PREVIEW_BYTES) {
         throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
       }
-      const parsed: unknown = JSON5.parse(message.source)
+      const source = new TextDecoder().decode(message.source)
+      const parsed: unknown = JSON5.parse(source)
       if (!isRawSubscription(parsed)) {
         throw new Error('文件不是有效的 GKD 订阅：需要包含有效的 id、name、version 和数组字段')
       }
