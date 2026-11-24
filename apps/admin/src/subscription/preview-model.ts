@@ -79,6 +79,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isRawSubscription(value: unknown): value is RawSubscription {
   if (!isRecord(value)) return false
+  const appsValid =
+    value.apps === undefined ||
+    (Array.isArray(value.apps) &&
+      value.apps.every(
+        (app) =>
+          isRecord(app) &&
+          typeof app.id === 'string' &&
+          Array.isArray(app.groups) &&
+          app.groups.every(
+            (group) =>
+              isRecord(group) &&
+              typeof group.key === 'number' &&
+              typeof group.name === 'string' &&
+              (typeof group.rules === 'string' || Array.isArray(group.rules)),
+          ),
+      ))
+  const groupsValid =
+    value.globalGroups === undefined ||
+    (Array.isArray(value.globalGroups) &&
+      value.globalGroups.every(
+        (group) =>
+          isRecord(group) &&
+          typeof group.key === 'number' &&
+          typeof group.name === 'string' &&
+          Array.isArray(group.rules),
+      ))
+  const categoriesValid =
+    value.categories === undefined ||
+    (Array.isArray(value.categories) &&
+      value.categories.every(
+        (category) =>
+          isRecord(category) &&
+          typeof category.key === 'number' &&
+          typeof category.name === 'string',
+      ))
   return (
     typeof value.id === 'number' &&
     Number.isSafeInteger(value.id) &&
@@ -86,9 +121,9 @@ export function isRawSubscription(value: unknown): value is RawSubscription {
     Number.isSafeInteger(value.version) &&
     typeof value.name === 'string' &&
     value.name.trim().length > 0 &&
-    (value.apps === undefined || Array.isArray(value.apps)) &&
-    (value.globalGroups === undefined || Array.isArray(value.globalGroups)) &&
-    (value.categories === undefined || Array.isArray(value.categories))
+    appsValid &&
+    groupsValid &&
+    categoriesValid
   )
 }
 
