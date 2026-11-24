@@ -1,4 +1,4 @@
-name: Refresh preview branch lockfile # verify second-page size for filtered rules
+name: Refresh preview branch lockfile # validate GKD app rules union shapes
 
 on:
   push:
