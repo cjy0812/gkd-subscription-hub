@@ -1,7 +1,7 @@
 import type { Env, Project } from '../types'
 import { getVersionSnapshot, listVersionSnapshots, saveVersionSnapshot, type VersionSnapshot } from '../storage/versions'
 import { parseJson5 } from './json5'
-import { readRepositoryFileAtRef } from './providers'
+import { fetchProjectFile, readRepositoryFileAtRef } from './providers'
 
 function sha256(value: string): Promise<string> {
   return crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)).then((digest) =>
@@ -30,27 +30,52 @@ export async function readSubscriptionVersionAtRef(
 }
 
 async function readGitSnapshot(env: Env, snapshot: VersionSnapshot): Promise<string> {
-  return readRepositoryFileAtRef(
+  const response = await fetchProjectFile(
     env,
-    snapshot.repoUrl,
-    `dist/gkd.json5`,
-    snapshot.commitSha,
+    {
+      provider: snapshot.provider,
+      providerId: snapshot.providerId,
+      owner: snapshot.owner,
+      repo: snapshot.repo,
+      branch: snapshot.branch,
+      commitSha: snapshot.commitSha,
+    },
+    { path: 'gkd.json5', sha: snapshot.fileSha, size: snapshot.fileSize },
   )
+  if (!response.ok) throw Error(`读取历史订阅文件失败：HTTP ${response.status}`)
+  return response.text()
 }
 
 export async function recordSubscriptionVersion(env: Env, project: Project): Promise<VersionSnapshot | null> {
   const version = project.subscriptionVersion
   if (!version || !project.commitSha) return null
   const existing = await getVersionSnapshot(env, project.id, version)
-  if (existing) return existing
+  if (existing) {
+    if (env.HISTORY_ARCHIVE && existing.archiveStatus !== 'r2-archived') {
+      try {
+        return (await archiveVersionSnapshot(env, project.id, version)) || existing
+      } catch {
+        return existing
+      }
+    }
+    return existing
+  }
+  const file = project.distFiles.find((item) => item.path.toLowerCase() === 'gkd.json5')
+  if (!file) return null
 
   const objectKey = `subscriptions/${project.id}/v${version}/gkd.json5`
   const snapshot: VersionSnapshot = {
     id: project.id,
     version,
     provider: project.provider || 'github',
+    providerId: project.providerId,
+    owner: project.owner,
+    repo: project.repo,
+    branch: project.branch,
     repoUrl: project.repoUrl,
     commitSha: project.commitSha,
+    fileSha: file.sha,
+    fileSize: file.size,
     createdAt: new Date().toISOString(),
     objectKey,
     archiveStatus: 'unavailable',

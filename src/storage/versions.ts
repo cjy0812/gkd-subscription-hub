@@ -6,8 +6,14 @@ export interface VersionSnapshot {
   id: number
   version: number
   provider: ProjectProvider
+  providerId?: string
+  owner: string
+  repo: string
+  branch: string
   repoUrl: string
   commitSha: string
+  fileSha: string
+  fileSize: number
   createdAt: string
   objectKey: string
   archiveStatus: HistoryArchiveStatus

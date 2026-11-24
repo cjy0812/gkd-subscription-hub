@@ -36,8 +36,14 @@ type MonitoringProjectInput = Pick<
 >
 
 function groupWorkflows(project: MonitoringProjectInput): MonitoringWorkflow[] {
-  const runGroups = new Map<number, MonitoringRun[]>()
+  const workflowMetadata = new Map<number, WorkflowInfo>(
+    project.workflows.map((item) => [item.id, item]),
+  )
+  const runGroups = new Map<string, MonitoringRun[]>()
+  const groupIds = new Map<string, number>()
   for (const run of project.lastRuns) {
+    const metadata = workflowMetadata.get(run.workflowId)
+    const groupKey = metadata ? `id:${run.workflowId}` : `name:${run.workflowName || 'CI Workflow'}`
     const value: MonitoringRun = {
       ...run,
       key: `${project.id}:${run.html_url}`,
@@ -45,22 +51,25 @@ function groupWorkflows(project: MonitoringProjectInput): MonitoringWorkflow[] {
       owner: project.owner,
       repo: project.repo,
     }
-    const group = runGroups.get(run.workflowId) || []
+    const group = runGroups.get(groupKey) || []
     group.push(value)
-    runGroups.set(run.workflowId, group)
+    runGroups.set(groupKey, group)
+    if (!groupIds.has(groupKey)) groupIds.set(groupKey, run.workflowId)
   }
-  const workflowMetadata = new Map<number, WorkflowInfo>(
-    project.workflows.map((item) => [item.id, item]),
-  )
-  const ids = new Set<number>([...workflowMetadata.keys(), ...runGroups.keys()])
-  return [...ids]
-    .map((workflowId) => {
+  for (const metadata of workflowMetadata.values()) {
+    const groupKey = `id:${metadata.id}`
+    if (!runGroups.has(groupKey)) runGroups.set(groupKey, [])
+    groupIds.set(groupKey, metadata.id)
+  }
+  return [...runGroups.entries()]
+    .map(([groupKey, groupRuns]) => {
+      const workflowId = groupIds.get(groupKey) || 0
       const metadata = workflowMetadata.get(workflowId)
-      const runs = (runGroups.get(workflowId) || []).sort(
+      const runs = groupRuns.sort(
         (a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0),
       )
       return {
-        key: `${project.id}:${workflowId}`,
+        key: `${project.id}:${groupKey}`,
         workflowId,
         name: metadata?.name || runs[0]?.workflowName || 'CI Workflow',
         path: metadata?.path || '工作流文件路径未记录（非 GitHub Workflow）',

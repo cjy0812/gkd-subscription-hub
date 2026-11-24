@@ -62,9 +62,6 @@ app.all('*', async (c) => {
   const match = url.pathname.match(/^\/(\d+)(?:\/(.*))?$/)
   if (!match) return bad('Not found', 404)
   const id = match[1]
-  const project = await get(c.env, Number(id))
-  if (!project) return bad('Subscription not registered', 404)
-
   let path: string
   try {
     path = decodeURIComponent(match[2] || '')
@@ -111,6 +108,8 @@ app.all('*', async (c) => {
   }
 
   if (!path || path === 'dist' || path === 'dist/') {
+    const project = await get(c.env, Number(id))
+    if (!project) return bad('Subscription not registered', 404)
     const versions = await listVersionSnapshots(c.env, Number(id))
     const html = directory(project, versions)
     const response = new Response(html, {
@@ -124,6 +123,8 @@ app.all('*', async (c) => {
       ? new Response(null, { status: response.status, headers: response.headers })
       : response
   }
+  const project = await get(c.env, Number(id))
+  if (!project) return bad('Subscription not registered', 404)
   if (path.startsWith('dist/')) path = path.slice(5)
   if (!path) return bad('Not found', 404)
   if (
