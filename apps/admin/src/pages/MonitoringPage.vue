@@ -114,12 +114,25 @@ onMounted(() => { void load() })
                 </template>
                 <n-data-table
                   v-if="workflow.runs.length"
+                  class="desktop-runs"
                   :columns="columns"
                   :data="workflow.runs"
                   :row-key="(row) => row.key"
                   :pagination="{ pageSize: 10 }"
                   :scroll-x="620"
                 />
+                <div v-if="workflow.runs.length" class="mobile-runs">
+                  <article v-for="run in workflow.runs" :key="run.key" class="mobile-run-card">
+                    <div class="mobile-run-heading">
+                      <span>{{ run.event || '未知触发方式' }}</span>
+                      <n-tag size="small" :bordered="false" :type="runStatusType(run)">
+                        {{ runStatusLabel(run) }}
+                      </n-tag>
+                    </div>
+                    <time>{{ formatRunTime(run.updated_at) }}</time>
+                    <a :href="run.html_url" target="_blank" rel="noopener noreferrer">查看 Run</a>
+                  </article>
+                </div>
                 <n-empty v-else description="该 Workflow 暂无缓存运行记录" />
               </n-collapse-item>
             </n-collapse>
