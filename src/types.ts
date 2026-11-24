@@ -1,6 +1,21 @@
 export type ProjectProvider = 'github' | 'gitlab' | 'gitea'
 
+export interface HistoryArchiveObject {
+  text(): Promise<string>
+}
+export interface HistoryArchiveBinding {
+  get(key: string): Promise<HistoryArchiveObject | null>
+  put(
+    key: string,
+    value: string,
+    options: {
+      httpMetadata: { contentType: string }
+      customMetadata: Record<string, string>
+    },
+  ): Promise<unknown>
+}
 export interface Env {
+  HISTORY_ARCHIVE?: HistoryArchiveBinding
   STATE: KVNamespace
   ASSETS: Fetcher
   ADMIN_PASSWORD: string
@@ -47,6 +62,7 @@ export interface Project {
   repo: string
   branch: string
   commitSha?: string
+  subscriptionVersion?: number | null
   group?: string
   repoUrl: string
   distFiles: DistFile[]
