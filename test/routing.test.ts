@@ -21,14 +21,22 @@ function environment(overrides: Partial<Env> = {}) {
 const context = { waitUntil: vi.fn() } as unknown as ExecutionContext
 
 describe('top-level routing', () => {
-  it('redirects the root to the admin application', async () => {
+  it('serves the public portal at the root without redirecting to Admin', async () => {
+    const env = environment()
+    const response = await worker.fetch(new Request('https://gkd.example.com/'), env, context)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('/')
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
+  })
+
+  it('exposes public subscription data without requiring Admin auth', async () => {
     const response = await worker.fetch(
-      new Request('https://gkd.example.com/'),
+      new Request('https://gkd.example.com/api/public/subscriptions'),
       environment(),
       context,
     )
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://gkd.example.com/admin/')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ ok: true, subscriptions: [] })
   })
 
   it('serves the admin SPA from the assets root', async () => {

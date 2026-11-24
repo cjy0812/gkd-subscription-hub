@@ -19,11 +19,18 @@ describe('Markdown preview renderer', () => {
     expect(html).toContain('href="#md-配置-2"')
   })
 
-  it('does not render raw HTML or executable links', () => {
-    const html = renderMarkdown('<script>alert(1)</script>\n\n[bad](javascript:alert(1))')
-    expect(html).not.toContain('<script>')
+  it('renders permitted HTML and removes script, event-handler and unsafe URL threats', () => {
+    const html = renderMarkdown(
+      '<div class="notice"><strong>安全排版</strong><img src="https://example.com/a.png" onerror="alert(1)"></div>\n<script>alert(1)</script>\n<iframe src="https://evil.example"></iframe>\n\n[bad](javascript:alert(1))',
+    )
+    expect(html).toContain('<div class="notice">')
+    expect(html).toContain('<strong>安全排版</strong>')
+    expect(html).toContain('<img src="https://example.com/a.png"')
+    expect(html).not.toContain('onerror=')
+    expect(html).not.toContain('<script')
+    expect(html).not.toContain('<iframe')
     expect(html).not.toContain('href="javascript:')
-    expect(html).toContain('&lt;script&gt;')
+    expect(html).not.toContain('alert(1)')
   })
 
   it('highlights registered code languages and safely escapes unknown languages', () => {

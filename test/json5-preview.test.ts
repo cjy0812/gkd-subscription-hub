@@ -35,10 +35,13 @@ describe('JSON5 read-only tree preview', () => {
     expect(html).toContain('&lt;script&gt;')
   })
 
-  it('skips interactive rendering for oversized source', () => {
-    const html = renderJson5Preview(' '.repeat(512_001), 'large.json5')
-    expect(html).toContain('超过 500 KB')
-    expect(html).not.toContain('json-viewer')
+  it('lets users opt into structured parsing for files above the default threshold', () => {
+    const source = `{ title: '${'x'.repeat(512_001)}' }`
+    const prompt = renderJson5Preview(source, 'large.json5')
+    expect(prompt).toContain('继续加载结构化预览')
+    expect(prompt).not.toContain('json-viewer')
+    const loaded = renderJson5Preview(source, 'large.json5', true)
+    expect(loaded).toContain('json-viewer')
   })
 
   it('bounds the number of rendered nodes', () => {
