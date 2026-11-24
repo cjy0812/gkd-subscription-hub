@@ -90,7 +90,8 @@ const isVersionMismatch = computed(() => Boolean(meta.value && meta.value.id !==
 function safeHttpUrl(value?: string): string | undefined {
   if (!value) return undefined
   try {
-    const url = new URL(value, window.location.href)
+    const base = new URL(sourceUrl.value, window.location.href)
+    const url = new URL(value, base)
     return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : undefined
   } catch {
     return undefined

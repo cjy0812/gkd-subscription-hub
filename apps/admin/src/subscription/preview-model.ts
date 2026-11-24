@@ -235,18 +235,65 @@ function stringifyPreview(value: unknown, maxLength = 180): string {
   return result.length > maxLength ? result.slice(0, maxLength) + '…' : result
 }
 
-function summarizeGroup(group: PreviewGroup, index: number, scope: PreviewScope): GroupPreviewSummary {
+const APP_GROUP_ATTRIBUTES = [
+  'activityIds',
+  'excludeActivityIds',
+  'versionNames',
+  'excludeVersionNames',
+  'versionCodes',
+  'excludeVersionCodes',
+  'versionCode',
+  'versionName',
+  'ignoreGlobalGroupMatch',
+]
+const COMMON_GROUP_ATTRIBUTES = [
+  'fastQuery',
+  'matchRoot',
+  'matchDelay',
+  'matchTime',
+  'actionCd',
+  'actionDelay',
+  'actionMaximum',
+  'resetMatch',
+  'actionCdKey',
+  'actionMaximumKey',
+  'order',
+  'forcedTime',
+  'priorityTime',
+  'priorityActionMaximum',
+  'snapshotUrls',
+  'excludeSnapshotUrls',
+  'exampleUrls',
+  'scopeKeys',
+]
+
+function summarizeGroup(
+  group: PreviewGroup,
+  index: number,
+  scope: PreviewScope,
+): GroupPreviewSummary {
   const attributes: Array<{ key: string; value: string }> = []
   const keys = scope === 'app'
-    ? ['activityIds', 'excludeActivityIds', 'versionCode', 'versionName', 'scopeKeys', 'ignoreGlobalGroupMatch']
-    : ['matchAnyApp', 'matchLauncher', 'matchSystemApp', 'disableIfAppGroupMatch', 'scopeKeys', 'apps']
+    ? [...COMMON_GROUP_ATTRIBUTES, ...APP_GROUP_ATTRIBUTES]
+    : [
+        ...COMMON_GROUP_ATTRIBUTES,
+        'matchAnyApp',
+        'matchLauncher',
+        'matchSystemApp',
+        'disableIfAppGroupMatch',
+        'apps',
+      ]
   for (const key of keys) {
     const value = (group as unknown as Record<string, unknown>)[key]
     if (value == null) continue
-    attributes.push({
-      key,
-      value: key === 'apps' && Array.isArray(value) ? value.length + ' 个应用配置' : stringifyPreview(value, 240),
-    })
+    const displayValue =
+      key === 'apps' && Array.isArray(value)
+        ? value.map((app) => {
+            if (!isRecord(app)) return stringifyPreview(app, 60)
+            return String(app.id || '未知应用') + (app.enable === false ? '（禁用）' : '（启用）')
+          }).join('、')
+        : stringifyPreview(value, 240)
+    attributes.push({ key, value: displayValue })
   }
   return {
     index,

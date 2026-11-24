@@ -60,7 +60,24 @@ export async function recordSubscriptionVersion(
   const version = project.subscriptionVersion
   if (!version || !project.commitSha) return null
   const existing = await getVersionSnapshot(env, project.id, version)
-  if (existing) return existing
+  if (existing) {
+    if (existing.archiveStatus === 'unavailable') {
+      try {
+        const content = await readGitSnapshot(env, existing)
+        const recovered: VersionSnapshot = {
+          ...existing,
+          archiveStatus: 'git-only',
+          contentSha256: await sha256(content),
+          archiveError: undefined,
+        }
+        await saveVersionSnapshot(env, recovered)
+        return recovered
+      } catch {
+        return existing
+      }
+    }
+    return existing
+  }
   const file = project.distFiles.find((item) => item.path.toLowerCase() === 'gkd.json5')
   if (!file) return null
 

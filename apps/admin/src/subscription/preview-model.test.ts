@@ -100,7 +100,10 @@ describe('GKD subscription preview model', () => {
       key: 1,
       name: '规则组 0',
       ruleCount: 60,
-      attributes: [{ key: 'activityIds', value: '[".MainActivity"]' }],
+      attributes: [
+        { key: 'fastQuery', value: 'true' },
+        { key: 'activityIds', value: '[".MainActivity"]' },
+      ],
     })
     const rules = getRulesPage(value, 'app', 0, 0, 2, 50, 'textview')
     expect(rules).toMatchObject({ page: 2, total: 60, pageCount: 2 })
