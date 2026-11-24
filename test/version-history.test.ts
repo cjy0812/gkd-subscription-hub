@@ -93,6 +93,4 @@ describe('subscription version history', () => {
     if (!record) throw new Error('Expected a recorded Git history snapshot')
     expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
   })
-
-
 })

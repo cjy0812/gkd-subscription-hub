@@ -115,7 +115,6 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - Worker 不绑定 R2、不写入 R2，也不提供任何 R2 归档 API，避免订阅服务因对象存储用量超额而产生额外费用。
 - 上游 Git 历史被删除或改写后，历史版本可能不可恢复；必须明确显示不可用，绝不以最新版冒充历史快照。
 
-
 ## GKD JSON5 预览器
 
 - 浏览器对订阅 JSON5 的 HTML 导航使用 `/preview/<id>?file=<dist-path>`；历史版本使用 `/preview/<id>?version=<version>`。GKD 客户端访问 `/<id>/gkd.json5` 与历史 URL 时仍获得原始 JSON5 字节，不改变订阅 URL 兼容性。

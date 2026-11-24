@@ -81,9 +81,7 @@ export function isRawSubscription(value: unknown): value is RawSubscription {
   if (!isRecord(value)) return false
   const isAppRule = (rule: unknown) => typeof rule === 'string' || isRecord(rule)
   const isAppRules = (rules: unknown) =>
-    typeof rules === 'string' ||
-    isRecord(rules) ||
-    (Array.isArray(rules) && rules.every(isAppRule))
+    typeof rules === 'string' || isRecord(rules) || (Array.isArray(rules) && rules.every(isAppRule))
   const appsValid =
     value.apps === undefined ||
     (Array.isArray(value.apps) &&
@@ -194,7 +192,11 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
 function includesQuery(values: unknown[], query: string): boolean {
   const normalized = query.trim().toLocaleLowerCase()
   if (!normalized) return true
-  return values.some((value) => String(value ?? '').toLocaleLowerCase().includes(normalized))
+  return values.some((value) =>
+    String(value ?? '')
+      .toLocaleLowerCase()
+      .includes(normalized),
+  )
 }
 
 export function getAppsPage(
@@ -229,7 +231,8 @@ function getScopeGroups(
 }
 
 function stringifyPreview(value: unknown, maxLength = 180): string {
-  if (typeof value === 'string') return value.length > maxLength ? value.slice(0, maxLength) + '…' : value
+  if (typeof value === 'string')
+    return value.length > maxLength ? value.slice(0, maxLength) + '…' : value
   if (value == null) return ''
   let result: string
   try {
@@ -278,25 +281,28 @@ function summarizeGroup(
   scope: PreviewScope,
 ): GroupPreviewSummary {
   const attributes: Array<{ key: string; value: string }> = []
-  const keys = scope === 'app'
-    ? [...COMMON_GROUP_ATTRIBUTES, ...APP_GROUP_ATTRIBUTES]
-    : [
-        ...COMMON_GROUP_ATTRIBUTES,
-        'matchAnyApp',
-        'matchLauncher',
-        'matchSystemApp',
-        'disableIfAppGroupMatch',
-        'apps',
-      ]
+  const keys =
+    scope === 'app'
+      ? [...COMMON_GROUP_ATTRIBUTES, ...APP_GROUP_ATTRIBUTES]
+      : [
+          ...COMMON_GROUP_ATTRIBUTES,
+          'matchAnyApp',
+          'matchLauncher',
+          'matchSystemApp',
+          'disableIfAppGroupMatch',
+          'apps',
+        ]
   for (const key of keys) {
     const value = (group as unknown as Record<string, unknown>)[key]
     if (value == null) continue
     const displayValue =
       key === 'apps' && Array.isArray(value)
-        ? value.map((app) => {
-            if (!isRecord(app)) return stringifyPreview(app, 60)
-            return String(app.id || '未知应用') + (app.enable === false ? '（禁用）' : '（启用）')
-          }).join('、')
+        ? value
+            .map((app) => {
+              if (!isRecord(app)) return stringifyPreview(app, 60)
+              return String(app.id || '未知应用') + (app.enable === false ? '（禁用）' : '（启用）')
+            })
+            .join('、')
         : stringifyPreview(value, 240)
     attributes.push({ key, value: displayValue })
   }
@@ -330,14 +336,17 @@ function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matche
 }
 
 function getRuleMatches(value: unknown): string {
-  return toArray(value as string | string[] | undefined).map(String).join('\n')
+  return toArray(value as string | string[] | undefined)
+    .map(String)
+    .join('\n')
 }
 
 function summarizeRule(rule: PreviewRule, index: number): RulePreviewSummary {
   const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
-  const name = typeof normalized.name === 'string' && normalized.name.trim()
-    ? normalized.name
-    : '规则 ' + (index + 1)
+  const name =
+    typeof normalized.name === 'string' && normalized.name.trim()
+      ? normalized.name
+      : '规则 ' + (index + 1)
   const matches = getRuleMatches(normalized.matches)
   const anyMatches = getRuleMatches(normalized.anyMatches)
   const key = typeof normalized.key === 'number' ? normalized.key : undefined
@@ -365,7 +374,9 @@ export function getRulesPage(
   if (!group) throw new Error('规则组不存在或已更改')
   const rules = getRules(group)
     .map((rule, index) => summarizeRule(rule, index))
-    .filter((rule) => includesQuery([rule.key, rule.name, rule.action, rule.matches, rule.anyMatches], query))
+    .filter((rule) =>
+      includesQuery([rule.key, rule.name, rule.action, rule.matches, rule.anyMatches], query),
+    )
   return paginate(rules, page, pageSize)
 }
 

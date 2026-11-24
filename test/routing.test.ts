@@ -89,7 +89,9 @@ describe('top-level routing', () => {
       context,
     )
     expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://gkd.example.com/preview/233?file=gkd.json5')
+    expect(response.headers.get('location')).toBe(
+      'https://gkd.example.com/preview/233?file=gkd.json5',
+    )
   })
 
   it('keeps the preview deep-link routed to Static Assets', async () => {

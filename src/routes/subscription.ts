@@ -34,9 +34,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .slice()
     .sort((a, b) => b.version - a.version)
     .map((item) => {
-      const status = item.archiveStatus === 'git-only'
-        ? 'Git 固定提交可用'
-        : '暂不可用'
+      const status = item.archiveStatus === 'git-only' ? 'Git 固定提交可用' : '暂不可用'
       return `<tr><td><a href="/preview/${project.id}?version=${item.version}">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
@@ -76,10 +74,7 @@ app.all('*', async (c) => {
     const snapshot = await getVersionSnapshot(c.env, Number(id), version)
     if (!snapshot) return bad('Historical version not found', 404)
     if (wantsHtml(req)) {
-      return Response.redirect(
-        new URL(`/preview/${id}?version=${version}`, url),
-        302,
-      )
+      return Response.redirect(new URL(`/preview/${id}?version=${version}`, url), 302)
     }
     let source: string
     try {
@@ -131,10 +126,7 @@ app.all('*', async (c) => {
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
   if (wantsHtml(req) && path.toLowerCase().endsWith('.json5')) {
-    return Response.redirect(
-      new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url),
-      302,
-    )
+    return Response.redirect(new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url), 302)
   }
 
   const response = await fetchProjectFile(c.env, project, file, {
@@ -144,10 +136,7 @@ app.all('*', async (c) => {
   if (!response.ok)
     return new Response(response.body, { status: response.status, headers: response.headers })
 
-  if (
-    wantsHtml(req) &&
-    path.toLowerCase().endsWith('.md')
-  ) {
+  if (wantsHtml(req) && path.toLowerCase().endsWith('.md')) {
     const text = await response.text()
     const body = renderMarkdown(text)
     const out = new Response(documentPage(path, body, '?raw=1'), {
