@@ -108,7 +108,34 @@ export async function getVersionSnapshot(
   id: number,
   version: number,
 ): Promise<VersionSnapshot | null> {
-  return (await listVersionSnapshots(env, id)).find((item) => item.version === version) || null
+  // Keep the backwards-compatible legacy lookup, but scope indexed reads to
+  // this version instead of loading every historical snapshot for the project.
+  const legacy = await env.STATE.get<VersionSnapshot[]>(legacyKey(id), 'json')
+  const candidates = Array.isArray(legacy)
+    ? legacy.filter((snapshot) => snapshot.version === version).map(normalizeSnapshot)
+    : []
+  const prefix = snapshotPrefix(id) + `${version}:`
+  let cursor: string | undefined
+
+  do {
+    const page = await env.STATE.list({
+      prefix,
+      limit: 1000,
+      ...(cursor ? { cursor } : {}),
+    })
+    const snapshots = await Promise.all(
+      page.keys.map((entry) => env.STATE.get<VersionSnapshot>(entry.name, 'json')),
+    )
+    for (const snapshot of snapshots) {
+      if (snapshot && snapshot.version === version) candidates.push(normalizeSnapshot(snapshot))
+    }
+    cursor = page.list_complete ? undefined : page.cursor
+  } while (cursor)
+
+  return candidates.reduce<VersionSnapshot | null>(
+    (current, candidate) => (current ? preferSnapshot(current, candidate) : candidate),
+    null,
+  )
 }
 
 export async function saveVersionSnapshot(env: Env, snapshot: VersionSnapshot): Promise<void> {

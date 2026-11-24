@@ -158,6 +158,23 @@ describe('GKD subscription preview model', () => {
     expect(detail).toMatchObject({ matches: 'x'.repeat(4000) })
   })
 
+  it('searches full selectors while keeping visible summaries bounded', () => {
+    const value = makeSubscription()
+    const group = value.apps?.[0]?.groups[0]
+    const rules = group?.rules
+    if (!rules || !Array.isArray(rules) || typeof rules[0] === 'string' || !rules[0]) {
+      throw new Error('Expected a structured rule list')
+    }
+    const fullSelector = 'x'.repeat(2100) + 'needle'
+    rules[0].matches = fullSelector
+
+    const result = getRulesPage(value, 'app', 0, 0, 1, 50, 'needle')
+    expect(result.total).toBe(1)
+    expect(result.items[0]).toMatchObject({ index: 0, key: 1 })
+    expect(result.items[0].matches).toHaveLength(2001)
+    expect(getRuleDetail(value, 'app', 0, 0, 0)).toMatchObject({ matches: fullSelector })
+  })
+
   it('supports global rules and categories through separate lazy requests', () => {
     const value = makeSubscription()
     expect(getGroupsPage(value, 'global', undefined, 1, 50).items[0]).toMatchObject({

@@ -182,7 +182,7 @@ export async function recordSubscriptionVersion(
   return snapshot
 }
 
-export async function readVersionContent(env: Env, snapshot: VersionSnapshot): Promise<string> {
+export async function readVersionContent(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
   if (snapshot.archiveStatus !== 'git-only' || !snapshot.contentSha256) {
     throw Error('历史快照缺少有效的 SHA-256 校验值，拒绝返回未校验内容')
   }
@@ -190,7 +190,7 @@ export async function readVersionContent(env: Env, snapshot: VersionSnapshot): P
   if ((await sha256(bytes)) !== snapshot.contentSha256) {
     throw Error('Git 历史快照校验失败')
   }
-  return new TextDecoder().decode(bytes)
+  return bytes
 }
 
 export async function listProjectVersions(env: Env, id: number) {

@@ -86,7 +86,7 @@ app.all('*', async (c) => {
         },
       })
     }
-    let source: string
+    let source: Uint8Array
     try {
       source = await readVersionContent(c.env, snapshot)
     } catch {

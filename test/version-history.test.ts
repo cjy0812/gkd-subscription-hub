@@ -5,6 +5,7 @@ import {
   readVersionContent,
 } from '../src/services/version-history'
 import {
+  getVersionSnapshot,
   listVersionSnapshots,
   saveVersionSnapshot,
   type VersionSnapshot,
@@ -14,8 +15,10 @@ import type { Env, Project } from '../src/types'
 
 function makeState() {
   const data = new Map<string, string>()
+  const listCalls: Array<{ prefix?: string; limit?: number }> = []
   return {
     data,
+    listCalls,
     namespace: {
       get: async (key: string, type?: string) => {
         const value = data.get(key)
@@ -28,7 +31,9 @@ function makeState() {
       delete: async (key: string) => {
         data.delete(key)
       },
-      list: async (options: { prefix?: string; limit?: number }) => ({
+      list: async (options: { prefix?: string; limit?: number }) => {
+        listCalls.push(options)
+        return ({
         keys: [...data.keys()]
           .filter((key) => key.startsWith(options.prefix || ''))
           .sort()
@@ -37,7 +42,7 @@ function makeState() {
         list_complete: true,
         cursor: undefined,
         cacheStatus: null,
-      }),
+      })},
     } as unknown as KVNamespace,
   }
 }
@@ -155,6 +160,47 @@ describe('subscription version history', () => {
     ])
   })
 
+  it('returns the exact checksum-verified historical bytes, including a UTF-8 BOM', async () => {
+    const state = makeState()
+    const env = { STATE: state.namespace } as Env
+    const payload = new TextEncoder().encode('{id:233,version:643}')
+    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...payload])
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
+    const record = await recordSubscriptionVersion(env, makeProject())
+    if (!record) throw new Error('Expected a recorded Git history snapshot')
+    expect(await readVersionContent(env, record)).toEqual(bytes)
+  })
+
+  it('loads only the requested version from the indexed snapshot keys', async () => {
+    const state = makeState()
+    const env = { STATE: state.namespace } as Env
+    const makeSnapshot = (version: number): VersionSnapshot => ({
+      id: 233,
+      version,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      commitSha: `commit-${version}`,
+      fileSha: `blob-${version}`,
+      fileSize: 10,
+      createdAt: new Date(version).toISOString(),
+      archiveStatus: 'git-only',
+      contentSha256: 'a'.repeat(64),
+    })
+    await saveVersionSnapshot(env, makeSnapshot(643))
+    await saveVersionSnapshot(env, makeSnapshot(644))
+    state.listCalls.length = 0
+
+    expect(await getVersionSnapshot(env, 233, 644)).toMatchObject({
+      version: 644,
+      commitSha: 'commit-644',
+    })
+    expect(state.listCalls).toHaveLength(1)
+    expect(state.listCalls[0]?.prefix).toBe('history:233:snapshot:644:')
+  })
+
   it('preserves the exact indexed filename for historical reads', async () => {
     const state = makeState()
     const env = { STATE: state.namespace } as Env
@@ -190,6 +236,6 @@ describe('subscription version history', () => {
     })
     expect(await listVersionSnapshots(env, 233)).toHaveLength(1)
     if (!record) throw new Error('Expected a recorded Git history snapshot')
-    expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
+    expect(new TextDecoder().decode(await readVersionContent(env, record))).toBe('{id:233,version:643}')
   })
 })

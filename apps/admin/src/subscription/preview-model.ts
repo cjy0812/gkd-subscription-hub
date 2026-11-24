@@ -342,10 +342,14 @@ function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matche
   return typeof rule === 'string' ? { matches: rule } : rule
 }
 
-function getRuleMatches(value: unknown, maxLength = 2000): string {
-  const text = toArray(value as string | string[] | undefined)
+function getFullRuleMatches(value: unknown): string {
+  return toArray(value as string | string[] | undefined)
     .map(String)
     .join('\n')
+}
+
+function getRuleMatches(value: unknown, maxLength = 2000): string {
+  const text = getFullRuleMatches(value)
   return text.length > maxLength ? text.slice(0, maxLength) + '…' : text
 }
 
@@ -389,8 +393,8 @@ export function getRulesPage(
           normalized.key,
           normalized.name,
           normalized.action,
-          getRuleMatches(normalized.matches),
-          getRuleMatches(normalized.anyMatches),
+          getFullRuleMatches(normalized.matches),
+          getFullRuleMatches(normalized.anyMatches),
         ],
         query,
       )
