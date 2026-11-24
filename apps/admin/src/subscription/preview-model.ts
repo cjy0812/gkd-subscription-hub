@@ -1,0 +1,311 @@
+import type {
+  RawApp,
+  RawAppGroup,
+  RawAppRule,
+  RawCategory,
+  RawGlobalGroup,
+  RawGlobalRule,
+  RawSubscription,
+} from '@gkd-kit/api'
+
+export type PreviewScope = 'app' | 'global'
+export type PreviewRule = RawAppRule | RawGlobalRule | string
+export type PreviewGroup = RawAppGroup | RawGlobalGroup
+
+export interface SubscriptionStats {
+  apps: number
+  appGroups: number
+  appRules: number
+  globalGroups: number
+  globalRules: number
+  categories: number
+}
+
+export interface SubscriptionMeta {
+  id: number
+  name: string
+  version: number
+  author?: string
+  updateUrl?: string
+  supportUri?: string
+  checkUpdateUrl?: string
+}
+
+export interface PageResult<T> {
+  items: T[]
+  page: number
+  pageSize: number
+  total: number
+  pageCount: number
+}
+
+export interface AppPreviewSummary {
+  index: number
+  id: string
+  name: string
+  groupCount: number
+  ruleCount: number
+}
+
+export interface GroupPreviewSummary {
+  index: number
+  key: number
+  name: string
+  desc?: string
+  enabled: boolean
+  ruleCount: number
+  attributes: Array<{ key: string; value: string }>
+}
+
+export interface RulePreviewSummary {
+  index: number
+  key?: number
+  name: string
+  action?: string
+  matches: string
+  anyMatches: string
+  preview: string
+}
+
+export interface CategoryPreviewSummary {
+  key: number
+  name: string
+  enable: boolean | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function isRawSubscription(value: unknown): value is RawSubscription {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'number' &&
+    Number.isSafeInteger(value.id) &&
+    typeof value.version === 'number' &&
+    Number.isSafeInteger(value.version) &&
+    typeof value.name === 'string' &&
+    Array.isArray(value.apps || []) &&
+    Array.isArray(value.globalGroups || []) &&
+    Array.isArray(value.categories || [])
+  )
+}
+
+export function toArray<T>(value: T | T[] | null | undefined): T[] {
+  if (value == null) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+function getRules(group: PreviewGroup): PreviewRule[] {
+  return toArray(group.rules as PreviewRule | PreviewRule[])
+}
+
+function getRuleCount(groups: readonly PreviewGroup[]): number {
+  return groups.reduce((total, group) => total + getRules(group).length, 0)
+}
+
+export function summarizeSubscription(subscription: RawSubscription): {
+  meta: SubscriptionMeta
+  stats: SubscriptionStats
+} {
+  const apps = subscription.apps || []
+  const globalGroups = subscription.globalGroups || []
+  const appGroups = apps.reduce((total, app) => total + app.groups.length, 0)
+  const appRules = apps.reduce(
+    (total, app) => total + getRuleCount(app.groups),
+    0,
+  )
+  return {
+    meta: {
+      id: subscription.id,
+      name: subscription.name,
+      version: subscription.version,
+      author: subscription.author,
+      updateUrl: subscription.updateUrl,
+      supportUri: subscription.supportUri,
+      checkUpdateUrl: subscription.checkUpdateUrl,
+    },
+    stats: {
+      apps: apps.length,
+      appGroups,
+      appRules,
+      globalGroups: globalGroups.length,
+      globalRules: getRuleCount(globalGroups),
+      categories: subscription.categories?.length || 0,
+    },
+  }
+}
+
+function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> {
+  const safePageSize = Math.max(1, Math.min(100, Math.floor(pageSize) || 50))
+  const pageCount = Math.max(1, Math.ceil(items.length / safePageSize))
+  const safePage = Math.max(1, Math.min(pageCount, Math.floor(page) || 1))
+  const start = (safePage - 1) * safePageSize
+  return {
+    items: items.slice(start, start + safePageSize),
+    page: safePage,
+    pageSize: safePageSize,
+    total: items.length,
+    pageCount,
+  }
+}
+
+function includesQuery(values: unknown[], query: string): boolean {
+  const normalized = query.trim().toLocaleLowerCase()
+  if (!normalized) return true
+  return values.some((value) => String(value ?? '').toLocaleLowerCase().includes(normalized))
+}
+
+export function getAppsPage(
+  subscription: RawSubscription,
+  page: number,
+  pageSize: number,
+  query = '',
+): PageResult<AppPreviewSummary> {
+  const apps = (subscription.apps || []).map((app: RawApp, index) => ({
+    index,
+    id: app.id,
+    name: app.name || app.id,
+    groupCount: app.groups.length,
+    ruleCount: getRuleCount(app.groups),
+  }))
+  return paginate(
+    apps.filter((app) => includesQuery([app.id, app.name], query)),
+    page,
+    pageSize,
+  )
+}
+
+function getScopeGroups(
+  subscription: RawSubscription,
+  scope: PreviewScope,
+  appIndex?: number,
+): PreviewGroup[] {
+  if (scope === 'global') return (subscription.globalGroups || []) as PreviewGroup[]
+  const app = subscription.apps?.[appIndex ?? -1]
+  if (!app) throw new Error('应用不存在或已更改')
+  return app.groups as PreviewGroup[]
+}
+
+function stringifyPreview(value: unknown, maxLength = 180): string {
+  if (typeof value === 'string') return value.length > maxLength ? value.slice(0, maxLength) + '…' : value
+  if (value == null) return ''
+  let result: string
+  try {
+    result = JSON.stringify(value)
+  } catch {
+    result = String(value)
+  }
+  return result.length > maxLength ? result.slice(0, maxLength) + '…' : result
+}
+
+function summarizeGroup(group: PreviewGroup, index: number, scope: PreviewScope): GroupPreviewSummary {
+  const attributes: Array<{ key: string; value: string }> = []
+  const keys = scope === 'app'
+    ? ['activityIds', 'excludeActivityIds', 'versionCode', 'versionName', 'scopeKeys', 'ignoreGlobalGroupMatch']
+    : ['matchAnyApp', 'matchLauncher', 'matchSystemApp', 'disableIfAppGroupMatch', 'scopeKeys', 'apps']
+  for (const key of keys) {
+    const value = (group as unknown as Record<string, unknown>)[key]
+    if (value == null) continue
+    attributes.push({
+      key,
+      value: key === 'apps' && Array.isArray(value) ? value.length + ' 个应用配置' : stringifyPreview(value, 240),
+    })
+  }
+  return {
+    index,
+    key: group.key,
+    name: group.name,
+    desc: group.desc,
+    enabled: group.enable !== false,
+    ruleCount: getRules(group).length,
+    attributes,
+  }
+}
+
+export function getGroupsPage(
+  subscription: RawSubscription,
+  scope: PreviewScope,
+  appIndex: number | undefined,
+  page: number,
+  pageSize: number,
+  query = '',
+): PageResult<GroupPreviewSummary> {
+  const groups = getScopeGroups(subscription, scope, appIndex)
+    .map((group, index) => summarizeGroup(group, index, scope))
+    .filter((group) => includesQuery([group.key, group.name, group.desc], query))
+  return paginate(groups, page, pageSize)
+}
+
+function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matches: string } {
+  return typeof rule === 'string' ? { matches: rule } : rule
+}
+
+function getRuleMatches(value: unknown): string {
+  return toArray(value as string | string[] | undefined).map(String).join('\n')
+}
+
+function summarizeRule(rule: PreviewRule, index: number): RulePreviewSummary {
+  const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
+  const name = typeof normalized.name === 'string' && normalized.name.trim()
+    ? normalized.name
+    : '规则 ' + (index + 1)
+  const matches = getRuleMatches(normalized.matches)
+  const anyMatches = getRuleMatches(normalized.anyMatches)
+  const key = typeof normalized.key === 'number' ? normalized.key : undefined
+  return {
+    index,
+    key,
+    name,
+    action: typeof normalized.action === 'string' ? normalized.action : undefined,
+    matches,
+    anyMatches,
+    preview: matches || anyMatches || stringifyPreview(normalized, 180),
+  }
+}
+
+export function getRulesPage(
+  subscription: RawSubscription,
+  scope: PreviewScope,
+  appIndex: number | undefined,
+  groupIndex: number,
+  page: number,
+  pageSize: number,
+  query = '',
+): PageResult<RulePreviewSummary> {
+  const group = getScopeGroups(subscription, scope, appIndex)[groupIndex]
+  if (!group) throw new Error('规则组不存在或已更改')
+  const rules = getRules(group)
+    .map((rule, index) => summarizeRule(rule, index))
+    .filter((rule) => includesQuery([rule.key, rule.name, rule.action, rule.matches, rule.anyMatches], query))
+  return paginate(rules, page, pageSize)
+}
+
+export function getRuleDetail(
+  subscription: RawSubscription,
+  scope: PreviewScope,
+  appIndex: number | undefined,
+  groupIndex: number,
+  ruleIndex: number,
+): RawAppRule | RawGlobalRule | { matches: string } {
+  const group = getScopeGroups(subscription, scope, appIndex)[groupIndex]
+  const rule = group ? getRules(group)[ruleIndex] : undefined
+  if (rule == null) throw new Error('规则不存在或已更改')
+  return normalizeRule(rule)
+}
+
+export function getCategoriesPage(
+  subscription: RawSubscription,
+  page: number,
+  pageSize: number,
+  query = '',
+): PageResult<CategoryPreviewSummary> {
+  const categories = (subscription.categories || [])
+    .map((category: RawCategory) => ({
+      key: category.key,
+      name: category.name,
+      enable: category.enable ?? null,
+    }))
+    .filter((category) => includesQuery([category.key, category.name, category.enable], query))
+  return paginate(categories, page, pageSize)
+}
