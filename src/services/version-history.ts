@@ -1,4 +1,4 @@
-import type { Env, Project, ProjectProvider } from '../types'
+import type { Env, Project } from '../types'
 import { getVersionSnapshot, listVersionSnapshots, saveVersionSnapshot, type VersionSnapshot } from '../storage/versions'
 import { parseJson5 } from './json5'
 import { readRepositoryFileAtRef } from './providers'
@@ -12,7 +12,6 @@ function sha256(value: string): Promise<string> {
 export async function readSubscriptionVersionAtRef(
   env: Env,
   repoUrl: string,
-  provider: ProjectProvider | undefined,
   ref: string,
   expectedId: number,
 ): Promise<number | null> {

@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { auth } from '../middleware/auth'
 import { predict, refresh, runs } from '../services/actions'
+import { archiveVersionSnapshot, listProjectVersions, recordSubscriptionVersion } from '../services/version-history'
 import { listBranches, parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
@@ -45,6 +46,7 @@ app.post('/api/projects', async (c) => {
     project.lastDistHash = project.distHash
     project.lastDistChangedAt = project.lastCheckedAt
     project.prediction = predict(project.lastRuns)
+    await recordSubscriptionVersion(c.env, project)
     await save(c.env, project)
     return json({ ok: true, project }, 201)
   } catch (error) {
@@ -68,6 +70,24 @@ app.post('/api/projects/:id/refresh', async (c) => {
       },
     })
     return bad(message, 502)
+  }
+})
+app.get('/api/projects/:id/versions', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!(await get(c.env, id))) return bad('项目不存在', 404)
+  return json({ ok: true, versions: await listProjectVersions(c.env, id) })
+})
+app.post('/api/projects/:id/versions/:version/archive', async (c) => {
+  const id = Number(c.req.param('id'))
+  const version = Number(c.req.param('version'))
+  if (!Number.isSafeInteger(version) || version < 1) return bad('版本号无效', 400)
+  if (!(await get(c.env, id))) return bad('项目不存在', 404)
+  try {
+    const snapshot = await archiveVersionSnapshot(c.env, id, version)
+    if (!snapshot) return bad('历史版本不存在', 404)
+    return json({ ok: true, snapshot })
+  } catch (error) {
+    return bad(error instanceof Error ? error.message : 'R2 归档失败', 503)
   }
 })
 app.delete('/api/projects/:id', async (c) => {

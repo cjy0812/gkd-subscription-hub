@@ -91,7 +91,6 @@ export async function scan(
     subscriptionVersion = await readSubscriptionVersionAtRef(
       env,
       `https://${locator.host}/${locator.fullPath}`,
-      locator.provider,
       commitSha,
       id,
     )
