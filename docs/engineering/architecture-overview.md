@@ -118,7 +118,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 ## GKD JSON5 预览器
 
 - 浏览器对订阅 JSON5 的 HTML 导航使用 `/preview/<id>?file=<dist-path>`；历史版本使用 `/preview/<id>?version=<version>`。GKD 客户端访问 `/<id>/gkd.json5` 与历史 URL 时仍获得原始 JSON5 字节，不改变订阅 URL 兼容性。
-- Preview SPA 在同源读取 JSON5，默认结构化预览上限 10 MB；10–50 MB 需要用户主动选择继续，超过 50 MB 提供原始文件入口。
+- Preview SPA 在同源读取 JSON5，使用 `ReadableStream` 逐块累计响应体字节，并在超限时取消读取，不依赖 `Content-Length`。默认结构化预览上限 10 MB；10–50 MB 需要用户主动选择继续，超过 50 MB 提供原始文件入口。
 - 主线程将 ArrayBuffer 转移给独立 Web Worker；Worker 内使用 JSON5 和官方 `@gkd-kit/api` 的订阅结构完成解析及数据摘要。应用、规则组、规则分页每页 50 项，规则详情按需请求。
-- 原始 JSON5 文本只在用户打开原始 Tab 后重新请求；页面切换/卸载时取消网络请求并终止 Worker。
+- 原始 JSON5 文本只在用户打开原始 Tab 后重新请求；页面切换/卸载时取消网络请求并终止 Worker。`?raw=1` 对当前版与历史版均绕过浏览器预览重定向，返回原始文件字节。
 - 此预览器只用于交互展示，不改写上游 JSON5，不将 HTML 预览内容作为 GKD 订阅响应。

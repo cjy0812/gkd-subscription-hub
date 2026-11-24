@@ -292,7 +292,6 @@ async function loadSubscription(allowLarge = false) {
   meta.value = undefined
   stats.value = undefined
   error.value = ''
-  largeFileBytes.value = null
   loading.value = true
   const controller = new AbortController()
   abortController.value = controller

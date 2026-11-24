@@ -57,7 +57,7 @@
 - Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染）。允许常见 HTML 排版标签，但最终 HTML 必须经过 `sanitize-html` 严格 allowlist 清理；脚本、事件属性、内嵌框架、对象、SVG/MathML、危险 URL 和协议相对 URL 均不得通过。外链强制 `noopener noreferrer`，图片仅允许 HTTPS/相对地址。保留 `highlight.js/lib/core` 显式语言子集、标题目录、代码复制和图片 lazy loading。
 - JSON5：浏览器端使用 GKD 专用预览页，类型直接来自官方 `@gkd-kit/api`（`RawSubscription`、`RawApp`、`RawAppGroup`、`RawGlobalGroup`、`RawCategory`），用 `json5` 在独立 Web Worker 解析。应用列表、规则组和规则列表每页 50 项；用户选择应用后才请求规则组，展开规则组后才请求规则摘要，点击单条规则后才请求完整详情。全局规则与分类各自懒加载。
 - 原始 JSON5 文本不在解析时复制到主线程；解析输入的 ArrayBuffer 转移给 Worker。原始 JSON5 标签只在用户主动打开时重新请求并显示；切换订阅或离开页面时取消 fetch、终止 Worker、清理待处理任务。
-- 大文件保护采用两阶段策略：10 MB 以内自动结构化解析；10–50 MB 显示明确警告，用户主动选择后再解析；超过 50 MB 保留原始文件入口。这个硬上限是浏览器内存保护，不应描述成无限文件支持。
+- 大文件保护采用两阶段策略：10 MB 以内自动结构化解析；10–50 MB 显示明确警告，用户主动选择后再解析；超过 50 MB 保留原始文件入口。下载使用 `ReadableStream` 逐块累计字节，不依赖 `Content-Length`；越过自动阈值或硬上限立即取消响应流。这个硬上限是浏览器内存保护，不应描述成无限文件支持。
 - 只读预览与上游原始文件分离；格式化不得改变分发给 GKD 客户端的原始字节内容。GKD 客户端原订阅 URL 不重定向；仅浏览器 HTML 导航重定向到预览 SPA。
 
 ## 完成交付检查
