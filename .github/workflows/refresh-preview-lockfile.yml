@@ -1,4 +1,4 @@
-name: Refresh preview branch lockfile # retry after GKD group fixture fix
+name: Refresh preview branch lockfile # verify second-page size for filtered rules
 
 on:
   push:

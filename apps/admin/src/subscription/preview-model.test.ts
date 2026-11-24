@@ -108,7 +108,9 @@ describe('GKD subscription preview model', () => {
     })
     const rules = getRulesPage(value, 'app', 0, 0, 2, 50, 'textview')
     expect(rules).toMatchObject({ page: 2, total: 60, pageCount: 2 })
-    expect(rules.items).toHaveLength(50)
+    expect(rules.items).toHaveLength(10)
+    expect(rules.items[0].index).toBe(50)
+    expect(rules.items.at(-1)?.index).toBe(59)
     expect(rules.items[0]).toMatchObject({
       index: 0,
       key: 1,
