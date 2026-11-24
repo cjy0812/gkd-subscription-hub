@@ -1,11 +1,18 @@
 import { Hono } from 'hono'
-import MarkdownIt from 'markdown-it'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
-import { bad, documentPage, escapeHtml, mime, wantsHtml } from '../utils/http'
+import { renderJson5Preview } from '../utils/json5-preview'
+import { renderMarkdown } from '../utils/markdown'
+import {
+  bad,
+  documentPage,
+  escapeHtml,
+  htmlPreviewSecurityHeaders,
+  mime,
+  wantsHtml,
+} from '../utils/http'
 
-const app = new Hono<{ Bindings: Env }>(),
-  md = new MarkdownIt({ html: false, linkify: false, typographer: false })
+const app = new Hono<{ Bindings: Env }>()
 
 function directory(p: Project) {
   const prefix = `/${p.id}/`
@@ -40,7 +47,11 @@ app.all('*', async (c) => {
   }
   if (!path)
     return new Response(directory(p), {
-      headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store' },
+      headers: {
+        'content-type': 'text/html;charset=utf-8',
+        'cache-control': 'no-store',
+        ...htmlPreviewSecurityHeaders,
+      },
     })
   if (
     path.split('/').some((x) => !x || x === '.' || x === '..' || x.startsWith('.')) ||
@@ -73,18 +84,14 @@ app.all('*', async (c) => {
   ) {
     const text = await r.text(),
       body = path.toLowerCase().endsWith('.md')
-        ? md.render(text)
-        : '<h1>' +
-          escapeHtml(path) +
-          '</h1><p><a href="?raw=1">原始文件</a></p><pre><code>' +
-          escapeHtml(text) +
-          '</code></pre>',
-      out = new Response(documentPage(path, body), {
+        ? renderMarkdown(text)
+        : renderJson5Preview(text, path),
+      out = new Response(documentPage(path, body, '?raw=1'), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
           'cache-control': 'public,max-age=60',
           vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
-          'x-content-type-options': 'nosniff',
+          ...htmlPreviewSecurityHeaders,
         },
       })
     return req.method === 'HEAD'

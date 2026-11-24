@@ -7,7 +7,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
 - 自动索引 `dist/` 的递归文件树；根路径显示目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- 浏览器请求访问 Markdown 时使用 markdown-it 渲染；访问 JSON5 时显示代码预览。
+- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
 - `?raw=1` 强制原始内容。
 - 读取 GitHub Actions workflow 和近期运行记录，按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
@@ -21,13 +21,13 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 当前管理端提供以下能力：
 
 - 管理员密码登录与退出；登录页独立于业务页面，认证信息保存在当前浏览器会话的 `sessionStorage`。
-- 订阅管理、仪表盘和 Explorer 共用 AdminLayout；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
+- 订阅管理、仪表盘和 Explorer 共用 AdminLayout；桌面端采用左侧图标导航，悬停显示菜单名称，移动端使用抽屉导航；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
 - 运行监控页聚合项目最近一次刷新时保存的 GitHub Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；该页面读取 KV 快照，不会自动轮询 GitHub。
 - 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
-- 新增订阅源时可指定分支；留空时使用 GitHub 仓库默认分支。
+- 新增订阅源时可读取 GitHub 仓库分支列表并通过下拉框选择；默认分支置顶，留空时使用仓库默认分支。
 - 手动刷新单个订阅源，并查看最近检查错误。
 - 打开项目目录中的 `gkd.json5` 订阅文件，或删除项目元数据。
 
@@ -37,11 +37,9 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：扫描 GitHub 仓库的 `d
 
 管理端使用 Vue 3 + Naive UI，采用 Desktop-first、Mobile-adaptive：
 
-| 屏幕                   | 布局                                 |
-| ---------------------- | ------------------------------------ |
-| 桌面端（> 760px）      | 侧边栏、统计卡片、完整项目表格       |
-| 平板/窄桌面（≤ 960px） | 压缩侧边栏与内容间距                 |
-| 手机端（≤ 760px）      | 抽屉导航、统计卡片重排、项目卡片列表 |
+- 桌面端（> 760px）：左侧 72px 图标导航轨道、统计卡片、完整项目表格。
+- 平板/窄桌面（≤ 960px）：保持左侧图标导航，内容区自适应。
+- 手机端（≤ 760px）：抽屉导航、统计卡片重排、项目卡片列表。
 
 Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive UI 主题和业务样式从同一组 CSS Variables 读取圆角、颜色和间距，避免各页面独立维护第二套设计参数。
 
@@ -78,7 +76,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - **前端**：Vue 3、Vite、Naive UI、Vue Router。当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
 - **后端**：Cloudflare Workers、Hono、KV。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
-- **内容处理**：markdown-it。
+- **内容处理**：markdown-it（安全 Markdown 渲染）+ highlight.js（按需语言子集代码高亮）。
 
 Vue SFC 使用 Biome 2.6.8 的实验性 HTML super-language 进行 Lint，并由 vue-tsc 负责模板/脚本类型检查；CI 已观察到 `noUnusedImports` 对模板中实际使用的组件产生误报，因此仅对 Vue SFC 关闭该规则。由于格式化器仍属实验性且可能造成较大模板格式变动，当前明确关闭 Vue SFC 格式化。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的质量缺口，再单独评估补充工具。
 
@@ -184,12 +182,11 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 所有 API 需请求头 `Authorization: Bearer <ADMIN_PASSWORD>`。
 
-| 方法   | 路径                              | 作用                                                      |
-| ------ | --------------------------------- | --------------------------------------------------------- |
-| GET    | `/admin/api/projects`             | 项目列表                                                  |
-| POST   | `/admin/api/projects`             | 注册项目，JSON：`{"url":"https://github.com/owner/repo"}` |
-| POST   | `/admin/api/projects/:id/refresh` | 立即刷新                                                  |
-| DELETE | `/admin/api/projects/:id`         | 删除项目元数据                                            |
+- `GET /admin/api/projects`：项目列表。
+- `GET /admin/api/repositories/branches?url=<repo-url>`：读取公开仓库默认分支与分支列表。
+- `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://github.com/owner/repo"}`。
+- `POST /admin/api/projects/:id/refresh`：立即刷新。
+- `DELETE /admin/api/projects/:id`：删除项目元数据。
 
 ### Explorer API
 

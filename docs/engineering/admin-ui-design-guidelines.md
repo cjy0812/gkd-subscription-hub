@@ -17,6 +17,7 @@
 - 项目列表优先展示仓库/项目名称、Provider、分支、状态；内部 ID、SHA 等作为次级元信息。
 - 表格列按扫描任务排序：识别对象 → 状态/关键指标 → 最近活动 → 操作。窄屏切换为信息优先级一致的紧凑列表/卡片，不横向挤压所有列。
 - 主要动作使用清晰文案；次要高频动作可图标化。图标按钮必须有 Tooltip、可访问名称和可见焦点态；危险动作必须确认。
+- 桌面端主导航固定在左侧，采用统一线宽的图标轨道；图标按钮必须提供可见 Tooltip、可访问名称和键盘焦点态。移动端改用左侧 Drawer，并恢复文字标签。
 - 使用真实数据长度验收，覆盖超长仓库名、长分支、无描述、错误信息、空目录和大量列表。
 
 ## 组件与状态
@@ -53,8 +54,8 @@
 
 ## 内容阅读器
 
-- Markdown：保留现有 `markdown-it`，完善标题、目录锚点、表格、引用、列表、任务列表、代码块与安全链接；代码高亮优先评估 `@shikijs/markdown-it`，但需先验证 Cloudflare Worker 兼容性、冷启动/包体积；若成本过高，使用轻量 `highlight.js`。
-- JSON5：首选 `json-editor-vue`（底层 `vanilla-jsoneditor`）+ `json5` parser；其底层类型声明暴露 `parser.parse/stringify`，可适配 JSON5。默认只读，提供 tree/text/table、搜索、格式化；保留原始内容入口；解析失败时展示错误并回退原文。
+- Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染，不需要 Vue 专用 Markdown VNode 渲染器）。通过 `highlight.js/lib/core` + 显式语言子集实现语法高亮，避免导入全语言包；HTML 关闭、协议危险链接由 markdown-it 默认策略拦截。渲染器增加中文标题锚点/目录、代码复制、响应式表格、暗色主题、外链 rel 安全属性和图片 lazy loading。
+- JSON5：当前预览在 Cloudflare Worker 的静态 HTML 路由，不引入 Vue 编辑器。复用 `src/services/json5.ts` 的有界、非 eval 解析器，使用原生 `<details>/<summary>` 生成只读树形视图；支持键名/值搜索、展开/折叠、类型区分和原始文件入口。限制预览输入 500 KB、解析器 2 MB、树节点 20,000、嵌套深度 64；解析失败回退转义后的原文。
 - 只读预览与上游原始文件分离；任何格式化不得改变分发给客户端的字节内容。
 - 大文件设置尺寸保护和虚拟滚动；禁止无上限展开导致页面卡死。
 
@@ -73,9 +74,10 @@
 
 ## 阅读器依赖选型证据
 
-- `json-editor-vue` 0.19.2：MIT，Vue 2/3，树形/文本/表格模式；底层 `vanilla-jsoneditor` 支持自定义 `JSONParser`（parse/stringify），可注入 `json5`。需在项目 fixture 上验证，不把 npm 宣称的大文件上限当作本项目性能保证。
-- `vue-json-pretty` 2.6.0：MIT、零运行时依赖、Vue 3 树形视图，作为简化备选；它本身不解决 JSON5 文本解析与源码模式。
-- Markdown 高亮：`@shikijs/markdown-it` 可接入现有 markdown-it；Shiki 的 Worker 包体积与初始化成本必须实测。
+- `markdown-it` 是当前 Worker HTML 预览路径的合适基础：支持 CommonMark/GFM 表格与扩展、可定制 renderer/highlight hook；保留现有依赖可避免把 Vue 组件体系带入 Worker。VueMarkik 等 Vue VNode renderer 不适用于当前服务端 HTML 响应路径。
+
+- 不采用 `json-editor-vue` / `vue-json-pretty`：当前预览执行在 Worker 静态 HTML 路由，不在 Vue SPA 中；原生 details 树可以避免新增客户端框架依赖，也能复用项目已有 JSON5 parser。
+- 不引入 Shiki：当前渲染运行在 Cloudflare Worker 请求路径，使用 `highlight.js/lib/core` + 显式语言子集，避免 Shiki 主题/语法引擎带来的额外 Worker 包体积与初始化成本。
 
 ## 上游 Skill 来源
 

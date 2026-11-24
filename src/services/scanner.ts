@@ -13,6 +13,33 @@ export function parseRepo(input: string) {
   if (a.length !== 2) throw Error('请输入 https://github.com/owner/repo')
   return { owner: a[0], repo: a[1].replace(/\.git$/, '') }
 }
+export async function listBranches(env: Env, owner: string, repo: string) {
+  const repositoryPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
+  const [metadata, firstPage] = await Promise.all([
+    gh<{ default_branch: string; private?: boolean; archived?: boolean }>(env, repositoryPath),
+    gh<Array<{ name: string }>>(env, `${repositoryPath}/branches?per_page=100&page=1`),
+  ])
+  if (metadata.private || metadata.archived) throw Error('仅支持未归档公开仓库')
+  const items = [...firstPage]
+  let page = 1
+  let pageItems = firstPage
+  while (pageItems.length === 100 && page < 10) {
+    page += 1
+    pageItems = await gh<Array<{ name: string }>>(
+      env,
+      `${repositoryPath}/branches?per_page=100&page=${page}`,
+    )
+    items.push(...pageItems)
+  }
+  const truncated = page === 10 && pageItems.length === 100
+  const names = [...new Set(items.map((branch) => branch.name))]
+  const branches = [
+    metadata.default_branch,
+    ...names.filter((name) => name !== metadata.default_branch).sort((a, b) => a.localeCompare(b)),
+  ]
+  return { defaultBranch: metadata.default_branch, branches, truncated }
+}
+
 export function extractId(s: string) {
   const m = s.match(/defineGkdSubscription\s*\(\s*\{[\s\S]*?\bid\s*:\s*(\d+)/)
   const n = Number(m?.[1])

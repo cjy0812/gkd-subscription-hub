@@ -27,12 +27,18 @@ import { runSequentialBatch } from '../batch'
 import { toggleSelection, updateScopedSelection, updateVisibleSelection } from '../selection'
 import { clearAdminToken, getAdminToken } from '../auth'
 import type { Project, ProjectsResponse, ProjectResponse } from '../types'
+import AppIcon from '../components/AppIcon.vue'
 
 const message = useMessage()
 const token = ref(getAdminToken())
 const projects = ref<Project[]>([])
 const repositoryUrl = ref('')
-const branchName = ref('')
+const branchName = ref<string | null>(null)
+const branchOptions = ref<Array<{ label: string; value: string }>>([])
+const branchLoading = ref(false)
+const branchesLoaded = ref(false)
+const branchesTruncated = ref(false)
+const branchError = ref('')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'normal' | 'error' | 'unknown'>('all')
 const refreshingIds = ref(new Set<number>())
@@ -42,6 +48,13 @@ const batchDeleting = ref(false)
 const batchProgress = ref({ completed: 0, total: 0 })
 const batchBusy = computed(() => batchRefreshing.value || batchDeleting.value)
 const groupName = ref('默认分组')
+watch(repositoryUrl, () => {
+  branchName.value = null
+  branchOptions.value = []
+  branchesLoaded.value = false
+  branchesTruncated.value = false
+  branchError.value = ''
+})
 const subscriptionDomain = ref('')
 const projectStatus = (project: Project) => {
   if (project.lastError) return 'error'
@@ -246,13 +259,13 @@ function openSubscription(id: number) {
 const columns: DataTableColumns<Project> = [
   { type: 'selection' },
   {
-    title: '订阅源',
+    title: '仓库',
     key: 'repository',
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('strong', `ID ${row.id}`),
-        h('span', `${row.owner}/${row.repo}`),
+        h('strong', `${row.owner}/${row.repo}`),
+        h('small', `订阅 ID ${row.id}`),
       ]),
   },
   { title: '分支', key: 'branch', width: 120, ellipsis: { tooltip: true } },
@@ -307,7 +320,7 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 250,
+    width: 310,
     render: (row) =>
       h(
         NSpace,
@@ -315,9 +328,19 @@ const columns: DataTableColumns<Project> = [
         {
           default: () => [
             h(
+              'a',
+              {
+                href: row.repoUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                class: 'repo-source-link',
+              },
+              [h(AppIcon, { name: 'external-link', size: 14 }), h('span', '源码')],
+            ),
+            h(
               NButton,
               { size: 'small', tertiary: true, disabled: batchBusy.value, onClick: () => openSubscription(row.id) },
-              { default: () => '打开订阅' },
+              { icon: () => h(AppIcon, { name: 'file-text' }), default: () => '打开订阅' },
             ),
             h(
               NButton,
@@ -328,7 +351,7 @@ const columns: DataTableColumns<Project> = [
                 disabled: batchBusy.value,
                 onClick: () => refreshProject(row.id),
               },
-              { default: () => '刷新' },
+              { icon: () => h(AppIcon, { name: 'refresh-cw' }), default: () => '刷新' },
             ),
             h(
               NButton,
@@ -339,7 +362,7 @@ const columns: DataTableColumns<Project> = [
                 disabled: batchBusy.value,
                 onClick: () => removeProject(row.id),
               },
-              { default: () => '删除' },
+              { icon: () => h(AppIcon, { name: 'trash-2' }), default: () => '删除' },
             ),
           ],
         },
@@ -369,6 +392,33 @@ async function loadProjects() {
   }
 }
 
+async function loadBranches() {
+  const url = repositoryUrl.value.trim()
+  if (!url || branchLoading.value) return
+  branchLoading.value = true
+  branchError.value = ''
+  try {
+    const result = await api<{ defaultBranch: string; branches: string[]; truncated?: boolean }>(
+      `/api/repositories/branches?url=${encodeURIComponent(url)}`,
+      token.value,
+    )
+    branchOptions.value = result.branches.map((name) => ({ label: name, value: name }))
+    branchName.value = result.defaultBranch
+    branchesLoaded.value = true
+    branchesTruncated.value = Boolean(result.truncated)
+    if (branchesTruncated.value) {
+      message.warning('已达到 1,000 个分支读取上限，后续分支未继续请求')
+    } else {
+      message.success(`已读取 ${result.branches.length} 个分支，默认分支为 ${result.defaultBranch}`)
+    }
+  } catch (error) {
+    branchError.value = error instanceof Error ? error.message : '读取分支失败'
+    message.error(branchError.value)
+  } finally {
+    branchLoading.value = false
+  }
+}
+
 async function addProject() {
   if (!repositoryUrl.value.trim()) return
   submitting.value = true
@@ -377,13 +427,13 @@ async function addProject() {
       method: 'POST',
       body: JSON.stringify({
         url: repositoryUrl.value.trim(),
-        branch: branchName.value.trim() || undefined,
+        branch: branchName.value || undefined,
         group: groupName.value.trim() || '默认分组',
       }),
     })
     projects.value = [...projects.value, result.project].sort((a, b) => a.id - b.id)
     repositoryUrl.value = ''
-    branchName.value = ''
+    branchName.value = null
     groupName.value = '默认分组'
     showAdd.value = false
     message.success(`已添加订阅 ID ${result.project.id}`)
@@ -436,10 +486,13 @@ onMounted(() => {
         <div>
           <p class="eyebrow">OVERVIEW</p>
           <h1>订阅源管理</h1>
-          <p class="muted">管理 GitHub 仓库索引，并查看订阅源分发状态。</p>
+          <p class="muted">管理已登记的订阅仓库，并查看订阅源分发状态。</p>
         </div>
         <n-space>
-          <n-button type="primary" @click="showAdd = true">添加订阅源</n-button>
+          <n-button type="primary" @click="showAdd = true">
+            <template #icon><AppIcon name="plus" /></template>
+            添加订阅源
+          </n-button>
         </n-space>
       </header>
 
@@ -470,7 +523,9 @@ onMounted(() => {
               clearable
               placeholder="搜索 ID、仓库、分支或分组"
               class="project-search"
-            />
+            >
+              <template #prefix><AppIcon name="search" /></template>
+            </n-input>
             <n-checkbox
               :checked="allFilteredSelected"
               :indeterminate="someFilteredSelected"
@@ -489,7 +544,10 @@ onMounted(() => {
               ]"
               class="status-filter"
             />
-            <n-button secondary :loading="loading" :disabled="batchBusy" @click="loadProjects">刷新列表</n-button>
+            <n-button secondary :loading="loading" :disabled="batchBusy" @click="loadProjects">
+              <template #icon><AppIcon name="refresh-cw" /></template>
+              刷新列表
+            </n-button>
           </n-space>
         </div>
         <div v-if="selectedProjects.length" class="batch-toolbar">
@@ -510,6 +568,7 @@ onMounted(() => {
               :disabled="batchBusy"
               @click="batchRefresh"
             >
+              <template #icon><AppIcon name="refresh-cw" /></template>
               批量刷新
             </n-button>
             <n-button
@@ -520,6 +579,7 @@ onMounted(() => {
               :disabled="batchBusy"
               @click="batchDelete"
             >
+              <template #icon><AppIcon name="trash-2" /></template>
               批量删除
             </n-button>
             <n-button size="small" quaternary :disabled="batchBusy" @click="clearSelection">
@@ -574,6 +634,15 @@ onMounted(() => {
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
                 <p>{{ project.owner }}/{{ project.repo }}</p>
+                <a
+                  :href="project.repoUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="repo-source-link"
+                >
+                  <AppIcon name="external-link" :size="14" />
+                  源码
+                </a>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -626,16 +695,32 @@ onMounted(() => {
   </div>
   <n-modal v-model:show="showAdd" preset="card" title="添加订阅源" class="add-modal">
     <n-form @submit.prevent="addProject">
-      <n-form-item label="GitHub 仓库地址">
-        <n-input
-          v-model:value="repositoryUrl"
-          placeholder="https://github.com/owner/repo"
-          clearable
-          @keyup.enter="addProject"
-        />
+      <n-form-item label="仓库地址">
+        <n-space align="center" :wrap="false" class="repo-url-row">
+          <n-input
+            v-model:value="repositoryUrl"
+            placeholder="https://github.com/owner/repo"
+            clearable
+            @keyup.enter="loadBranches"
+          />
+          <n-button secondary :loading="branchLoading" :disabled="!repositoryUrl.trim()" @click="loadBranches">
+            读取分支
+          </n-button>
+        </n-space>
       </n-form-item>
-      <n-form-item label="分支（可选）">
-        <n-input v-model:value="branchName" placeholder="留空则使用仓库默认分支" clearable />
+      <n-form-item label="所属分支（可选）">
+        <n-select
+          v-model:value="branchName"
+          :options="branchOptions"
+          filterable
+          clearable
+          :disabled="!branchesLoaded"
+          placeholder="先读取仓库分支；留空使用默认分支"
+        />
+        <n-text v-if="branchError" type="error" class="branch-error">{{ branchError }}</n-text>
+        <n-text v-else-if="branchesTruncated" type="warning" class="branch-error">
+          已达到 1,000 个分支读取上限，后续分支未继续请求。
+        </n-text>
       </n-form-item>
       <n-form-item label="所属分组">
         <n-input
@@ -717,15 +802,40 @@ onMounted(() => {
   display: grid;
   gap: 3px;
 }
-.repo-cell span {
+.repo-cell small {
   color: var(--color-text-secondary);
   font-size: 12px;
+}
+.repo-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.repo-source-link:hover {
+  text-decoration: underline;
+}
+.repo-source-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 .project-search {
   width: min(320px, 100%);
 }
 .status-filter {
   width: 130px;
+}
+.repo-url-row {
+  width: 100%;
+}
+.repo-url-row :deep(.n-input) {
+  flex: 1;
+  min-width: 0;
+}
+.branch-error {
+  display: block;
+  margin-top: 6px;
 }
 .form-hint {
   margin: -4px 0 18px;

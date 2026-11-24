@@ -15,6 +15,7 @@ import {
 } from 'naive-ui'
 import { api } from '../api'
 import { getAdminToken } from '../auth'
+import AppIcon from '../components/AppIcon.vue'
 import { buildProjectFileUrl, type ProjectFileRow } from '../project-files'
 import type { ProjectsResponse } from '../types'
 
@@ -103,10 +104,10 @@ const columns: DataTableColumns<ProjectFileRow> = [
       return h(NSpace, { size: 8 }, {
         default: () => [
           previewUrl
-            ? h('a', { href: previewUrl, target: '_blank', rel: 'noreferrer' }, '浏览器预览')
+            ? h('a', { href: previewUrl, target: '_blank', rel: 'noreferrer', class: 'file-action-link' }, [h(AppIcon, { name: 'file-text', size: 14 }), h('span', '浏览器预览')])
             : null,
           rawUrl
-            ? h('a', { href: rawUrl, target: '_blank', rel: 'noreferrer' }, '原始文件')
+            ? h('a', { href: rawUrl, target: '_blank', rel: 'noreferrer', class: 'file-action-link' }, [h(AppIcon, { name: 'external-link', size: 14 }), h('span', '原始文件')])
             : h(NText, { depth: 3 }, { default: () => '路径暂不支持链接' }),
         ],
       })
@@ -147,7 +148,10 @@ onMounted(() => {
         <h1>文件管理</h1>
         <p class="muted">浏览已登记订阅源的 dist 文件索引与元信息。</p>
       </div>
-      <n-button secondary :loading="loading" @click="load">重新读取</n-button>
+      <n-button secondary :loading="loading" @click="load">
+        <template #icon><AppIcon name="refresh-cw" /></template>
+        重新读取
+      </n-button>
     </header>
 
     <n-card :bordered="false" class="notice-card">
@@ -190,7 +194,9 @@ onMounted(() => {
             clearable
             placeholder="按文件路径搜索"
             class="file-search"
-          />
+          >
+            <template #prefix><AppIcon name="search" /></template>
+          </n-input>
           <n-data-table
             v-if="files.length"
             :columns="columns"
@@ -234,6 +240,13 @@ onMounted(() => {
 .file-search {
   max-width: 440px;
   margin-bottom: 16px;
+}
+
+.file-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-accent);
 }
 
 .file-path {
