@@ -32,18 +32,21 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .slice()
     .sort((a, b) => b.version - a.version)
     .map((item) => {
-      const status = item.archiveStatus === 'r2-archived'
-        ? 'R2 已归档'
-        : item.archiveStatus === 'git-only'
-          ? 'Git 历史可用'
-          : item.archiveStatus === 'r2-failed'
-            ? 'R2 归档失败（Git 可回退）'
-            : '暂不可用'
+      const status =
+        item.archiveStatus === 'r2-archived'
+          ? 'R2 已归档'
+          : item.archiveStatus === 'git-only'
+            ? 'Git 历史可用'
+            : item.archiveStatus === 'r2-failed'
+              ? 'R2 归档失败（Git 可回退）'
+              : '暂不可用'
       return `<tr><td><a href="/${project.id}/v${item.version}/gkd.json5">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
   const history = versions.length
-    ? '<h2>历史版本</h2><div class="directory-table"><table><thead><tr><th>版本</th><th>归档状态</th><th>记录时间</th></tr></thead><tbody>' + historyRows + '</tbody></table></div>'
+    ? '<h2>历史版本</h2><div class="directory-table"><table><thead><tr><th>版本</th><th>归档状态</th><th>记录时间</th></tr></thead><tbody>' +
+      historyRows +
+      '</tbody></table></div>'
     : '<h2>历史版本</h2><p>尚未记录可恢复的 GKD 版本。版本号变化后会在此显示。</p>'
   const body =
     `<h1>GKD 订阅 · ID ${project.id}</h1>` +
@@ -82,7 +85,11 @@ app.all('*', async (c) => {
       return bad('Historical version is no longer available from Git or R2', 502)
     }
     if (wantsHtml(req)) {
-      const body = renderJson5Preview(source, `v${version}/gkd.json5`, url.searchParams.get('preview') === 'full')
+      const body = renderJson5Preview(
+        source,
+        `v${version}/gkd.json5`,
+        url.searchParams.get('preview') === 'full',
+      )
       const response = new Response(documentPage(`v${version}/gkd.json5`, body, '?raw=1'), {
         headers: {
           'content-type': 'text/html;charset=utf-8',
@@ -128,10 +135,13 @@ app.all('*', async (c) => {
   if (path.startsWith('dist/')) path = path.slice(5)
   if (!path) return bad('Not found', 404)
   if (
-    path.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.')) ||
+    path
+      .split('/')
+      .some((part) => !part || part === '.' || part === '..' || part.startsWith('.')) ||
     path.includes('\\') ||
     !/^[A-Za-z0-9_@.+/-]+$/.test(path)
-  ) return bad('Not found', 404)
+  )
+    return bad('Not found', 404)
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
@@ -139,9 +149,13 @@ app.all('*', async (c) => {
     method: req.method,
     ifNoneMatch: req.headers.get('if-none-match') || undefined,
   })
-  if (!response.ok) return new Response(response.body, { status: response.status, headers: response.headers })
+  if (!response.ok)
+    return new Response(response.body, { status: response.status, headers: response.headers })
 
-  if (wantsHtml(req) && (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.json5'))) {
+  if (
+    wantsHtml(req) &&
+    (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.json5'))
+  ) {
     const text = await response.text()
     const body = path.toLowerCase().endsWith('.md')
       ? renderMarkdown(text)

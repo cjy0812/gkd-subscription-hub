@@ -41,9 +41,7 @@ export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
 export async function refresh(e: Env, p: Project) {
   const previousVersion =
     p.subscriptionVersion ??
-    (p.commitSha
-      ? await readSubscriptionVersionAtRef(e, p.repoUrl, p.commitSha, p.id)
-      : null)
+    (p.commitSha ? await readSubscriptionVersionAtRef(e, p.repoUrl, p.commitSha, p.id) : null)
   if (previousVersion !== null) {
     await recordSubscriptionVersion(e, { ...p, subscriptionVersion: previousVersion })
   }

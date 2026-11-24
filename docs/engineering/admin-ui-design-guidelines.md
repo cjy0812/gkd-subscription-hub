@@ -90,7 +90,6 @@
 - Vercel, `web-design-guidelines`: https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
 - Vercel Web Interface Guidelines snapshot: https://github.com/vercel-labs/web-interface-guidelines/blob/434b7f91364665f2f733b310ec54809bf8f37937/command.md
 
-
 ## 订阅历史的稳定性约束
 
 - 历史版本号以 `dist/gkd.version.json5` 中与订阅 ID 匹配的正整数版本为依据；普通提交不创建新版本。

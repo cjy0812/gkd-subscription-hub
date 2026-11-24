@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readSubscriptionVersionAtRef, recordSubscriptionVersion, readVersionContent } from '../src/services/version-history'
+import {
+  readSubscriptionVersionAtRef,
+  recordSubscriptionVersion,
+  readVersionContent,
+} from '../src/services/version-history'
 import { listVersionSnapshots } from '../src/storage/versions'
 import type { Env, Project } from '../src/types'
 
@@ -13,8 +17,12 @@ function makeState() {
         if (value === undefined) return null
         return type === 'json' ? JSON.parse(value) : value
       },
-      put: async (key: string, value: string) => { data.set(key, value) },
-      delete: async (key: string) => { data.delete(key) },
+      put: async (key: string, value: string) => {
+        data.set(key, value)
+      },
+      delete: async (key: string) => {
+        data.delete(key)
+      },
     } as unknown as KVNamespace,
   }
 }
@@ -47,10 +55,15 @@ describe('subscription version history', () => {
 
   it('reads the version from the GKD version metadata file', async () => {
     const source = '{id:233,version:643}'
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      content: btoa(source),
-      encoding: 'base64',
-    })))
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: btoa(source),
+            encoding: 'base64',
+          }),
+        ),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const version = await readSubscriptionVersionAtRef(
       { STATE: {} } as Env,
@@ -65,7 +78,10 @@ describe('subscription version history', () => {
   it('records an immutable Git snapshot when R2 is not configured', async () => {
     const state = makeState()
     const env = { STATE: state.namespace } as Env
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:643}')))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{id:233,version:643}')),
+    )
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record).toMatchObject({
       id: 233,
@@ -73,7 +89,7 @@ describe('subscription version history', () => {
       commitSha: 'commit-643',
       archiveStatus: 'git-only',
     })
-    expect((await listVersionSnapshots(env, 233))).toHaveLength(1)
+    expect(await listVersionSnapshots(env, 233)).toHaveLength(1)
     expect(await readVersionContent(env, record!)).toBe('{id:233,version:643}')
   })
 
@@ -81,8 +97,10 @@ describe('subscription version history', () => {
     const state = makeState()
     let stored = ''
     const bucket = {
-      put: vi.fn(async (_key: string, value: string) => { stored = value }),
-      get: vi.fn(async () => stored ? { text: async () => stored } : null),
+      put: vi.fn(async (_key: string, value: string) => {
+        stored = value
+      }),
+      get: vi.fn(async () => (stored ? { text: async () => stored } : null)),
     }
     const env = { STATE: state.namespace, HISTORY_ARCHIVE: bucket } as unknown as Env
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:643}')))

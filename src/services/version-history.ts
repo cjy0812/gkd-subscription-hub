@@ -1,12 +1,19 @@
 import type { Env, Project } from '../types'
-import { getVersionSnapshot, listVersionSnapshots, saveVersionSnapshot, type VersionSnapshot } from '../storage/versions'
+import {
+  getVersionSnapshot,
+  listVersionSnapshots,
+  saveVersionSnapshot,
+  type VersionSnapshot,
+} from '../storage/versions'
 import { parseJson5 } from './json5'
 import { fetchProjectFile, readRepositoryFileAtRef } from './providers'
 
 function sha256(value: string): Promise<string> {
-  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)).then((digest) =>
-    [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
-  )
+  return crypto.subtle
+    .digest('SHA-256', new TextEncoder().encode(value))
+    .then((digest) =>
+      [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
+    )
 }
 
 export async function readSubscriptionVersionAtRef(
@@ -46,7 +53,10 @@ async function readGitSnapshot(env: Env, snapshot: VersionSnapshot): Promise<str
   return response.text()
 }
 
-export async function recordSubscriptionVersion(env: Env, project: Project): Promise<VersionSnapshot | null> {
+export async function recordSubscriptionVersion(
+  env: Env,
+  project: Project,
+): Promise<VersionSnapshot | null> {
   const version = project.subscriptionVersion
   if (!version || !project.commitSha) return null
   const existing = await getVersionSnapshot(env, project.id, version)
@@ -122,7 +132,8 @@ export async function archiveVersionSnapshot(
 ): Promise<VersionSnapshot | null> {
   const snapshot = await getVersionSnapshot(env, id, version)
   if (!snapshot) return null
-  if (!env.HISTORY_ARCHIVE) throw Error('R2 尚未启用：请先在 Cloudflare 创建存储桶并配置 HISTORY_ARCHIVE 绑定')
+  if (!env.HISTORY_ARCHIVE)
+    throw Error('R2 尚未启用：请先在 Cloudflare 创建存储桶并配置 HISTORY_ARCHIVE 绑定')
   const content = await readGitSnapshot(env, snapshot)
   const digest = await sha256(content)
   await env.HISTORY_ARCHIVE.put(snapshot.objectKey, content, {
