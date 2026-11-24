@@ -37,6 +37,7 @@ jobs:
       - name: Type-check Worker and Admin
         run: bun run typecheck
 
+      # Re-run after correcting the new preview model assertions.
       - name: Run tests
         run: bun run test
 

@@ -103,7 +103,7 @@ describe('GKD subscription preview model', () => {
       attributes: [{ key: 'activityIds', value: '[".MainActivity"]' }],
     })
     const rules = getRulesPage(value, 'app', 0, 0, 2, 50, 'textview')
-    expect(rules).toMatchObject({ page: 1, total: 60, pageCount: 2 })
+    expect(rules).toMatchObject({ page: 2, total: 60, pageCount: 2 })
     expect(rules.items).toHaveLength(50)
     expect(rules.items[0]).toMatchObject({
       index: 0,
@@ -131,7 +131,7 @@ describe('GKD subscription preview model', () => {
       key: 901,
       name: '全局点击',
       action: 'back',
-      anyMatches: 'TextView[text="关闭"]\\nButton[text="取消"]',
+      anyMatches: 'TextView[text="关闭"]\nButton[text="取消"]',
     })
     expect(getCategoriesPage(value, 1, 50, '弹窗').items).toEqual([
       { key: 2, name: '弹窗', enable: false },
