@@ -125,7 +125,11 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
-  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && path.toLowerCase().endsWith('.json5')) {
+  if (
+    wantsHtml(req) &&
+    url.searchParams.get('raw') !== '1' &&
+    path.toLowerCase().endsWith('.json5')
+  ) {
     return Response.redirect(new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url), 302)
   }
 
