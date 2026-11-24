@@ -70,10 +70,6 @@ async function login() {
   box-shadow: var(--shadow-overlay);
 }
 
-.login-card .brand-mark {
-  margin-bottom: 18px;
-}
-
 .login-card h1 {
   margin: 4px 0 6px;
   font-size: 26px;
@@ -95,5 +91,8 @@ async function login() {
   color: white;
   font-size: 17px;
   font-weight: 700;
+}
+.login-card .brand-mark {
+  margin-bottom: 18px;
 }
 </style>

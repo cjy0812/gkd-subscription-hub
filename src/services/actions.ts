@@ -1,38 +1,14 @@
 import { save } from '../storage/projects'
 import type { Env, Prediction, Project, WorkflowRun } from '../types'
-import { gh } from './github'
 import { scan } from './scanner'
+import { getProviderAdapter, parseRepositoryUrl } from './providers'
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
-  const groups = await Promise.all(
-    p.workflows
-      .filter((w) => w.relevant)
-      .slice(0, 6)
-      .map(async (w) => {
-        try {
-          const d = await gh<any>(
-            e,
-            `/repos/${p.owner}/${p.repo}/actions/workflows/${w.id}/runs?per_page=10`,
-          )
-          return d.workflow_runs.map((r: any) => ({
-            workflowId: w.id,
-            workflowName: w.name,
-            event: r.event,
-            status: r.status,
-            conclusion: r.conclusion,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-            html_url: r.html_url,
-            head_sha: r.head_sha,
-          }))
-        } catch {
-          return []
-        }
-      }),
-  )
-  return groups
-    .flat()
-    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
-    .slice(0, 30)
+  try {
+    return await getProviderAdapter(p.provider).listWorkflowRuns(e, p)
+  } catch {
+    // CI availability must not block subscription scanning.
+    return []
+  }
 }
 function median(a: number[]) {
   if (!a.length) return null
@@ -62,7 +38,7 @@ export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
   }
 }
 export async function refresh(e: Env, p: Project) {
-  const fresh = await scan(e, p.owner, p.repo, p.branch)
+  const fresh = await scan(e, parseRepositoryUrl(p.repoUrl), p.branch)
   const lastRuns = await runs(e, fresh)
   const now = Date.now()
   const next = {

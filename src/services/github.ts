@@ -17,7 +17,7 @@ function rateLimitMessage(response: Response) {
   return `${kind}（${wait}）。配置 Worker Secret GITHUB_TOKEN 可提高公开仓库 API 配额；若已配置，请检查令牌权限和限流重置时间。`
 }
 export async function gh<T>(env: Env, path: string): Promise<T> {
-  const r = await fetch('https://api.github.com' + path, {
+  const r = await fetch(`https://api.github.com${path}`, {
     headers: {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'gkd-subscription-hub',

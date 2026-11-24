@@ -1,3 +1,5 @@
+export type ProjectProvider = 'github' | 'gitlab' | 'gitea'
+
 export interface Env {
   STATE: KVNamespace
   ASSETS: Fetcher
@@ -37,6 +39,10 @@ export interface Prediction {
 }
 export interface Project {
   id: number
+  provider?: ProjectProvider
+  providerId?: string
+  instanceUrl?: string
+  repositoryPath?: string
   owner: string
   repo: string
   branch: string

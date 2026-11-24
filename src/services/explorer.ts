@@ -25,6 +25,7 @@ type Candidate = JsonRecord & {
   fork?: boolean
   parent?: { full_name?: string } | null
   __source?: string
+  __sources?: string[]
 }
 type GitHubTreeBlob = { type: 'blob'; path: string; sha: string; size: number }
 
@@ -128,13 +129,20 @@ type Entry = {
   discoveredBy: string[]
   verifiedAt: string
 }
+type CandidateBatch = { key: string; count: number }
 type Job = {
   status: 'idle' | 'searching' | 'verifying' | 'complete' | 'paused' | 'error'
+  phase: 'collecting' | 'verifying' | 'complete'
+  runId: string
   queryIndex: number
   page: number
-  candidates: Candidate[]
+  candidateBatches: CandidateBatch[]
+  candidateCount: number
   candidateIndex: number
+  sourceById: Record<string, string[]>
   entries: Entry[]
+  verifiedCount: number
+  matchedCount: number
   seen: number[]
   startedAt: string | null
   updatedAt: string
@@ -151,32 +159,89 @@ async function read<T>(env: Env, name: string, fallback: T): Promise<T> {
 async function write(env: Env, name: string, value: unknown) {
   await env.STATE.put(key(name), JSON.stringify(value))
 }
-async function loadJob(env: Env): Promise<Job> {
-  return read<Job>(env, 'job', {
+function emptyJob(): Job {
+  return {
     status: 'idle',
+    phase: 'collecting',
+    runId: crypto.randomUUID(),
     queryIndex: 0,
     page: 1,
-    candidates: [],
+    candidateBatches: [],
+    candidateCount: 0,
     candidateIndex: 0,
+    sourceById: {},
     entries: [],
+    verifiedCount: 0,
+    matchedCount: 0,
     seen: [],
     startedAt: null,
     updatedAt: now(),
     error: null,
     incomplete: false,
     scannedPages: 0,
-  })
+  }
+}
+
+async function loadJob(env: Env): Promise<Job> {
+  const stored = await env.STATE.get<Partial<Job>>(key('job'), 'json')
+  if (!stored) return emptyJob()
+  if (!stored.phase || !stored.runId || !Array.isArray(stored.candidateBatches)) {
+    const legacy = emptyJob()
+    legacy.status = stored.status === 'complete' ? 'complete' : 'paused'
+    legacy.phase = stored.status === 'complete' ? 'complete' : 'collecting'
+    legacy.startedAt = stored.startedAt ?? null
+    legacy.updatedAt = stored.updatedAt ?? now()
+    legacy.error =
+      stored.status === 'complete'
+        ? null
+        : '扫描任务结构已升级。请重新开始扫描；上次已发布目录不会被覆盖。'
+    return legacy
+  }
+  return { ...emptyJob(), ...stored } as Job
+}
+
+async function writeCandidateBatch(
+  env: Env,
+  runId: string,
+  index: number,
+  candidates: Candidate[],
+) {
+  const batchKey = `${PREFIX}queue:${runId}:${index}`
+  await env.STATE.put(batchKey, JSON.stringify(candidates), { expirationTtl: 7 * 24 * 60 * 60 })
+  return batchKey
+}
+
+async function readCandidateAt(env: Env, job: Job, index: number, cache: Map<string, Candidate[]>) {
+  let offset = 0
+  for (const batch of job.candidateBatches) {
+    if (index < offset + batch.count) {
+      let candidates = cache.get(batch.key)
+      if (!candidates) {
+        const stored = await env.STATE.get<Candidate[]>(batch.key, 'json')
+        if (!stored) throw new Error('候选队列数据已过期，请重新开始扫描；已发布目录保持不变。')
+        candidates = stored
+        cache.set(batch.key, candidates)
+      }
+      const candidate = candidates[index - offset]
+      if (!candidate) throw new Error('候选队列数据不完整，请重新开始扫描；已发布目录保持不变。')
+      return candidate
+    }
+    offset += batch.count
+  }
+  throw new Error('候选队列索引超出范围，请重新开始扫描；已发布目录保持不变。')
 }
 export async function explorerStatus(env: Env) {
   const job = await loadJob(env)
   return {
     status: job.status,
+    phase: job.phase,
     queryIndex: job.queryIndex,
     page: job.page,
-    candidateCount: job.candidates.length,
+    candidateCount: job.candidateCount,
     candidateIndex: job.candidateIndex,
-    verifiedCount: job.entries.length,
-    seenCount: job.seen.length,
+    verifiedCount: job.verifiedCount || job.candidateIndex,
+    matchedCount: job.matchedCount || job.entries.length,
+    seenCount: job.candidateCount,
     startedAt: job.startedAt,
     updatedAt: job.updatedAt,
     error: job.error,
@@ -425,34 +490,41 @@ export async function startExplorer(env: Env) {
   if (existing.status === 'searching' || existing.status === 'verifying') {
     return explorerStatus(env)
   }
-  const job: Job = {
-    status: 'searching',
-    queryIndex: 0,
-    page: 1,
-    candidates: [],
-    candidateIndex: 0,
-    entries: [],
-    seen: [],
-    startedAt: now(),
-    updatedAt: now(),
-    error: null,
-    incomplete: false,
-    scannedPages: 0,
-  }
+  const job = emptyJob()
+  job.status = 'searching'
+  job.startedAt = now()
   await write(env, 'job', job)
   return explorerStatus(env)
 }
+
+function compactCandidate(candidate: Candidate): Candidate {
+  return {
+    ...repositoryData(candidate),
+    parent: candidate.parent ?? null,
+  } as Candidate
+}
+
 export async function stepExplorer(env: Env) {
   const job = await loadJob(env)
+  if (job.error?.startsWith('扫描任务结构已升级')) return explorerStatus(env)
   if (job.status === 'paused' || job.status === 'error') {
-    job.status = 'searching'
+    job.status = job.phase === 'verifying' ? 'verifying' : 'searching'
     job.error = null
   }
   if (job.status !== 'searching' && job.status !== 'verifying') {
     return explorerStatus(env)
   }
+
   try {
-    if (job.candidateIndex >= job.candidates.length && job.queryIndex < SEARCH_QUERIES.length) {
+    if (job.phase === 'collecting') {
+      if (job.queryIndex >= SEARCH_QUERIES.length) {
+        job.phase = 'verifying'
+        job.status = 'verifying'
+        job.updatedAt = now()
+        await write(env, 'job', job)
+        return explorerStatus(env)
+      }
+
       const search = SEARCH_QUERIES[job.queryIndex]
       const endpoint = search.kind === 'code' ? 'code' : 'repositories'
       const data = await github(
@@ -463,30 +535,58 @@ export async function stepExplorer(env: Env) {
       const rawItems = requireArrayField(data, 'items', 'GitHub Search')
       const parsed = parseSearchCandidates(rawItems, search.kind)
       const items = parsed.items
-
       const totalCount = Number(data.total_count || 0)
+
       job.incomplete ||= parsed.incomplete
       job.incomplete ||= data.incomplete_results === true
-      job.incomplete ||= search.kind === 'code' && totalCount > items.length
-      job.incomplete ||= search.kind === 'repositories' && job.page >= 10 && totalCount > 1000
+      job.incomplete ||= totalCount > 1000
       job.scannedPages++
 
       const known = new Set(job.seen)
-      const fresh = items.filter((repository) => !known.has(Number(repository.id)))
-      for (const repository of fresh) {
-        repository.__source = search.query
-        job.seen.push(Number(repository.id))
+      const fresh: Candidate[] = []
+      for (const repository of items) {
+        const id = Number(repository.id)
+        const idKey = String(id)
+        const sources = job.sourceById[idKey] || []
+        if (known.has(id)) {
+          if (!sources.includes(search.query)) {
+            job.sourceById[idKey] = [...sources, search.query]
+          }
+          continue
+        }
+        known.add(id)
+        job.seen.push(id)
+        job.sourceById[idKey] = [search.query]
+        fresh.push(compactCandidate(repository))
       }
-      job.candidates = fresh
-      job.candidateIndex = 0
 
-      if (items.length < PAGE_SIZE || job.page >= (search.kind === 'code' ? 1 : 10)) {
+      if (fresh.length) {
+        const batchKey = await writeCandidateBatch(
+          env,
+          job.runId,
+          job.candidateBatches.length,
+          fresh,
+        )
+        job.candidateBatches.push({ key: batchKey, count: fresh.length })
+        job.candidateCount += fresh.length
+      }
+
+      if (items.length < PAGE_SIZE || job.page >= 10) {
         job.queryIndex++
         job.page = 1
       } else {
         job.page++
       }
-      job.status = 'verifying'
+
+      if (job.queryIndex >= SEARCH_QUERIES.length) {
+        job.phase = 'verifying'
+        job.status = 'verifying'
+      } else {
+        job.status = 'searching'
+      }
+      job.updatedAt = now()
+      await write(env, 'job', job)
+      return explorerStatus(env)
     }
 
     const cachedEntries = await read<Entry[]>(env, 'catalog', [])
@@ -496,14 +596,15 @@ export async function stepExplorer(env: Env) {
         return typeof id === 'number' && Number.isSafeInteger(id) ? [[id, entry] as const] : []
       }),
     )
-    const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidates.length)
+    const batchCache = new Map<string, Candidate[]>()
+    const end = Math.min(job.candidateIndex + VERIFY_PER_STEP, job.candidateCount)
     for (; job.candidateIndex < end; job.candidateIndex++) {
-      const candidate = job.candidates[job.candidateIndex]
+      const candidate = await readCandidateAt(env, job, job.candidateIndex, batchCache)
       try {
         const entry = await verify(
           env,
           candidate,
-          candidate.__source ? [candidate.__source] : [],
+          job.sourceById[String(candidate.id)] || [],
           cacheById.get(Number(candidate.id)),
         )
         if (entry) job.entries.push(entry)
@@ -517,21 +618,26 @@ export async function stepExplorer(env: Env) {
       }
     }
 
-    if (
-      job.status !== 'paused' &&
-      job.queryIndex >= SEARCH_QUERIES.length &&
-      job.candidateIndex >= job.candidates.length
-    ) {
+    job.verifiedCount = job.candidateIndex
+    job.matchedCount = job.entries.length
+    if (job.status !== 'paused' && job.candidateIndex >= job.candidateCount) {
       job.status = 'complete'
+      job.phase = 'complete'
       await write(env, 'catalog', job.entries)
+      job.entries = []
+      job.candidateBatches = []
+      job.seen = []
+      job.sourceById = {}
     } else if (job.status !== 'paused') {
-      job.status = job.candidateIndex < job.candidates.length ? 'verifying' : 'searching'
+      job.status = 'verifying'
     }
+
     job.updatedAt = now()
     await write(env, 'job', job)
     return explorerStatus(env)
   } catch (error) {
-    job.status = 'error'
+    job.status =
+      error instanceof Error && error.message.startsWith('GitHub API 限流') ? 'paused' : 'error'
     job.error = error instanceof Error ? error.message : '扫描失败'
     job.updatedAt = now()
     await write(env, 'job', job)
@@ -539,9 +645,7 @@ export async function stepExplorer(env: Env) {
   }
 }
 export async function explorerCatalog(env: Env) {
-  const catalog = await read<Entry[]>(env, 'catalog', [])
-  const job = await loadJob(env)
-  return job.entries.length ? job.entries : catalog
+  return read<Entry[]>(env, 'catalog', [])
 }
 
 export async function explorerQuota(env: Env) {

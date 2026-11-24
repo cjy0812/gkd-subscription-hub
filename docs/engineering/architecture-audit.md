@@ -125,22 +125,21 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### A-16（中）：项目注册表单缺少分支发现
 
-新增项目表单已改为显式读取分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 使用 GitHub 仓库元数据与分支 API，默认分支置顶，分页最多读取 1,000 项；加载错误显示在表单中。当前仅适配 GitHub，Provider Adapter 完成后需将分支发现纳入统一接口。
+新增项目表单已改为显式读取 Provider 分支列表并通过可搜索选择器选择。`GET /api/repositories/branches?url=...` 经 Provider Adapter 读取 GitHub/GitLab.com/Gitea.com 分支，默认分支置顶；分页达到上限会明确标记截断，加载错误显示在表单中。自托管实例尚未开放。
 
-### A-17（高，方向已确定、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
+### A-17（部分完成）：GitHub / GitLab.com / Gitea.com Provider Adapter
 
-此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
+已新增 `src/services/providers.ts`，将仓库 URL 解析、公开仓库元数据、分支列表、Commit、dist Tree、订阅源文件读取和固定版本原始文件分发抽象为 Provider Adapter。当前实现支持 GitHub、GitLab.com、Gitea.com；GitLab 嵌套 Group 路径可解析，旧项目记录缺少 provider 字段时默认按 GitHub 处理。
 
-此前明确的 Provider 抽象范围：
+安全与边界：
 
-- 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
-- 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
-- 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
-- Adapter 隔离平台 API、认证、限流、分页、事件签名验证和去重差异。
+- 只允许 HTTPS 和三个明确的公共主机；不接受自托管 GitLab/Gitea、自定义实例、任意 URL 或私有仓库。
+- GitLab Tree/Branches 使用 keyset Link 分页；若满页却缺少下一页链接，安全失败，不假设结果完整。
+- GitLab 原始文件按 blob SHA 读取；GitHub 按 commit SHA；Gitea Media API 使用 commit SHA，避免分支移动造成内容漂移。
+- GitHub Actions、GitLab Pipelines、Gitea Actions 的近期运行记录已在 `actions.ts` 归一化；工作流配置发现与 cron 解析仍仅支持 GitHub。GitLab/Gitea 的运行 API 不可见或返回非 2xx 时按无可用记录处理，不阻断订阅扫描。
+- Explorer 候选搜索仍仅使用 GitHub Search API；多 Provider Explorer 搜索尚未接入。
 
-更新策略已确定：本端主动轮询为主，平台通知为可选加速；统一通知入口 `/hooks/notify`，通知只触发本端拉取和验证，不信任通知载荷中的版本或内容。CI 状态不是此前已确认的统一能力，不能假定 GitHub Actions、GitLab CI、Gitea Actions 完全等价。
-
-统一订阅入口为 `/<id>/<dist>`，不兼容旧订阅 URL；新系统接管域名后旧 Worker 退役，回滚脚本保留。各平台适配优先级、轮询周期和 API 限额仍需按实现阶段确定。
+此前确定的主动轮询优先、统一 `/hooks/notify` 可选通知加速、通知后重新拉取验证等架构决策仍待后续阶段落实。
 
 ### A-18（中）：项目列表信息层级与源码入口
 
@@ -158,13 +157,13 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 与 A-18 同一根因：列表可打开分发订阅，但没有清晰区分并链接上游仓库源码。新增仓库链接应基于已保存的 `repoUrl` 或 Provider URL，不应从 owner/repo 字符串拼接未验证地址。
 
-### A-22（中）：Explorer 搜索与候选收集耦合
+### A-22（已修复，仍需线上运行验收）：Explorer 搜索与候选收集分阶段
 
-当前 `stepExplorer()` 仅在候选缓冲区为空时读取下一页 Search API 结果；读取后每个 step 最多验证缓冲区中的 4 个候选。若页面产生超过 4 个候选，同一页会跨多个 step 验证完成后才读取下一页。Repository Search 最多遍历 10 页（每页 100），Code Search 每个查询只读第一页。维护者希望先收集候选再逐层筛选。建议评估两阶段有界流程（候选收集阶段 + 候选验证阶段），但不能承诺无界全量抓取：GitHub 搜索结果上限/索引不完整、Workers 执行预算、KV 单值限制和 GitHub 配额仍然存在。应保留可恢复游标、候选去重和不完整标记。
+`stepExplorer()` 已拆为候选收集与内容验证两个阶段。每个 step 只请求一个 Search 页面；Repository Search 与 Code Search 均最多遍历 10 页/查询（每页 100），按 GitHub repository ID 全局去重，并把每个搜索页的候选摘要写入独立 KV 批次。所有查询结束后才开始验证，每步最多验证 4 个候选。Job 只保留批次索引、游标、计数和来源映射，扫描期间 Catalog API 始终返回上一次已发布快照。候选批次缺失时任务安全失败，不发布部分目录。GitHub Search 上限/索引不完整、Workers 执行预算和 API 配额仍然存在。
 
-### A-23（待复现）：Explorer 结果中出现大量订阅 ID 233
+### A-23（部分修复，根因待复现）：Explorer 结果中出现大量订阅 ID 233
 
-`filterExplorerEntries()` 对仓库名、描述、Owner、Topic、订阅名称、作者、订阅 ID、版本和自定义字段执行合并后的子串匹配；没有独立的精确 ID 筛选。后端按 GitHub repository ID 去重，但未对不同仓库的相同 subscription ID 作显式冲突诊断。当前源码不能证明 ID 233 重复是数据真实如此、搜索词误匹配、缓存问题还是分页问题。需要取得具体搜索词、目录快照和相关仓库，核对原始 JSON5、repository.id、subscription.id、搜索命中字段及 row-key；补充精确 ID 筛选与重复 ID 冲突报告。
+普通模糊搜索已不再包含 subscription ID；新增独立精确 ID 筛选，并对不同仓库出现相同 subscription ID 的情况显示冲突提示。提示只报告数据，不隐藏或删除仓库。当前源码仍不能证明线上 ID 233 重复是实际数据冲突、缓存快照还是其他原因。需要取得具体搜索词、目录快照和相关仓库，核对原始 JSON5、repository.id、subscription.id、搜索命中字段及 row-key。
 
 ### 验收证据要求
 

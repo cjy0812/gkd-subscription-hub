@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   collectExplorerAuthors,
   collectExplorerTopics,
+  collectSubscriptionIdConflicts,
   filterExplorerEntries,
   type ExplorerFilters,
 } from './explorer-filter'
@@ -18,6 +19,7 @@ const entry = (
     topics?: string[]
     author?: string
     ruleCount?: number
+    id?: number
     customFields?: Record<string, unknown>
   } = {},
 ): ExplorerEntry => ({
@@ -43,7 +45,7 @@ const entry = (
   parent: null,
   subscriptions: [
     {
-      id: 100,
+      id: options.id ?? 100,
       name: 'Demo subscription',
       version: '1.0.0',
       author: options.author,
@@ -63,6 +65,7 @@ const entry = (
 
 const defaults: ExplorerFilters = {
   query: '',
+  exactSubscriptionId: '',
   fork: 'all',
   archived: 'all',
   author: '',
@@ -156,5 +159,31 @@ describe('Explorer filters', () => {
         (x) => x.repository.full_name,
       ),
     ).toEqual(['omega/project', 'zeta/project', 'alpha/project', 'beta/project'])
+  })
+
+  it('matches subscription IDs exactly instead of fuzzy substring search', () => {
+    const idEntries = [
+      entry('owner/233', { id: 233 }),
+      entry('owner/1233', { id: 1233 }),
+      entry('owner/2233', { id: 2233 }),
+    ]
+    expect(
+      filterExplorerEntries(idEntries, { ...defaults, exactSubscriptionId: '233' }).map(
+        (item) => item.repository.full_name,
+      ),
+    ).toEqual(['owner/233'])
+    expect(
+      filterExplorerEntries(idEntries, { ...defaults, exactSubscriptionId: '23' }),
+    ).toHaveLength(0)
+  })
+
+  it('reports duplicate subscription IDs across distinct repositories', () => {
+    const conflicts = collectSubscriptionIdConflicts([
+      entry('owner/first', { id: 233 }),
+      entry('owner/second', { id: 233 }),
+      entry('owner/other', { id: 1233 }),
+      entry('owner/first', { id: 233 }),
+    ])
+    expect(conflicts).toEqual([{ id: 233, repositories: ['owner/first', 'owner/second'] }])
   })
 })

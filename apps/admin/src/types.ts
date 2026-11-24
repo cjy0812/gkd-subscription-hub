@@ -33,6 +33,10 @@ export interface DistFile {
 
 export interface Project {
   id: number
+  provider?: 'github' | 'gitlab' | 'gitea'
+  providerId?: string
+  instanceUrl?: string
+  repositoryPath?: string
   owner: string
   repo: string
   branch: string
@@ -110,12 +114,14 @@ export interface ExplorerEntry {
 }
 
 export interface ExplorerJobStatus {
+  phase: 'collecting' | 'verifying' | 'complete'
   status: 'idle' | 'searching' | 'verifying' | 'complete' | 'paused' | 'error'
   queryIndex: number
   page: number
   candidateCount: number
   candidateIndex: number
   verifiedCount: number
+  matchedCount: number
   seenCount: number
   error: string | null
   incomplete: boolean

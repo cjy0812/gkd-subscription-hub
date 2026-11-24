@@ -21,8 +21,8 @@ app.get('/api/repositories/branches', async (c) => {
   const url = c.req.query('url')
   if (!url) return bad('缺少仓库 URL')
   try {
-    const { owner, repo } = parseRepo(url)
-    return json({ ok: true, ...(await listBranches(c.env, owner, repo)) })
+    const repository = parseRepo(url)
+    return json({ ok: true, ...(await listBranches(c.env, repository)) })
   } catch (error) {
     return bad(error instanceof Error ? error.message : '读取分支失败', 422)
   }
@@ -32,11 +32,14 @@ app.post('/api/projects', async (c) => {
   try {
     const body = await c.req.json<{ url?: string; branch?: string; group?: string }>()
     if (!body.url) return bad('缺少仓库 URL')
-    const { owner, repo } = parseRepo(body.url)
-    const project = await scan(c.env, owner, repo, body.branch)
+    const repository = parseRepo(body.url)
+    const project = await scan(c.env, repository, body.branch)
     project.group = body.group?.trim().slice(0, 40) || '默认分组'
     const existing = await get(c.env, project.id)
-    if (existing) return bad(`ID ${project.id} 已被 ${existing.owner}/${existing.repo} 占用`, 409)
+    if (existing) {
+      const provider = existing.provider || 'github'
+      return bad(`ID ${project.id} 已被 ${provider}:${existing.owner}/${existing.repo} 占用`, 409)
+    }
     project.lastRuns = await runs(c.env, project)
     project.lastCheckedAt = new Date().toISOString()
     project.lastDistHash = project.distHash
