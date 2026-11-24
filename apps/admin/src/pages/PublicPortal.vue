@@ -130,8 +130,13 @@ onMounted(() => { void load() })
 .portal-card-top{display:flex;align-items:center;justify-content:space-between}.portal-id{font-weight:700;color:var(--color-accent);font-variant-numeric:tabular-nums}
 .portal-footer{border-top:1px solid var(--color-border);padding-top:20px;color:var(--color-text-secondary);font-size:12px}.portal-footer a{color:inherit}
 .portal-error{margin:16px 0}.portal-copy-success{display:block;margin:10px 0}
-.portal-card h3{font-size:16px;overflow-wrap:anywhere;margin:16px 0 6px}.portal-card h3 a{color:inherit;text-decoration:none}.portal-card h3 a:hover{color:var(--color-accent)}
-.portal-card .portal-meta{min-height:38px;overflow-wrap:anywhere}.portal-card a{color:var(--color-accent);text-decoration:none}.portal-card a:hover{text-decoration:underline}
-.rule-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--color-border)}.rule-row span{font-size:12px;color:var(--color-text-secondary)}
+.portal-card h3{font-size:16px;overflow-wrap:anywhere;margin:16px 0 6px}
+.portal-card .portal-meta{min-height:38px;overflow-wrap:anywhere}
+.portal-card a{color:var(--color-accent);text-decoration:none}
+.portal-card a:hover{text-decoration:underline}
+.portal-card h3 a{color:inherit;text-decoration:none}
+.portal-card h3 a:hover{color:var(--color-accent)}
+.rule-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--color-border)}
+.rule-row span{font-size:12px;color:var(--color-text-secondary)}
 @media(max-width:600px){.portal-page{padding:16px 16px 36px}.portal-hero{padding:48px 0 32px}.portal-section-heading{align-items:flex-start}.portal-card .portal-meta{min-height:0}}
 </style>
