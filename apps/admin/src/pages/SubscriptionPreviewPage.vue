@@ -262,14 +262,15 @@ async function loadCategories(page = categoryPage.value) {
 }
 
 async function loadSubscription(allowLarge = false) {
+  abortController.value?.abort()
+  client.value?.dispose()
   const id = subscriptionId.value
   if (!Number.isSafeInteger(id) || id <= 0) {
+    client.value = undefined
+    loading.value = false
     error.value = '订阅 ID 无效'
     return
   }
-
-  abortController.value?.abort()
-  client.value?.dispose()
   client.value = undefined
   resetDetailState()
   activeTab.value = 'apps'
@@ -279,6 +280,8 @@ async function loadSubscription(allowLarge = false) {
   ruleQuery.value = ''
   categoryQuery.value = ''
   rawSource.value = null
+  rawLoading.value = false
+  largeFileBytes.value = null
   meta.value = undefined
   stats.value = undefined
   error.value = ''
@@ -374,7 +377,7 @@ watch(categoryQuery, () => {
   if (activeTab.value === 'categories') void loadCategories(1)
 })
 watch(activeTab, (tab) => {
-  if (tab === 'global' && !groups.value) void selectGlobalGroups()
+  if (tab === 'global' && groupScope.value !== 'global') void selectGlobalGroups()
   if (tab === 'categories' && !categories.value) void loadCategories(1)
 })
 

@@ -79,7 +79,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
 - **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。业务状态继续使用 Composition API，不额外引入 Pinia。
-- **后端**：Cloudflare Workers、Hono、KV；历史订阅只通过 Git 固定 Commit 追溯，不启用 R2，避免引入额外对象存储计费风险。
+- **后端**：Cloudflare Workers、Hono、KV；历史订阅只通过 Git 固定 Commit 追溯；不配置 R2、不执行对象存储读写。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js；GKD JSON5 使用 `@gkd-kit/api` 与 `json5`，并在专用 Web Worker 中解析。
 

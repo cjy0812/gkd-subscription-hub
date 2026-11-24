@@ -85,7 +85,7 @@ app.all('*', async (c) => {
     try {
       source = await readVersionContent(c.env, snapshot)
     } catch {
-      return bad('Historical version is no longer available from Git or R2', 502)
+      return bad('历史版本无法从固定 Git 提交中恢复', 502)
     }
     const headers = new Headers({
       'content-type': 'application/json5; charset=utf-8',

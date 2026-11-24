@@ -15,7 +15,6 @@ export interface VersionSnapshot {
   fileSha: string
   fileSize: number
   createdAt: string
-  objectKey: string
   archiveStatus: HistoryArchiveStatus
   contentSha256?: string
   archiveError?: string

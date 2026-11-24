@@ -77,7 +77,6 @@ export async function recordSubscriptionVersion(
     fileSha: file.sha,
     fileSize: file.size,
     createdAt: new Date().toISOString(),
-    objectKey: `subscriptions/${project.id}/v${version}/gkd.json5`,
     archiveStatus: 'git-only',
   }
 
