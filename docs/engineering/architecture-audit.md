@@ -111,7 +111,6 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 修复后必须关联 PR/commit；未运行测试不得从待验证改成通过。
 
-
 ## 管理端体验反馈审计（2026-11-23）
 
 以下条目来自维护者对已部署管理端的 11 项反馈。本节把源码确认与线上待复现分开；不将未证实的根因记录为事实。
@@ -133,6 +132,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
 
 此前明确的 Provider 抽象范围：
+
 - 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
 - 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
 - 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
@@ -160,7 +160,7 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 ### A-22（中）：Explorer 搜索与候选收集耦合
 
-当前 `stepExplorer()` 每次调用最多读取一个 Search API 页面，接着验证该页候选；`VERIFY_PER_STEP=4` 限制单步验证量。Repository Search 最多遍历 10 页（每页 100），Code Search 每个查询只读第一页。维护者希望先收集候选再逐层筛选。建议评估两阶段有界流程（候选收集阶段 + 候选验证阶段），但不能承诺无界全量抓取：GitHub 搜索结果上限/索引不完整、Workers 执行预算、KV 单值限制和 GitHub 配额仍然存在。应保留可恢复游标、候选去重和不完整标记。
+当前 `stepExplorer()` 仅在候选缓冲区为空时读取下一页 Search API 结果；读取后每个 step 最多验证缓冲区中的 4 个候选。若页面产生超过 4 个候选，同一页会跨多个 step 验证完成后才读取下一页。Repository Search 最多遍历 10 页（每页 100），Code Search 每个查询只读第一页。维护者希望先收集候选再逐层筛选。建议评估两阶段有界流程（候选收集阶段 + 候选验证阶段），但不能承诺无界全量抓取：GitHub 搜索结果上限/索引不完整、Workers 执行预算、KV 单值限制和 GitHub 配额仍然存在。应保留可恢复游标、候选去重和不完整标记。
 
 ### A-23（待复现）：Explorer 结果中出现大量订阅 ID 233
 
