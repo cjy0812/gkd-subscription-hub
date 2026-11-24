@@ -1,4 +1,4 @@
-name: Refresh preview branch lockfile # validate GKD app rules union shapes
+name: Refresh preview branch lockfile # validate rule summaries on page two
 
 on:
   push:

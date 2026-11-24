@@ -124,9 +124,9 @@ describe('GKD subscription preview model', () => {
     expect(rules.items[0].index).toBe(50)
     expect(rules.items.at(-1)?.index).toBe(59)
     expect(rules.items[0]).toMatchObject({
-      index: 0,
-      key: 1,
-      name: '规则 0',
+      index: 50,
+      key: 51,
+      name: '规则 50',
       action: 'click',
       matches: 'TextView[text="跳过"]',
     })
