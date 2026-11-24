@@ -20,6 +20,8 @@ app.get('/subscriptions', async (c) => {
     registeredAt: project.registeredAt,
     lastCheckedAt: project.lastCheckedAt,
     fileCount: project.distFiles.length,
+    subscriptionPath:
+      project.distFiles.find((file) => file.path.toLowerCase() === 'gkd.json5')?.path || null,
     hasSubscription: project.distFiles.some((file) => file.path.toLowerCase() === 'gkd.json5'),
   }))
   return json({ ok: true, subscriptions })
