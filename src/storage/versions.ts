@@ -13,6 +13,7 @@ export interface VersionSnapshot {
   repoUrl: string
   commitSha: string
   fileSha: string
+  filePath?: string
   fileSize: number
   createdAt: string
   archiveStatus: HistoryArchiveStatus

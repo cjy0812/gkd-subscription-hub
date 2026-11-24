@@ -155,6 +155,23 @@ describe('subscription version history', () => {
     ])
   })
 
+  it('preserves the exact indexed filename for historical reads', async () => {
+    const state = makeState()
+    const env = { STATE: state.namespace } as Env
+    const project = makeProject()
+    project.distFiles = [{ path: 'GKD.JSON5', sha: 'upper-blob-sha', size: 100 }]
+    const fetchMock = vi.fn(async () => new Response('{id:233,version:643}'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const record = await recordSubscriptionVersion(env, project)
+    expect(record).toMatchObject({
+      fileSha: 'upper-blob-sha',
+      filePath: 'GKD.JSON5',
+      archiveStatus: 'git-only',
+    })
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/GKD.JSON5')
+  })
+
   it('records an immutable Git-only snapshot', async () => {
     const state = makeState()
     const env = { STATE: state.namespace } as Env

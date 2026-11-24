@@ -114,7 +114,7 @@ async function readGitSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uin
       branch: snapshot.branch,
       commitSha: snapshot.commitSha,
     },
-    { path: 'gkd.json5', sha: snapshot.fileSha, size: snapshot.fileSize },
+    { path: snapshot.filePath || 'gkd.json5', sha: snapshot.fileSha, size: snapshot.fileSize },
   )
   if (!response.ok) throw Error(`读取历史订阅文件失败：HTTP ${response.status}`)
   return readBoundedSnapshotResponse(response)
@@ -165,6 +165,7 @@ export async function recordSubscriptionVersion(
     repoUrl: project.repoUrl,
     commitSha: project.commitSha,
     fileSha: file.sha,
+    filePath: file.path,
     fileSize: file.size,
     createdAt: new Date().toISOString(),
     archiveStatus: 'git-only',
