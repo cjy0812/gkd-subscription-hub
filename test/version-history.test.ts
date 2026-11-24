@@ -4,7 +4,11 @@ import {
   recordSubscriptionVersion,
   readVersionContent,
 } from '../src/services/version-history'
-import { listVersionSnapshots, saveVersionSnapshot, type VersionSnapshot } from '../src/storage/versions'
+import {
+  listVersionSnapshots,
+  saveVersionSnapshot,
+  type VersionSnapshot,
+} from '../src/storage/versions'
 import { readBoundedSnapshotResponse } from '../src/services/version-history'
 import type { Env, Project } from '../src/types'
 
@@ -119,9 +123,7 @@ describe('subscription version history', () => {
       },
       cancel,
     })
-    await expect(readBoundedSnapshotResponse(new Response(stream), 8)).rejects.toThrow(
-      '超过 20 MB',
-    )
+    await expect(readBoundedSnapshotResponse(new Response(stream), 8)).rejects.toThrow('超过 20 MB')
     expect(cancel).toHaveBeenCalledOnce()
   })
 

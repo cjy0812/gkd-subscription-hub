@@ -91,18 +91,12 @@ export async function listVersionSnapshots(env: Env, id: number): Promise<Versio
   // Read the legacy array for backwards compatibility with snapshots written by older deployments.
   const legacy = await env.STATE.get<VersionSnapshot[]>(legacyKey(id), 'json')
   const indexed = await readIndexedSnapshots(env, id)
-  const candidates = [
-    ...(Array.isArray(legacy) ? legacy.map(normalizeSnapshot) : []),
-    ...indexed,
-  ]
+  const candidates = [...(Array.isArray(legacy) ? legacy.map(normalizeSnapshot) : []), ...indexed]
   const byVersion = new Map<number, VersionSnapshot>()
 
   for (const snapshot of candidates) {
     const current = byVersion.get(snapshot.version)
-    byVersion.set(
-      snapshot.version,
-      current ? preferSnapshot(current, snapshot) : snapshot,
-    )
+    byVersion.set(snapshot.version, current ? preferSnapshot(current, snapshot) : snapshot)
   }
 
   return [...byVersion.values()].sort((a, b) => a.version - b.version)
