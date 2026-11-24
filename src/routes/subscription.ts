@@ -73,7 +73,7 @@ app.all('*', async (c) => {
     if (!Number.isSafeInteger(version)) return bad('Invalid version', 400)
     const snapshot = await getVersionSnapshot(c.env, Number(id), version)
     if (!snapshot) return bad('Historical version not found', 404)
-    if (wantsHtml(req)) {
+    if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {
       return Response.redirect(new URL(`/preview/${id}?version=${version}`, url), 302)
     }
     let source: string
@@ -125,7 +125,7 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
-  if (wantsHtml(req) && path.toLowerCase().endsWith('.json5')) {
+  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && path.toLowerCase().endsWith('.json5')) {
     return Response.redirect(new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url), 302)
   }
 
@@ -136,7 +136,7 @@ app.all('*', async (c) => {
   if (!response.ok)
     return new Response(response.body, { status: response.status, headers: response.headers })
 
-  if (wantsHtml(req) && path.toLowerCase().endsWith('.md')) {
+  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && path.toLowerCase().endsWith('.md')) {
     const text = await response.text()
     const body = renderMarkdown(text)
     const out = new Response(documentPage(path, body, '?raw=1'), {
