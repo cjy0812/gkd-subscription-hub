@@ -21,10 +21,11 @@ describe('Markdown preview renderer', () => {
 
   it('renders permitted HTML and removes script, event-handler and unsafe URL threats', () => {
     const html = renderMarkdown(
-      '<div class="notice"><strong>安全排版</strong><img src="https://example.com/a.png" onerror="alert(1)"></div>\n<script>alert(1)</script>\n<iframe src="https://evil.example"></iframe>\n\n[bad](javascript:alert(1))',
+      '<div class="notice"><strong>安全排版</strong><img src="https://example.com/a.png" onerror="alert(1)"><a href="/local" target="_blank">本地链接</a></div>\n<script>alert(1)</script>\n<iframe src="https://evil.example"></iframe>\n\n[bad](javascript:alert(1))',
     )
     expect(html).toContain('<div class="notice">')
     expect(html).toContain('<strong>安全排版</strong>')
+    expect(html).toContain('href="/local" target="_blank" rel="noopener noreferrer"')
     expect(html).toContain('<img src="https://example.com/a.png"')
     expect(html).not.toContain('onerror=')
     expect(html).not.toContain('<script')

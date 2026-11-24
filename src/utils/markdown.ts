@@ -223,8 +223,13 @@ const markdownHtmlPolicy = {
   ],
   transformTags: {
     a: (tagName: string, attributes: Record<string, string>) => {
-      if (/^https?:\/\//i.test(attributes.href || '')) {
-        return { tagName, attribs: { ...attributes, target: '_blank', rel: 'noopener noreferrer' } }
+      const isExternal = /^https?:\/\//i.test(attributes.href || '')
+      const opensNewTab = attributes.target === '_blank'
+      if (isExternal || opensNewTab) {
+        return {
+          tagName,
+          attribs: { ...attributes, target: '_blank', rel: 'noopener noreferrer' },
+        }
       }
       return { tagName, attribs: attributes }
     },
