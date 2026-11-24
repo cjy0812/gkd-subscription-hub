@@ -102,7 +102,11 @@ app.all('*', async (c) => {
       etag: `"${snapshot.contentSha256}"`,
       vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
     })
-    return new Response(req.method === 'HEAD' ? null : source, { status: 200, headers })
+    const body = source.buffer.slice(
+      source.byteOffset,
+      source.byteOffset + source.byteLength,
+    ) as ArrayBuffer
+    return new Response(req.method === 'HEAD' ? null : body, { status: 200, headers })
   }
 
   if (!path || path === 'dist' || path === 'dist/') {
