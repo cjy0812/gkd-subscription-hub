@@ -205,18 +205,20 @@ export function getAppsPage(
   pageSize: number,
   query = '',
 ): PageResult<AppPreviewSummary> {
-  const apps = (subscription.apps || []).map((app: RawApp, index) => ({
-    index,
-    id: app.id,
-    name: app.name || app.id,
-    groupCount: app.groups.length,
-    ruleCount: getRuleCount(app.groups as PreviewGroup[]),
-  }))
-  return paginate(
-    apps.filter((app) => includesQuery([app.id, app.name], query)),
-    page,
-    pageSize,
-  )
+  const matchingApps = (subscription.apps || [])
+    .map((app: RawApp, index) => ({ app, index }))
+    .filter(({ app }) => includesQuery([app.id, app.name || app.id], query))
+  const result = paginate(matchingApps, page, pageSize)
+  return {
+    ...result,
+    items: result.items.map(({ app, index }) => ({
+      index,
+      id: app.id,
+      name: app.name || app.id,
+      groupCount: app.groups.length,
+      ruleCount: getRuleCount(app.groups as PreviewGroup[]),
+    })),
+  }
 }
 
 function getScopeGroups(
@@ -325,10 +327,14 @@ export function getGroupsPage(
   pageSize: number,
   query = '',
 ): PageResult<GroupPreviewSummary> {
-  const groups = getScopeGroups(subscription, scope, appIndex)
-    .map((group, index) => summarizeGroup(group, index, scope))
-    .filter((group) => includesQuery([group.key, group.name, group.desc], query))
-  return paginate(groups, page, pageSize)
+  const matchingGroups = getScopeGroups(subscription, scope, appIndex)
+    .map((group, index) => ({ group, index }))
+    .filter(({ group }) => includesQuery([group.key, group.name, group.desc], query))
+  const result = paginate(matchingGroups, page, pageSize)
+  return {
+    ...result,
+    items: result.items.map(({ group, index }) => summarizeGroup(group, index, scope)),
+  }
 }
 
 function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matches: string } {
@@ -372,12 +378,26 @@ export function getRulesPage(
 ): PageResult<RulePreviewSummary> {
   const group = getScopeGroups(subscription, scope, appIndex)[groupIndex]
   if (!group) throw new Error('规则组不存在或已更改')
-  const rules = getRules(group)
-    .map((rule, index) => summarizeRule(rule, index))
-    .filter((rule) =>
-      includesQuery([rule.key, rule.name, rule.action, rule.matches, rule.anyMatches], query),
-    )
-  return paginate(rules, page, pageSize)
+  const matchingRules = getRules(group)
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ rule }) => {
+      const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
+      return includesQuery(
+        [
+          normalized.key,
+          normalized.name,
+          normalized.action,
+          getRuleMatches(normalized.matches),
+          getRuleMatches(normalized.anyMatches),
+        ],
+        query,
+      )
+    })
+  const result = paginate(matchingRules, page, pageSize)
+  return {
+    ...result,
+    items: result.items.map(({ rule, index }) => summarizeRule(rule, index)),
+  }
 }
 
 export function getRuleDetail(
