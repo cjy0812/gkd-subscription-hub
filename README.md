@@ -7,7 +7,7 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
 - 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/dist/` 展示订阅文件目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用 GKD 专用页面，复用官方 `@gkd-kit/api` 类型，在 Web Worker 中解析；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。响应体按块读取，超过 10 MB 会先取消读取并询问，用户可选择继续结构化解析（最高 50 MB）；超过 50 MB 立即取消，需使用原始文件入口。
+- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用 GKD 专用页面，复用官方 `@gkd-kit/api` 类型，在 Web Worker 中解析；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。响应体按块读取，超过 10 MB 会先取消读取并询问，用户可选择继续结构化解析（最高 50 MB）；超过 50 MB 立即取消，需使用原始文件入口。历史版本由 Worker 再施加 20 MB 服务端流式读取限制，且无 SHA-256 校验值的记录拒绝返回。
 - `?raw=1` 强制原始内容。
 - GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
