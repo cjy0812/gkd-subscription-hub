@@ -138,7 +138,6 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 - Tests cover JSON5 parsing, subscription validation, repository deduplication, Fork metadata, filters, and partial-search handling.
 - Existing CI checks remain green.
 
-
 ## 维护者反馈：扫描分页、筛选与 ID 冲突（2026-11-23）
 
 ### 当前实现行为（源码确认）
@@ -147,7 +146,7 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 - 读取该页后，当前实现立即去重并把该页候选写入 Job，再在同一 step 内最多验证 4 个候选；候选处理完后才继续下一页。
 - 所以当前执行顺序是“搜索一页 → 验证本页候选 → 搜索下一页”，不是“先收集全部候选 → 再统一验证”。
 - UI 的结果表格另有每页 20 条的展示分页；它与 Worker 的 GitHub Search 扫描分页是两件不同的事。
-- 当前搜索候选按 GitHub repository immutable ID 去重；订阅文件内的 subscription ID 没有跨仓库唯一性冲突检测。
+- 当前搜索候选只与前面页面已记录的 GitHub repository immutable ID 去重；同一页内重复出现的同一 ID 当前不会被去重。订阅文件内的 subscription ID 没有跨仓库唯一性冲突检测。
 - UI 全文搜索把仓库字段与订阅字段拼接后做子串匹配；没有精确 ID 模式，也不显示命中字段。
 
 ### 方案评估
