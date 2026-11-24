@@ -330,7 +330,7 @@ const columns: DataTableColumns<Project> = [
             h(
               'a',
               {
-                href: `https://github.com/${encodeURIComponent(row.owner)}/${encodeURIComponent(row.repo)}`,
+                href: row.repoUrl,
                 target: '_blank',
                 rel: 'noopener noreferrer',
                 class: 'repo-source-link',
@@ -634,6 +634,15 @@ onMounted(() => {
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
                 <p>{{ project.owner }}/{{ project.repo }}</p>
+                <a
+                  :href="project.repoUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="repo-source-link"
+                >
+                  <AppIcon name="external-link" :size="14" />
+                  源码
+                </a>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -802,7 +811,6 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   color: var(--color-accent);
-  font-size: 13px;
   text-decoration: none;
 }
 .repo-source-link:hover {
