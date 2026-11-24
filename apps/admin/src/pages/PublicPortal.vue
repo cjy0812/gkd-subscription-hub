@@ -4,7 +4,8 @@ import { NButton, NCard, NEmpty, NGrid, NGridItem, NInput, NSpace, NSpin, NTag, 
 
 interface PublicSubscription {
   id: number; provider: string; owner: string; repo: string; branch: string; group: string;
-  repoUrl: string; registeredAt: string; lastCheckedAt: string | null; fileCount: number; hasSubscription: boolean
+  repoUrl: string; registeredAt: string; lastCheckedAt: string | null; fileCount: number;
+  hasSubscription: boolean; subscriptionPath: string | null
 }
 interface PublicRule { id: number; name: string; version: string; author?: string; ruleCount: number; appsCount: number; categoriesCount: number }
 interface ExplorerEntry { repository: { full_name?: string; html_url?: string; description?: string | null }; fork: boolean; subscriptions: PublicRule[] }
@@ -14,6 +15,7 @@ const explorer = ref<ExplorerEntry[]>([])
 const query = ref('')
 const loading = ref(true)
 const error = ref('')
+const copyMessage = ref('')
 const visibleSubscriptions = computed(() => subscriptions.value.filter((item) => `${item.id} ${item.owner}/${item.repo} ${item.group}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 const visibleExplorer = computed(() => explorer.value.filter((entry) => `${entry.repository.full_name || ''} ${entry.subscriptions.map((sub) => sub.name).join(' ')}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 
@@ -36,9 +38,20 @@ async function load() {
     loading.value = false
   }
 }
-async function copyUrl(id: number) {
-  try { await navigator.clipboard.writeText(`${window.location.origin}/${id}/gkd.json5`) }
-  catch { error.value = '复制失败，请检查浏览器剪贴板权限' }
+async function copyUrl(item: PublicSubscription) {
+  error.value = ''
+  copyMessage.value = ''
+  if (!item.subscriptionPath) {
+    error.value = '此订阅源没有可用的 gkd.json5 文件'
+    return
+  }
+  const encodedPath = item.subscriptionPath.split('/').map(encodeURIComponent).join('/')
+  try {
+    await navigator.clipboard.writeText(`${window.location.origin}/${item.id}/${encodedPath}`)
+    copyMessage.value = `已复制 ID ${item.id} 的订阅地址`
+  } catch {
+    error.value = '复制失败，请检查浏览器剪贴板权限'
+  }
 }
 onMounted(() => { void load() })
 </script>
@@ -53,9 +66,20 @@ onMounted(() => { void load() })
       <p class="eyebrow">GKD COMMUNITY DIRECTORY</p>
       <h1>发现、浏览与订阅 GKD 规则</h1>
       <p>公开浏览已托管订阅源与已发现的规则仓库。此页面仅提供只读信息，不包含管理或扫描操作。</p>
-      <n-input v-model:value="query" clearable size="large" placeholder="搜索订阅 ID、仓库名称或规则名称" class="portal-search" />
+      <n-input
+        v-model:value="query"
+        clearable
+        size="large"
+        aria-label="搜索订阅源与规则"
+        placeholder="搜索订阅 ID、仓库名称或规则名称"
+        class="portal-search"
+      />
     </section>
-    <n-space v-if="error" vertical class="portal-error"><n-text type="error">{{ error }}</n-text><n-button secondary @click="load">重试</n-button></n-space>
+    <n-space v-if="error" vertical class="portal-error">
+      <n-text type="error">{{ error }}</n-text>
+      <n-button secondary @click="load">重试</n-button>
+    </n-space>
+    <n-text v-if="copyMessage" type="success" class="portal-copy-success" role="status">{{ copyMessage }}</n-text>
     <n-spin :show="loading">
       <section class="portal-section">
         <div class="portal-section-heading"><div><h2>托管订阅源</h2><p>按订阅 ID 浏览，复制地址即可在 GKD 中添加。</p></div><n-tag :bordered="false">{{ visibleSubscriptions.length }} 个</n-tag></div>
@@ -65,7 +89,7 @@ onMounted(() => { void load() })
               <div class="portal-card-top"><span class="portal-id">#{{ item.id }}</span><n-tag size="small" :bordered="false">{{ item.group }}</n-tag></div>
               <h3>{{ item.owner }}/{{ item.repo }}</h3>
               <p class="portal-meta">{{ item.provider }} · {{ item.branch }} · {{ item.fileCount }} 个文件</p>
-              <n-space align="center" justify="space-between"><a :href="`/${item.id}/dist/`">浏览文件目录</a><n-button size="small" secondary :disabled="!item.hasSubscription" @click="copyUrl(item.id)">复制订阅地址</n-button></n-space>
+              <n-space align="center" justify="space-between"><a :href="`/${item.id}/dist/`">浏览文件目录</a><n-button size="small" secondary :disabled="!item.hasSubscription || !item.subscriptionPath" @click="copyUrl(item)">复制订阅地址</n-button></n-space>
             </n-card>
           </n-grid-item>
         </n-grid>
@@ -105,7 +129,7 @@ onMounted(() => { void load() })
 .portal-card{height:100%;border:1px solid var(--color-border);border-radius:var(--radius-large);box-shadow:var(--shadow-card)}
 .portal-card-top{display:flex;align-items:center;justify-content:space-between}.portal-id{font-weight:700;color:var(--color-accent);font-variant-numeric:tabular-nums}
 .portal-footer{border-top:1px solid var(--color-border);padding-top:20px;color:var(--color-text-secondary);font-size:12px}.portal-footer a{color:inherit}
-.portal-error{margin:16px 0}
+.portal-error{margin:16px 0}.portal-copy-success{display:block;margin:10px 0}
 .portal-card h3{font-size:16px;overflow-wrap:anywhere;margin:16px 0 6px}.portal-card h3 a{color:inherit;text-decoration:none}.portal-card h3 a:hover{color:var(--color-accent)}
 .portal-card .portal-meta{min-height:38px;overflow-wrap:anywhere}.portal-card a{color:var(--color-accent);text-decoration:none}.portal-card a:hover{text-decoration:underline}
 .rule-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--color-border)}.rule-row span{font-size:12px;color:var(--color-text-secondary)}
