@@ -103,7 +103,10 @@ describe('subscription version history', () => {
       get: vi.fn(async () => (stored ? { text: async () => stored } : null)),
     }
     const env = { STATE: state.namespace, HISTORY_ARCHIVE: bucket } as unknown as Env
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:643}')))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{id:233,version:643}')),
+    )
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record?.archiveStatus).toBe('r2-archived')
     expect(bucket.put).toHaveBeenCalledOnce()
