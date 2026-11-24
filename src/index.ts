@@ -1,5 +1,6 @@
 import admin from './routes/admin'
 import subscription from './routes/subscription'
+import publicApi from './routes/public'
 import { refresh } from './services/actions'
 import { get, ids, save } from './storage/projects'
 import type { Env, Project } from './types'
@@ -66,7 +67,8 @@ export default {
     const url = new URL(req.url)
     const path = url.pathname
 
-    if (path === '/') return Response.redirect(new URL('/admin/', url), 302)
+    if (path === '/') return env.ASSETS.fetch(req)
+    if (path.startsWith('/api/public/')) return publicApi.fetch(req, env)
     if (path === '/hooks/notify') return notify(req, env, ctx)
 
     if (path === '/gkd.json5') {

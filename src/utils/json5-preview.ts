@@ -1,7 +1,7 @@
 import { parseJson5 } from '../services/json5'
 import { escapeHtml } from './http'
 
-const MAX_PREVIEW_CHARS = 512_000
+const DEFAULT_PREVIEW_CHARS = 512_000
 const MAX_RENDERED_NODES = 20_000
 
 function displayPrimitive(value: unknown): { type: string; text: string } {
@@ -16,14 +16,13 @@ function displayPrimitive(value: unknown): { type: string; text: string } {
   return { type: typeof value, text: String(value) }
 }
 
-export function renderJson5Preview(source: string, path: string): string {
+export function renderJson5Preview(source: string, path: string, includeLarge = false): string {
   const heading = `<h1>${escapeHtml(path)}</h1>`
-  if (source.length > MAX_PREVIEW_CHARS) {
-    return (
-      heading +
-      '<div class="json-notice">文件超过 500 KB，已跳过交互式解析以避免浏览器卡顿。' +
-      '请使用原始文件入口查看完整内容。</div>'
-    )
+  if (source.length > DEFAULT_PREVIEW_CHARS && !includeLarge) {
+    const size = (source.length / 1024).toFixed(0)
+    return heading +
+      `<div class="json-notice">文件约 ${size} KB。为避免大文件自动消耗过多资源，默认不构建树形视图。你可以选择继续加载结构化预览（解析器上限 2 MB），或查看原始文件。</div>` +
+      '<p><a href="?preview=full">继续加载结构化预览</a></p>'
   }
 
   let value: unknown
