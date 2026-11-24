@@ -17,7 +17,6 @@ import {
   NTabPane,
   NTabs,
   NTag,
-  NText,
 } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
@@ -272,6 +271,12 @@ async function loadSubscription() {
   client.value?.dispose()
   client.value = undefined
   resetDetailState()
+  activeTab.value = 'apps'
+  groupScope.value = 'app'
+  appQuery.value = ''
+  groupQuery.value = ''
+  ruleQuery.value = ''
+  categoryQuery.value = ''
   source.value = ''
   meta.value = undefined
   stats.value = undefined
@@ -459,6 +464,11 @@ onBeforeUnmount(() => {
                       <AppIcon name="chevron-right" :size="17" />
                     </button>
                     <p v-if="group.desc" class="group-description">{{ group.desc }}</p>
+                    <div v-if="group.attributes.length" class="group-attributes">
+                      <span v-for="attribute in group.attributes" :key="attribute.key" class="attribute-item">
+                        <strong>{{ attribute.key }}</strong><code>{{ attribute.value }}</code>
+                      </span>
+                    </div>
                     <div v-if="selectedGroup?.index === group.index && groupScope === 'app'" class="rule-panel">
                       <div class="tab-toolbar compact-toolbar">
                         <span>规则列表</span>
@@ -501,6 +511,11 @@ onBeforeUnmount(() => {
                     <AppIcon name="chevron-right" :size="17" />
                   </button>
                   <p v-if="group.desc" class="group-description">{{ group.desc }}</p>
+                  <div v-if="group.attributes.length" class="group-attributes">
+                    <span v-for="attribute in group.attributes" :key="attribute.key" class="attribute-item">
+                      <strong>{{ attribute.key }}</strong><code>{{ attribute.value }}</code>
+                    </span>
+                  </div>
                   <div v-if="selectedGroup?.index === group.index && groupScope === 'global'" class="rule-panel">
                     <div class="tab-toolbar compact-toolbar">
                       <span>规则列表</span>
@@ -598,6 +613,9 @@ onBeforeUnmount(() => {
 .group-state{font-size:10px;color:var(--color-success);background:var(--color-surface-secondary);padding:4px 7px;border-radius:5px;white-space:nowrap}
 .group-state.disabled{color:var(--color-warning)}
 .group-description{font-size:12px;color:var(--color-text-secondary);margin:4px 12px 8px;white-space:pre-wrap}
+.group-attributes{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 8px}
+.attribute-item{display:flex;flex-wrap:wrap;gap:5px;align-items:center;border-radius:6px;background:var(--color-surface-secondary);padding:5px 7px;font-size:10px;max-width:100%}
+.attribute-item code{overflow-wrap:anywhere;color:var(--color-text-secondary)}
 .rule-panel{margin:12px 4px 4px;padding-top:12px;border-top:1px solid var(--color-border)}
 .rule-row{border:1px solid var(--color-border);border-radius:8px;margin-top:8px;overflow:hidden}
 .rule-summary{border:0;border-radius:0;padding:10px 12px;background:var(--color-surface-secondary)}

@@ -1,5 +1,6 @@
 import type {
   RawApp,
+  RawAppGroup,
   RawAppRule,
   RawCategory,
   RawGlobalGroup,
@@ -9,9 +10,7 @@ import type {
 
 export type PreviewScope = 'app' | 'global'
 export type PreviewRule = RawAppRule | RawGlobalRule | string
-export type PreviewGroup = RawSubscription['globalGroups'] extends Array<infer T>
-  ? T
-  : RawGlobalGroup
+export type PreviewGroup = RawAppGroup | RawGlobalGroup
 
 export interface SubscriptionStats {
   apps: number
