@@ -110,7 +110,10 @@ describe('top-level routing', () => {
         get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
       } as unknown as KVNamespace,
     })
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:1}')))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{id:233,version:1}')),
+    )
     const response = await worker.fetch(
       new Request('https://gkd.example.com/233/dist/gkd.json5?raw=1', {
         headers: {
