@@ -33,16 +33,17 @@ function makeState() {
       },
       list: async (options: { prefix?: string; limit?: number }) => {
         listCalls.push(options)
-        return ({
-        keys: [...data.keys()]
-          .filter((key) => key.startsWith(options.prefix || ''))
-          .sort()
-          .slice(0, options.limit || 1000)
-          .map((name) => ({ name, expiration: null, metadata: null })),
-        list_complete: true,
-        cursor: undefined,
-        cacheStatus: null,
-      })},
+        return {
+          keys: [...data.keys()]
+            .filter((key) => key.startsWith(options.prefix || ''))
+            .sort()
+            .slice(0, options.limit || 1000)
+            .map((name) => ({ name, expiration: null, metadata: null })),
+          list_complete: true,
+          cursor: undefined,
+          cacheStatus: null,
+        }
+      },
     } as unknown as KVNamespace,
   }
 }
@@ -165,7 +166,10 @@ describe('subscription version history', () => {
     const env = { STATE: state.namespace } as Env
     const payload = new TextEncoder().encode('{id:233,version:643}')
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...payload])
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes)),
+    )
     const record = await recordSubscriptionVersion(env, makeProject())
     if (!record) throw new Error('Expected a recorded Git history snapshot')
     expect(await readVersionContent(env, record)).toEqual(bytes)
@@ -236,6 +240,8 @@ describe('subscription version history', () => {
     })
     expect(await listVersionSnapshots(env, 233)).toHaveLength(1)
     if (!record) throw new Error('Expected a recorded Git history snapshot')
-    expect(new TextDecoder().decode(await readVersionContent(env, record))).toBe('{id:233,version:643}')
+    expect(new TextDecoder().decode(await readVersionContent(env, record))).toBe(
+      '{id:233,version:643}',
+    )
   })
 })
