@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { NButton, NCard, NEmpty, NGrid, NGridItem, NInput, NSpace, NSpin, NTag, NText } from 'naive-ui'
 
 interface PublicSubscription {
@@ -10,14 +11,31 @@ interface PublicSubscription {
 interface PublicRule { id: number; name: string; version: string; author?: string; ruleCount: number; appsCount: number; categoriesCount: number }
 interface ExplorerEntry { repository: { full_name?: string; html_url?: string; description?: string | null }; fork: boolean; subscriptions: PublicRule[] }
 
+const route = useRoute()
+const router = useRouter()
 const subscriptions = ref<PublicSubscription[]>([])
 const explorer = ref<ExplorerEntry[]>([])
-const query = ref('')
+const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const loading = ref(true)
 const error = ref('')
 const copyMessage = ref('')
 const visibleSubscriptions = computed(() => subscriptions.value.filter((item) => `${item.id} ${item.owner}/${item.repo} ${item.group}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 const visibleExplorer = computed(() => explorer.value.filter((entry) => `${entry.repository.full_name || ''} ${entry.subscriptions.map((sub) => sub.name).join(' ')}`.toLowerCase().includes(query.value.trim().toLowerCase())))
+watch(query, (value) => {
+  const nextQuery = { ...route.query }
+  const normalized = value.trim()
+  if (normalized) nextQuery.q = normalized
+  else delete nextQuery.q
+  if (nextQuery.q !== route.query.q) void router.replace({ query: nextQuery })
+})
+watch(
+  () => route.query.q,
+  (value) => {
+    const nextValue = typeof value === 'string' ? value : ''
+    if (nextValue !== query.value) query.value = nextValue
+  },
+)
+
 
 async function load() {
   loading.value = true
