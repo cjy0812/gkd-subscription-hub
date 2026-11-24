@@ -5,7 +5,7 @@
 ## 系统组成
 
 - **Cloudflare Worker**：统一 HTTP 入口，承载管理 API、订阅分发、Webhook 和 Cron。
-- **Admin SPA**：Vue 3 + Vite + Naive UI，通过 Worker Static Assets 托管在 /admin/。
+- **SPA**：Vue 3 + Vite + Naive UI + Lucide；根路径 `/` 提供公共只读门户，`/admin/` 提供受保护管理页面，均由 Worker Static Assets 托管。
 - **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照、版本索引和 Webhook 冷却键。
 - **代码托管 Provider**：当前通过 `src/services/providers.ts` 支持 GitHub、GitLab.com、Gitea.com 的公开仓库 Adapter；自托管实例尚未开放。
 - **版本与文件读取**：统一抽象仓库、默认分支、Commit、Tree、分支列表和文件内容；固定版本文件分发由 Adapter 生成 URL。Release/Tag 和通知事件的统一抽象仍待后续阶段。

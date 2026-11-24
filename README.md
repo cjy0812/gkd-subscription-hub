@@ -23,7 +23,7 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 - 管理员密码登录与退出；登录页独立于业务页面，认证信息保存在当前浏览器会话的 `sessionStorage`。
 - 订阅管理、仪表盘和 Explorer 共用 AdminLayout；桌面端采用左侧图标导航，悬停显示菜单名称，移动端使用抽屉导航；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
-- 运行监控页聚合 GitHub 项目最近一次刷新时保存的 Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；GitLab/Gitea 暂无 CI 运行记录；页面读取 KV 快照，不会自动轮询上游。
+- 运行监控按项目 → Workflow YAML 文件 → Run 分层展示 GitHub Actions 缓存记录，显示 workflow 文件路径、触发方式、状态与更新时间；Job/Step 留在 GitHub 单次运行详情中。GitLab/Gitea 暂无等价 YAML Workflow 文件索引；页面读取缓存快照，不会自动轮询上游。
 - 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
@@ -53,6 +53,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
 - 项目目录：`https://gkd.example.com/<id>/dist/`（`/<id>/` 仍作为兼容目录入口）
+- 历史订阅：`https://gkd.example.com/<id>/v<version>/gkd.json5`（版本号来自 `gkd.version.json5`，不代表每日 commit）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
 - 通知入口：`POST https://gkd.example.com/hooks/notify`
 - 公共只读 API：`https://gkd.example.com/api/public/*`；未知路径返回 404。
@@ -60,7 +61,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ### 仅使用 workers.dev 时
 
 - 管理端：`https://<worker-name>.<account-subdomain>.workers.dev/admin/`
-- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/`
+- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/dist/`
 - GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/gkd.json5`
 
 其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。
@@ -76,10 +77,10 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ## 技术栈
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
-- **前端**：Vue 3、Vite、Naive UI、Vue Router。当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
-- **后端**：Cloudflare Workers、Hono、KV。
+- **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
+- **后端**：Cloudflare Workers、Hono、KV；历史订阅快照支持可选 R2 归档。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
-- **内容处理**：markdown-it（安全 Markdown 渲染）+ highlight.js（按需语言子集代码高亮）。
+- **内容处理**：markdown-it + sanitize-html（HTML allowlist 安全清理）+ highlight.js（按需语言子集代码高亮）。
 
 Vue SFC 使用 Biome 2.6.8 的实验性 HTML super-language 进行 Lint，并由 vue-tsc 负责模板/脚本类型检查；CI 已观察到 `noUnusedImports` 对模板中实际使用的组件产生误报，因此仅对 Vue SFC 关闭该规则。由于格式化器仍属实验性且可能造成较大模板格式变动，当前明确关闭 Vue SFC 格式化。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的质量缺口，再单独评估补充工具。
 
@@ -192,6 +193,8 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://gitlab.com/group/project"}`。
 - `POST /admin/api/projects/:id/refresh`：立即刷新。
 - `DELETE /admin/api/projects/:id`：删除项目元数据。
+- `GET /admin/api/projects/:id/versions`：历史版本索引。
+- `POST /admin/api/projects/:id/versions/:version/archive`：在 R2 已绑定时重试归档。
 
 ### Explorer API
 
@@ -200,6 +203,14 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - `GET /admin/api/explorer/quota`：Worker GitHub Token 的 Core、Search、Code Search 配额。
 - `POST /admin/api/explorer/discover`：开始或重置发现任务。
 - `POST /admin/api/explorer/discover/step`：推进一批发现与验证任务。
+
+## 公共目录与版本历史
+
+根路径 `/` 仅提供公开只读门户，使用 `GET /api/public/subscriptions` 和 `GET /api/public/explorer`；该 API 不注册写入、扫描或刷新路由。管理员仍通过 `/admin/` 登录。
+
+项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
+
+Git Commit SHA 是历史来源；绑定 `HISTORY_ARCHIVE` R2 Bucket 后，Worker 会将快照写入 R2 并校验 SHA-256。未启用 R2 时历史状态显示为 Git-only，不表示已获得独立归档副本。Cloudflare R2 首次使用需要在目标账户启用并创建 Bucket，再按工程架构文档配置绑定。
 
 ## GKD Rules Explorer
 
