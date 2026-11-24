@@ -157,11 +157,19 @@ export class SubscriptionPreviewWorkerClient {
     if (!response.ok) throw new Error('读取订阅文件失败：HTTP ' + response.status)
     const declaredLength = Number(response.headers.get('content-length') || 0)
     if (declaredLength > MAX_PREVIEW_BYTES) {
-      await response.body?.cancel()
+      try {
+        await response.body?.cancel()
+      } catch {
+        // Keep the size-limit error even when the upstream stream cannot be canceled.
+      }
       throw new Error('文件超过 50 MB 预览硬上限，请使用原始文件查看')
     }
     if (!allowLarge && declaredLength > AUTO_PREVIEW_BYTES) {
-      await response.body?.cancel()
+      try {
+        await response.body?.cancel()
+      } catch {
+        // Keep the user-confirmation warning even when the upstream stream cannot be canceled.
+      }
       throw new PreviewFileTooLargeError(declaredLength)
     }
     return readBoundedPreviewStream(response.body, allowLarge)
