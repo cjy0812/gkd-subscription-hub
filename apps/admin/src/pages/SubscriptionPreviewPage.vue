@@ -39,6 +39,7 @@ const PAGE_SIZE = 50
 
 const client = ref<SubscriptionPreviewWorkerClient>()
 const abortController = ref<AbortController>()
+const rawAbortController = ref<AbortController>()
 const rawSource = ref<string | null>(null)
 const rawLoading = ref(false)
 const meta = ref<SubscriptionMeta>()
@@ -82,15 +83,18 @@ const sourceUrl = computed(() => {
   const path = filePath.value.split('/').map(encodeURIComponent).join('/')
   return `/${subscriptionId.value}/dist/${path}?raw=1`
 })
-const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl))
-const safeSupportUrl = computed(() => safeHttpUrl(meta.value?.supportUri))
-const safeCheckUrl = computed(() => safeHttpUrl(meta.value?.checkUpdateUrl))
+const metadataLinkBase = computed(() =>
+  version.value ? `/${subscriptionId.value}/gkd.json5` : sourceUrl.value,
+)
+const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
+const safeSupportUrl = computed(() => safeHttpUrl(meta.value?.supportUri, metadataLinkBase.value))
+const safeCheckUrl = computed(() => safeHttpUrl(meta.value?.checkUpdateUrl, metadataLinkBase.value))
 const isVersionMismatch = computed(() => Boolean(meta.value && meta.value.id !== subscriptionId.value))
 
-function safeHttpUrl(value?: string): string | undefined {
+function safeHttpUrl(value?: string, baseUrl = sourceUrl.value): string | undefined {
   if (!value) return undefined
   try {
-    const base = new URL(sourceUrl.value, window.location.href)
+    const base = new URL(baseUrl, window.location.href)
     const url = new URL(value, base)
     return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : undefined
   } catch {
@@ -264,6 +268,8 @@ async function loadCategories(page = categoryPage.value) {
 
 async function loadSubscription(allowLarge = false) {
   abortController.value?.abort()
+  rawAbortController.value?.abort()
+  rawAbortController.value = undefined
   client.value?.dispose()
   const id = subscriptionId.value
   if (!Number.isSafeInteger(id) || id <= 0) {
@@ -328,18 +334,21 @@ async function loadSubscription(allowLarge = false) {
 
 async function loadRawSource() {
   const instance = client.value
-  const controller = abortController.value
-  if (!instance || !controller || rawLoading.value || rawSource.value !== null) return
+  if (!instance || rawLoading.value || rawSource.value !== null) return
+  rawAbortController.value?.abort()
+  const controller = new AbortController()
+  rawAbortController.value = controller
   rawLoading.value = true
   error.value = ''
   try {
     const raw = await instance.loadRawSource(sourceUrl.value, controller.signal)
-    if (!controller.signal.aborted) rawSource.value = raw
+    if (!controller.signal.aborted && activeTab.value === 'raw') rawSource.value = raw
   } catch (cause) {
     if (!controller.signal.aborted) {
       error.value = cause instanceof Error ? cause.message : '读取原始 JSON5 失败'
     }
   } finally {
+    if (rawAbortController.value === controller) rawAbortController.value = undefined
     if (!controller.signal.aborted) rawLoading.value = false
   }
 }
@@ -384,6 +393,7 @@ watch(activeTab, (tab) => {
 
 onBeforeUnmount(() => {
   abortController.value?.abort()
+  rawAbortController.value?.abort()
   client.value?.dispose()
 })
 </script>
