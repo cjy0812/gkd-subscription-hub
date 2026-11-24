@@ -4,7 +4,6 @@ import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
 import { getVersionSnapshot, listVersionSnapshots } from '../storage/versions'
 import { readVersionContent } from '../services/version-history'
-import { renderJson5Preview } from '../utils/json5-preview'
 import { renderMarkdown } from '../utils/markdown'
 import {
   bad,
@@ -25,7 +24,10 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .map((file) => {
       const path = file.path.split('/').map(encodeURIComponent).join('/')
       const type = mime(file.path).split(';', 1)[0]
-      return `<tr><td><a href="${prefix}${path}">${escapeHtml(file.path)}</a></td><td>${escapeHtml(type)}</td><td>${file.size.toLocaleString()} bytes</td></tr>`
+      const href = file.path.toLowerCase().endsWith('.json5')
+        ? `/preview/${project.id}?file=${encodeURIComponent(file.path)}`
+        : `${prefix}${path}`
+      return `<tr><td><a href="${href}">${escapeHtml(file.path)}</a></td><td>${escapeHtml(type)}</td><td>${file.size.toLocaleString()} bytes</td></tr>`
     })
     .join('')
   const historyRows = versions
@@ -35,7 +37,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
       const status = item.archiveStatus === 'git-only'
         ? 'Git 固定提交可用'
         : '暂不可用'
-      return `<tr><td><a href="/${project.id}/v${item.version}/gkd.json5">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
+      return `<tr><td><a href="/preview/${project.id}?version=${item.version}">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
   const history = versions.length
@@ -73,29 +75,17 @@ app.all('*', async (c) => {
     if (!Number.isSafeInteger(version)) return bad('Invalid version', 400)
     const snapshot = await getVersionSnapshot(c.env, Number(id), version)
     if (!snapshot) return bad('Historical version not found', 404)
+    if (wantsHtml(req)) {
+      return Response.redirect(
+        new URL(`/preview/${id}?version=${version}`, url),
+        302,
+      )
+    }
     let source: string
     try {
       source = await readVersionContent(c.env, snapshot)
     } catch {
       return bad('Historical version is no longer available from Git or R2', 502)
-    }
-    if (wantsHtml(req)) {
-      const body = renderJson5Preview(
-        source,
-        `v${version}/gkd.json5`,
-        url.searchParams.get('preview') === 'full',
-      )
-      const response = new Response(documentPage(`v${version}/gkd.json5`, body, '?raw=1'), {
-        headers: {
-          'content-type': 'text/html;charset=utf-8',
-          'cache-control': 'public,max-age=300',
-          vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
-          ...htmlPreviewSecurityHeaders,
-        },
-      })
-      return req.method === 'HEAD'
-        ? new Response(null, { status: response.status, headers: response.headers })
-        : response
     }
     const headers = new Headers({
       'content-type': 'application/json5; charset=utf-8',
@@ -140,6 +130,13 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
+  if (wantsHtml(req) && path.toLowerCase().endsWith('.json5')) {
+    return Response.redirect(
+      new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url),
+      302,
+    )
+  }
+
   const response = await fetchProjectFile(c.env, project, file, {
     method: req.method,
     ifNoneMatch: req.headers.get('if-none-match') || undefined,
@@ -149,12 +146,10 @@ app.all('*', async (c) => {
 
   if (
     wantsHtml(req) &&
-    (path.toLowerCase().endsWith('.md') || path.toLowerCase().endsWith('.json5'))
+    path.toLowerCase().endsWith('.md')
   ) {
     const text = await response.text()
-    const body = path.toLowerCase().endsWith('.md')
-      ? renderMarkdown(text)
-      : renderJson5Preview(text, path, url.searchParams.get('preview') === 'full')
+    const body = renderMarkdown(text)
     const out = new Response(documentPage(path, body, '?raw=1'), {
       headers: {
         'content-type': 'text/html;charset=utf-8',
