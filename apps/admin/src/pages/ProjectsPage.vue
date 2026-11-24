@@ -330,7 +330,7 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 310,
+    width: 190,
     render: (row) =>
       h(
         NSpace,
@@ -340,8 +340,15 @@ const columns: DataTableColumns<Project> = [
 
             h(
               NButton,
-              { size: 'small', tertiary: true, disabled: batchBusy.value, title: '打开 dist 文件目录', onClick: () => openSubscription(row.id) },
-              { icon: () => h(AppIcon, { name: 'file-text' }), default: () => '打开订阅' },
+              {
+                size: 'small',
+                tertiary: true,
+                disabled: batchBusy.value,
+                title: '打开 dist 文件目录',
+                'aria-label': '打开 dist 文件目录',
+                onClick: () => openSubscription(row.id),
+              },
+              { icon: () => h(AppIcon, { name: 'file-text' }) },
             ),
             h(
               NButton,
@@ -355,9 +362,11 @@ const columns: DataTableColumns<Project> = [
                 secondary: true,
                 loading: refreshingIds.value.has(row.id),
                 disabled: batchBusy.value,
+                title: '刷新订阅源',
+                'aria-label': '刷新订阅源',
                 onClick: () => refreshProject(row.id),
               },
-              { icon: () => h(AppIcon, { name: 'refresh-cw' }), default: () => '刷新' },
+              { icon: () => h(AppIcon, { name: 'refresh-cw' }) },
             ),
             h(
               NButton,
@@ -366,9 +375,11 @@ const columns: DataTableColumns<Project> = [
                 tertiary: true,
                 type: 'error',
                 disabled: batchBusy.value,
+                title: '删除订阅源',
+                'aria-label': '删除订阅源',
                 onClick: () => removeProject(row.id),
               },
-              { icon: () => h(AppIcon, { name: 'trash-2' }), default: () => '删除' },
+              { icon: () => h(AppIcon, { name: 'trash-2' }) },
             ),
           ],
         },
@@ -660,23 +671,36 @@ onMounted(() => {
                     secondary
                     :loading="refreshingIds.has(project.id)"
                     :disabled="batchBusy"
+                    title="刷新订阅源"
+                    aria-label="刷新订阅源"
                     @click="refreshProject(project.id)"
-                    >立即刷新</n-button
                   >
+                    <template #icon><AppIcon name="refresh-cw" /></template>
+                  </n-button>
                   <n-button size="small" quaternary title="复制主订阅 JSON5 地址" aria-label="复制主订阅 JSON5 地址" @click="copySubscriptionUrl(project.id)">
                     <template #icon><AppIcon name="copy" /></template>
                   </n-button>
-                  <n-button size="small" :disabled="batchBusy" @click="openSubscription(project.id)"
-                    >打开订阅</n-button
+                  <n-button
+                    size="small"
+                    quaternary
+                    :disabled="batchBusy"
+                    title="打开 dist 文件目录"
+                    aria-label="打开 dist 文件目录"
+                    @click="openSubscription(project.id)"
                   >
+                    <template #icon><AppIcon name="file-text" /></template>
+                  </n-button>
                   <n-button
                     size="small"
                     tertiary
                     type="error"
                     :disabled="batchBusy"
+                    title="删除订阅源"
+                    aria-label="删除订阅源"
                     @click="removeProject(project.id)"
-                    >删除</n-button
                   >
+                    <template #icon><AppIcon name="trash-2" /></template>
+                  </n-button>
                 </n-space>
               </article>
               </div>

@@ -45,7 +45,14 @@ app.get('/explorer', async (c) => {
       created_at: entry.repository.created_at,
     },
     fork: entry.fork,
-    parent: entry.parent,
+    parent: entry.parent
+      ? {
+          full_name: entry.parent.full_name,
+          html_url: entry.parent.html_url,
+          description: entry.parent.description,
+          default_branch: entry.parent.default_branch,
+        }
+      : null,
     subscriptions: entry.subscriptions.map((subscription) => ({
       id: subscription.id,
       name: subscription.name,
@@ -59,7 +66,6 @@ app.get('/explorer', async (c) => {
       appsCount: subscription.appsCount,
       globalGroupsCount: subscription.globalGroupsCount,
       ruleCount: subscription.ruleCount,
-      customFields: subscription.customFields,
     })),
     discoveredBy: entry.discoveredBy,
     verifiedAt: entry.verifiedAt,
