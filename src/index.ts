@@ -68,7 +68,11 @@ export default {
     const path = url.pathname
 
     if (path === '/') return env.ASSETS.fetch(req)
-    if (path.startsWith('/api/public/')) return publicApi.fetch(req, env)
+    if (path.startsWith('/api/public/')) {
+      const rewritten = new URL(req.url)
+      rewritten.pathname = path.slice('/api/public'.length)
+      return publicApi.fetch(new Request(rewritten, req), env)
+    }
     if (path === '/hooks/notify') return notify(req, env, ctx)
 
     if (path === '/gkd.json5') {

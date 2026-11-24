@@ -22,7 +22,23 @@ app.get('/subscriptions', async (c) => {
 app.get('/explorer', async (c) => {
   const entries = await explorerCatalog(c.env)
   const publicEntries = entries.map((entry) => ({
-    repository: entry.repository, fork: entry.fork, parent: entry.parent,
+    repository: {
+      id: entry.repository.id,
+      full_name: entry.repository.full_name,
+      description: entry.repository.description,
+      html_url: entry.repository.html_url,
+      default_branch: entry.repository.default_branch,
+      topics: entry.repository.topics,
+      stargazers_count: entry.repository.stargazers_count,
+      forks_count: entry.repository.forks_count,
+      pushed_at: entry.repository.pushed_at,
+      updated_at: entry.repository.updated_at,
+      language: entry.repository.language,
+      license: entry.repository.license,
+      homepage: entry.repository.homepage,
+      created_at: entry.repository.created_at,
+    },
+    fork: entry.fork, parent: entry.parent,
     subscriptions: entry.subscriptions.map((subscription) => ({
       id: subscription.id, name: subscription.name, version: subscription.version,
       author: subscription.author, updateUrl: subscription.updateUrl, checkUpdateUrl: subscription.checkUpdateUrl,
