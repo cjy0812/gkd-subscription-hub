@@ -42,9 +42,10 @@ export async function refresh(e: Env, p: Project) {
   const previousVersion =
     p.subscriptionVersion ??
     (p.commitSha ? await readSubscriptionVersionAtRef(e, p.repoUrl, p.commitSha, p.id) : null)
-  if (previousVersion !== null) {
-    await recordSubscriptionVersion(e, { ...p, subscriptionVersion: previousVersion })
-  }
+  const previousSnapshot =
+    previousVersion !== null
+      ? await recordSubscriptionVersion(e, { ...p, subscriptionVersion: previousVersion })
+      : null
   const fresh = await scan(e, parseRepositoryUrl(p.repoUrl), p.branch)
   const lastRuns = await runs(e, fresh)
   const now = Date.now()
@@ -60,7 +61,9 @@ export async function refresh(e: Env, p: Project) {
     prediction: predict(lastRuns, now),
     lastError: null,
   }
-  await recordSubscriptionVersion(e, next)
+  if (!previousSnapshot || next.subscriptionVersion !== previousVersion) {
+    await recordSubscriptionVersion(e, next)
+  }
   await save(e, next)
   return next
 }
