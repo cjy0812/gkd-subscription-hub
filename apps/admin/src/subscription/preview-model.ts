@@ -343,7 +343,9 @@ function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matche
 }
 
 function getRuleMatches(value: unknown, maxLength = 2000): string {
-  const text = toArray(value as string | string[] | undefined).map(String).join('\n')
+  const text = toArray(value as string | string[] | undefined)
+    .map(String)
+    .join('\n')
   return text.length > maxLength ? text.slice(0, maxLength) + '…' : text
 }
 
