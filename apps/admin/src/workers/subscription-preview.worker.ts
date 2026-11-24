@@ -17,7 +17,7 @@ type WorkerScope = {
 }
 
 const workerScope = globalThis as unknown as WorkerScope
-const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
+const MAX_PREVIEW_BYTES = 50 * 1024 * 1024
 let subscription: RawSubscription | null = null
 
 function requireSubscription(): RawSubscription {

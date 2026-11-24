@@ -3,7 +3,15 @@ import type {
   SubscriptionPreviewWorkerResponse,
 } from './worker-protocol'
 
-const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
+const AUTO_PREVIEW_BYTES = 10 * 1024 * 1024
+const MAX_PREVIEW_BYTES = 50 * 1024 * 1024
+
+export class PreviewFileTooLargeError extends Error {
+  constructor(readonly byteLength: number) {
+    super('文件约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB；超过自动预览阈值 10 MB')
+    this.name = 'PreviewFileTooLargeError'
+  }
+}
 
 type RequestWithoutId = SubscriptionPreviewWorkerRequest extends infer T
   ? T extends { id: number }
@@ -71,7 +79,11 @@ export class SubscriptionPreviewWorkerClient {
     })
   }
 
-  private async fetchSourceBytes(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  private async fetchSourceBytes(
+    url: string,
+    signal?: AbortSignal,
+    allowLarge = false,
+  ): Promise<ArrayBuffer> {
     const response = await fetch(url, {
       headers: { accept: 'application/json, application/json5;q=0.9, */*;q=0.1' },
       signal,
@@ -79,21 +91,29 @@ export class SubscriptionPreviewWorkerClient {
     if (!response.ok) throw new Error('读取订阅文件失败：HTTP ' + response.status)
     const declaredLength = Number(response.headers.get('content-length') || 0)
     if (declaredLength > MAX_PREVIEW_BYTES) {
-      throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
+      await response.body?.cancel()
+      throw new Error('文件超过 50 MB 预览硬上限，请使用原始文件查看')
+    }
+    if (!allowLarge && declaredLength > AUTO_PREVIEW_BYTES) {
+      await response.body?.cancel()
+      throw new PreviewFileTooLargeError(declaredLength)
     }
     const bytes = await response.arrayBuffer()
     if (bytes.byteLength > MAX_PREVIEW_BYTES) {
-      throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
+      throw new Error('文件超过 50 MB 预览硬上限，请使用原始文件查看')
+    }
+    if (!allowLarge && bytes.byteLength > AUTO_PREVIEW_BYTES) {
+      throw new PreviewFileTooLargeError(bytes.byteLength)
     }
     return bytes
   }
 
-  loadSourceBytes(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
-    return this.fetchSourceBytes(url, signal)
+  loadSourceBytes(url: string, signal?: AbortSignal, allowLarge = false): Promise<ArrayBuffer> {
+    return this.fetchSourceBytes(url, signal, allowLarge)
   }
 
   async loadRawSource(url: string, signal?: AbortSignal): Promise<string> {
-    const bytes = await this.fetchSourceBytes(url, signal)
+    const bytes = await this.fetchSourceBytes(url, signal, true)
     return new TextDecoder().decode(bytes)
   }
 

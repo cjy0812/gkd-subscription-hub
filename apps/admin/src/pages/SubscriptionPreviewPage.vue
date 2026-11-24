@@ -19,6 +19,7 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import {
+  PreviewFileTooLargeError,
   SubscriptionPreviewWorkerClient,
 } from '../subscription/preview-worker-client'
 import type {
@@ -45,6 +46,7 @@ const stats = ref<SubscriptionStats>()
 const loading = ref(false)
 const actionLoading = ref(false)
 const error = ref('')
+const largeFileBytes = ref<number | null>(null)
 const activeTab = ref('apps')
 
 const apps = ref<PageResult<AppPreviewSummary>>()
@@ -259,7 +261,7 @@ async function loadCategories(page = categoryPage.value) {
   }
 }
 
-async function loadSubscription() {
+async function loadSubscription(allowLarge = false) {
   const id = subscriptionId.value
   if (!Number.isSafeInteger(id) || id <= 0) {
     error.value = '订阅 ID 无效'
@@ -280,6 +282,7 @@ async function loadSubscription() {
   meta.value = undefined
   stats.value = undefined
   error.value = ''
+  largeFileBytes.value = null
   loading.value = true
   const controller = new AbortController()
   abortController.value = controller
@@ -287,7 +290,7 @@ async function loadSubscription() {
   client.value = instance
 
   try {
-    const bytes = await instance.loadSourceBytes(sourceUrl.value, controller.signal)
+    const bytes = await instance.loadSourceBytes(sourceUrl.value, controller.signal, allowLarge)
     if (controller.signal.aborted) return
     const parsed = await instance.request<{
       meta: SubscriptionMeta
@@ -307,7 +310,12 @@ async function loadSubscription() {
     await loadApps(1)
   } catch (cause) {
     if (!controller.signal.aborted) {
-      error.value = cause instanceof Error ? cause.message : '加载订阅失败'
+      if (cause instanceof PreviewFileTooLargeError) {
+        largeFileBytes.value = cause.byteLength
+        error.value = cause.message + '。可以选择继续结构化解析（最高 50 MB），也可以查看原始文件。'
+      } else {
+        error.value = cause instanceof Error ? cause.message : '加载订阅失败'
+      }
     }
   } finally {
     if (!controller.signal.aborted) loading.value = false
@@ -398,10 +406,16 @@ onBeforeUnmount(() => {
       </n-space>
     </header>
 
-    <n-alert v-if="error" type="error" :show-icon="true" class="preview-alert">
+      <n-alert v-if="error" :type="largeFileBytes ? 'warning' : 'error'" :show-icon="true" class="preview-alert">
       <div class="error-content">
         <span>{{ error }}</span>
-        <n-button size="small" quaternary @click="loadSubscription">重新加载</n-button>
+        <n-space>
+          <n-button v-if="largeFileBytes" size="small" type="warning" secondary @click="loadSubscription(true)">
+            继续结构化解析（最高 50 MB）
+          </n-button>
+          <n-button size="small" quaternary @click="loadSubscription()">重新加载</n-button>
+          <n-button v-if="largeFileBytes" size="small" quaternary @click="openRawFile">查看原始文件</n-button>
+        </n-space>
       </div>
     </n-alert>
 
@@ -581,7 +595,7 @@ onBeforeUnmount(() => {
             </n-tab-pane>
 
             <n-tab-pane name="raw" tab="原始 JSON5">
-              <div class="tab-toolbar"><div><h2>原始 JSON5</h2><p>该区域仅在主动打开此标签时渲染完整原文。</p></div></div>
+              <div class="tab-toolbar"><div><h2>原始 JSON5</h2><p>该区域仅在主动打开此标签时下载并渲染全文，文件最大读取量为 50 MB。</p></div></div>
               <n-spin :show="rawLoading" description="按需读取原始 JSON5…">
                 <textarea
                   v-if="rawSource !== null"
