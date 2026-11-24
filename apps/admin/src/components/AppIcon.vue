@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import {
-  Activity, Copy, ExternalLink, FileText, Folder, LayoutDashboard, LogOut, Menu, Plus,
-  RefreshCw, Search, Trash2,
+  Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder,
+  LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Trash2,
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
 type IconName =
   | 'activity'
   | 'copy'
+  | 'chevron-down'
+  | 'chevron-left'
+  | 'chevron-right'
   | 'external-link'
   | 'file-text'
   | 'folder'
@@ -26,6 +29,9 @@ const props = withDefaults(
 const icons: Record<IconName, Component> = {
   activity: Activity,
   copy: Copy,
+  'chevron-down': ChevronDown,
+  'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
   'external-link': ExternalLink,
   'file-text': FileText,
   folder: Folder,

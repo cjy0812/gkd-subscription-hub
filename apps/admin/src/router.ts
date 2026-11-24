@@ -7,12 +7,14 @@ import FilesPage from './pages/FilesPage.vue'
 import LoginPage from './pages/LoginPage.vue'
 import MonitoringPage from './pages/MonitoringPage.vue'
 import ProjectsPage from './pages/ProjectsPage.vue'
+import SubscriptionPreviewPage from './pages/SubscriptionPreviewPage.vue'
 import PublicPortal from './pages/PublicPortal.vue'
 
 const router = createRouter({
   history: createWebHistory('/'),
   routes: [
     { path: '/', name: 'portal', component: PublicPortal },
+    { path: '/preview/:id', name: 'subscription-preview', component: SubscriptionPreviewPage },
     { path: '/admin', redirect: '/admin/' },
     {
       path: '/admin/',
