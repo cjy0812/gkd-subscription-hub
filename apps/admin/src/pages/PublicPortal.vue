@@ -85,17 +85,17 @@ onMounted(() => { void load() })
       <p class="eyebrow">GKD COMMUNITY DIRECTORY</p>
       <h1>发现、浏览与订阅 GKD 规则</h1>
       <p>公开浏览已托管订阅源与已发现的规则仓库。此页面仅提供只读信息，不包含管理或扫描操作。</p>
-      <label class="portal-search-field">
-        <span>搜索订阅源与规则</span>
+      <div class="portal-search-field">
+        <span id="portal-search-label">搜索订阅源与规则</span>
         <n-input
           v-model:value="query"
           clearable
           size="large"
-          aria-label="搜索订阅源与规则"
+          aria-labelledby="portal-search-label"
           placeholder="搜索订阅 ID、仓库名称或规则名称"
           class="portal-search"
         />
-      </label>
+      </div>
     </section>
     <n-space v-if="loadError" vertical class="portal-error">
       <n-text type="error">{{ loadError }}</n-text>
