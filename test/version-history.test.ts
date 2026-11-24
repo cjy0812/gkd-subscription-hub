@@ -75,7 +75,7 @@ describe('subscription version history', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
-  it('records an immutable Git snapshot when R2 is not configured', async () => {
+  it('records an immutable Git-only snapshot', async () => {
     const state = makeState()
     const env = { STATE: state.namespace } as Env
     vi.stubGlobal(
@@ -94,25 +94,5 @@ describe('subscription version history', () => {
     expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
   })
 
-  it('stores and verifies the R2 copy when an archive binding is configured', async () => {
-    const state = makeState()
-    let stored = ''
-    const bucket = {
-      put: vi.fn(async (_key: string, value: string) => {
-        stored = value
-      }),
-      get: vi.fn(async () => (stored ? { text: async () => stored } : null)),
-    }
-    const env = { STATE: state.namespace, HISTORY_ARCHIVE: bucket } as unknown as Env
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{id:233,version:643}')),
-    )
-    const record = await recordSubscriptionVersion(env, makeProject())
-    expect(record?.archiveStatus).toBe('r2-archived')
-    expect(bucket.put).toHaveBeenCalledOnce()
-    if (!record) throw new Error('Expected an R2-archived snapshot')
-    expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
-    expect(bucket.get).toHaveBeenCalledWith('subscriptions/233/v643/gkd.json5')
-  })
+
 })

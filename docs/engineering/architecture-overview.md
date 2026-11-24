@@ -111,6 +111,6 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - `gkd.version.json5` 是当前订阅版本元数据；版本号相同不会创建重复快照。
 - 扫描和刷新通过固定 Commit SHA 记录版本；刷新时先补录旧 Commit 的版本，再记录新版本。
 - 历史 URL 使用 `/<id>/v<version>/gkd.json5`；不通过当前分支或最新版回退伪造旧内容。
-- KV 保存小型版本索引；Git Commit 是可追溯来源，R2 保存不可变副本并用 SHA-256 校验。
-- Worker 可选绑定名为 `HISTORY_ARCHIVE` 的 R2 Bucket。启用后在 `wrangler.jsonc` 中增加 `r2_buckets` binding；未启用时记录状态为 Git-only，并在后续刷新或管理员手动重试时尝试归档。
-- 归档失败不影响 Git 快照读取；Git 与 R2 均不可用时明确返回历史版本不可用，不将最新版作为替代。
+- KV 仅保存小型版本索引；Git 固定 Commit SHA 与文件 Blob SHA 是唯一历史来源，读取时校验 SHA-256。
+- Worker 不绑定 R2、不写入 R2，也不提供任何 R2 归档 API，避免订阅服务因对象存储用量超额而产生额外费用。
+- 上游 Git 历史被删除或改写后，历史版本可能不可恢复；必须明确显示不可用，绝不以最新版冒充历史快照。

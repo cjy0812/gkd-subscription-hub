@@ -32,14 +32,9 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .slice()
     .sort((a, b) => b.version - a.version)
     .map((item) => {
-      const status =
-        item.archiveStatus === 'r2-archived'
-          ? 'R2 已归档'
-          : item.archiveStatus === 'git-only'
-            ? 'Git 历史可用'
-            : item.archiveStatus === 'r2-failed'
-              ? 'R2 归档失败（Git 可回退）'
-              : '暂不可用'
+      const status = item.archiveStatus === 'git-only'
+        ? 'Git 固定提交可用'
+        : '暂不可用'
       return `<tr><td><a href="/${project.id}/v${item.version}/gkd.json5">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')

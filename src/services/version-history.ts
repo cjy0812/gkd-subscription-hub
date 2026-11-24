@@ -60,20 +60,10 @@ export async function recordSubscriptionVersion(
   const version = project.subscriptionVersion
   if (!version || !project.commitSha) return null
   const existing = await getVersionSnapshot(env, project.id, version)
-  if (existing) {
-    if (env.HISTORY_ARCHIVE && existing.archiveStatus !== 'r2-archived') {
-      try {
-        return (await archiveVersionSnapshot(env, project.id, version)) || existing
-      } catch {
-        return existing
-      }
-    }
-    return existing
-  }
+  if (existing) return existing
   const file = project.distFiles.find((item) => item.path.toLowerCase() === 'gkd.json5')
   if (!file) return null
 
-  const objectKey = `subscriptions/${project.id}/v${version}/gkd.json5`
   const snapshot: VersionSnapshot = {
     id: project.id,
     version,
@@ -87,88 +77,27 @@ export async function recordSubscriptionVersion(
     fileSha: file.sha,
     fileSize: file.size,
     createdAt: new Date().toISOString(),
-    objectKey,
-    archiveStatus: 'unavailable',
+    objectKey: `subscriptions/${project.id}/v${version}/gkd.json5`,
+    archiveStatus: 'git-only',
   }
 
-  let content: string
   try {
-    content = await readGitSnapshot(env, snapshot)
+    const content = await readGitSnapshot(env, snapshot)
+    snapshot.contentSha256 = await sha256(content)
   } catch (error) {
+    snapshot.archiveStatus = 'unavailable'
     snapshot.archiveError = error instanceof Error ? error.message : '读取历史订阅文件失败'
-    await saveVersionSnapshot(env, snapshot)
-    return snapshot
   }
-  snapshot.contentSha256 = await sha256(content)
-
-  if (!env.HISTORY_ARCHIVE) {
-    snapshot.archiveStatus = 'git-only'
-  } else {
-    try {
-      await env.HISTORY_ARCHIVE.put(objectKey, content, {
-        httpMetadata: { contentType: 'application/json5; charset=utf-8' },
-        customMetadata: {
-          sha256: snapshot.contentSha256,
-          subscriptionId: String(snapshot.id),
-          version: String(snapshot.version),
-          commitSha: snapshot.commitSha,
-        },
-      })
-      snapshot.archiveStatus = 'r2-archived'
-    } catch (error) {
-      snapshot.archiveStatus = 'r2-failed'
-      snapshot.archiveError = error instanceof Error ? error.message : 'R2 归档失败'
-    }
-  }
-
   await saveVersionSnapshot(env, snapshot)
   return snapshot
 }
 
-export async function archiveVersionSnapshot(
-  env: Env,
-  id: number,
-  version: number,
-): Promise<VersionSnapshot | null> {
-  const snapshot = await getVersionSnapshot(env, id, version)
-  if (!snapshot) return null
-  if (!env.HISTORY_ARCHIVE)
-    throw Error('R2 尚未启用：请先在 Cloudflare 创建存储桶并配置 HISTORY_ARCHIVE 绑定')
-  const content = await readGitSnapshot(env, snapshot)
-  const digest = await sha256(content)
-  await env.HISTORY_ARCHIVE.put(snapshot.objectKey, content, {
-    httpMetadata: { contentType: 'application/json5; charset=utf-8' },
-    customMetadata: {
-      sha256: digest,
-      subscriptionId: String(snapshot.id),
-      version: String(snapshot.version),
-      commitSha: snapshot.commitSha,
-    },
-  })
-  const updated: VersionSnapshot = {
-    ...snapshot,
-    contentSha256: digest,
-    archiveStatus: 'r2-archived',
-    archiveError: undefined,
-  }
-  await saveVersionSnapshot(env, updated)
-  return updated
-}
-
 export async function readVersionContent(env: Env, snapshot: VersionSnapshot): Promise<string> {
-  if (env.HISTORY_ARCHIVE && snapshot.archiveStatus === 'r2-archived') {
-    try {
-      const object = await env.HISTORY_ARCHIVE.get(snapshot.objectKey)
-      if (object) {
-        const content = await object.text()
-        const digest = await sha256(content)
-        if (snapshot.contentSha256 && digest === snapshot.contentSha256) return content
-      }
-    } catch {
-      // Fall back to the immutable Git commit if R2 cannot be read or verified.
-    }
+  const content = await readGitSnapshot(env, snapshot)
+  if (snapshot.contentSha256 && (await sha256(content)) !== snapshot.contentSha256) {
+    throw Error('Git 历史快照校验失败')
   }
-  return readGitSnapshot(env, snapshot)
+  return content
 }
 
 export async function listProjectVersions(env: Env, id: number) {

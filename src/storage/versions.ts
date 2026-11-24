@@ -1,6 +1,6 @@
 import type { Env, ProjectProvider } from '../types'
 
-export type HistoryArchiveStatus = 'git-only' | 'r2-archived' | 'r2-failed' | 'unavailable'
+export type HistoryArchiveStatus = 'git-only' | 'unavailable'
 
 export interface VersionSnapshot {
   id: number

@@ -78,7 +78,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
 - **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。业务状态继续使用 Composition API，不额外引入 Pinia。
-- **后端**：Cloudflare Workers、Hono、KV；历史订阅通过 Git 固定 Commit 追溯，可选 R2 保存不可变快照。
+- **后端**：Cloudflare Workers、Hono、KV；历史订阅只通过 Git 固定 Commit 追溯，不启用 R2，避免引入额外对象存储计费风险。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js（按需语言子集代码高亮）。
 
@@ -194,7 +194,6 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - `POST /admin/api/projects/:id/refresh`：立即刷新。
 - `DELETE /admin/api/projects/:id`：删除项目元数据。
 - `GET /admin/api/projects/:id/versions`：历史版本索引。
-- `POST /admin/api/projects/:id/versions/:version/archive`：在 R2 已绑定时重试归档。
 
 ### Explorer API
 
@@ -210,7 +209,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
 
-Git Commit SHA 是历史来源；绑定 `HISTORY_ARCHIVE` R2 Bucket 后，Worker 会将快照写入 R2 并校验 SHA-256。未启用 R2 时历史状态显示为 Git-only，不表示已获得独立归档副本。Cloudflare R2 首次使用需要在目标账户启用并创建 Bucket，再按工程架构文档配置绑定。
+历史版本只使用 Git 固定 Commit SHA 和文件 Blob SHA 追溯，并在读取时校验 SHA-256。项目不绑定 R2 Bucket、不创建 R2 对象，也不提供 R2 归档入口。Git 上游删除或改写历史时，快照可能不可恢复；此时明确标记不可用，不使用最新版冒充历史版本。
 
 ## GKD Rules Explorer
 
