@@ -12,7 +12,9 @@ const MAX_HISTORY_SNAPSHOT_BYTES = 20 * 1024 * 1024
 
 export class HistorySnapshotTooLargeError extends Error {
   constructor(readonly byteLength: number) {
-    super('历史订阅文件超过 20 MB 安全读取上限（约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB）')
+    super(
+      '历史订阅文件超过 20 MB 安全读取上限（约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB）',
+    )
     this.name = 'HistorySnapshotTooLargeError'
   }
 }
