@@ -137,3 +137,42 @@ GitHub Search is not a perfect global index. Search results are capped at 1,000 
 - Rate-limit responses pause the job and expose retry timing.
 - Tests cover JSON5 parsing, subscription validation, repository deduplication, Fork metadata, filters, and partial-search handling.
 - Existing CI checks remain green.
+
+## 维护者反馈：扫描分页、筛选与 ID 冲突（2026-11-23）
+
+### 当前实现行为（源码确认）
+
+- `stepExplorer()` 每次调用最多请求一个 GitHub Search 页面（Repository Search 每页 100 条，最多 10 页；Code Search 每个查询只读取第一页）。
+- 读取该页后，当前实现立即去重并把该页候选写入 Job，再在同一 step 内最多验证 4 个候选；候选处理完后才继续下一页。
+- 所以当前执行顺序是“搜索一页 → 验证本页候选 → 搜索下一页”，不是“先收集全部候选 → 再统一验证”。
+- UI 的结果表格另有每页 20 条的展示分页；它与 Worker 的 GitHub Search 扫描分页是两件不同的事。
+- 当前搜索候选只与前面页面已记录的 GitHub repository immutable ID 去重；同一页内重复出现的同一 ID 当前不会被去重。订阅文件内的 subscription ID 没有跨仓库唯一性冲突检测。
+- UI 全文搜索把仓库字段与订阅字段拼接后做子串匹配；没有精确 ID 模式，也不显示命中字段。
+
+### 方案评估
+
+维护者提出的“先全拉，再逐级过筛”可实现为**有界两阶段流水线**，但不能理解为不受限制地一次性下载全网数据：
+
+1. **候选收集阶段**：按查询与分页游标分批请求，保存紧凑候选元数据（repository ID、full_name、default_branch、source query 等），全局去重；本阶段不下载仓库 Tree/订阅文件。
+2. **候选验证阶段**：按小批次读取 Commit/Tree/订阅文件，检查 JSON5 与规则集合，生成已验证目录项。
+3. **目录发布阶段**：只有完整任务结束或明确策略允许部分发布时才更新已发布快照；中断、限流或失败必须保留上一个完整快照，并准确标记当前任务不完整。
+
+约束与取舍：
+
+- GitHub Search 每个查询最多 1,000 条结果；Code Search 的索引、分页与配额更严格，不能保证覆盖所有仓库。
+- Worker 单次执行有 CPU/subrequest 预算；因此两个阶段仍需按 step 继续，不是一次请求拉完。
+- 候选队列需要评估 KV 单值大小和写入成本；必要时按分片 Key 存储，而不是把全部候选无限塞进一个 KV 值。
+- 去重必须使用 GitHub repository ID；订阅 ID 是 GKD 业务标识，需单独检测冲突，不能用它替代仓库去重。
+- UI 需要分别显示“候选收集进度”和“内容验证进度”，并解释 GitHub 搜索上限/不完整标记。
+
+### ID 233 排查与修正方向
+
+不能仅凭“结果里很多 ID 233”认定扫描分页错误。需要区分：
+
+- 多个不同仓库是否确实都声明了 subscription.id = 233；
+- 查询是否是子串搜索，是否把 ID 与仓库文本混合匹配；
+- 同一仓库是否被不同查询重复发现但未正确合并来源；
+- 缓存目录是否残留旧数据；
+- UI 展示的 ID 是否来自正确的 subscription 对象。
+
+后续实现应增加精确订阅 ID 筛选、命中字段说明、重复 ID 冲突报告，并用固定 fixture 覆盖同 ID 多仓库、同仓库多查询、分页交界和无效订阅样本。未复现前不把它标记为已确认 Bug。

@@ -1,6 +1,6 @@
 # 架构与工程审计
 
-> 基线：2026-11-23，目标分支 feat/admin-ui-roadmap。静态代码审计；未运行本地构建、浏览器或生产验证。
+> 基线：2026-11-23，main（审计时 HEAD：`139fb36ded81994a651a0cb1ba96b65053a2d721`）。静态代码审计；本轮未运行本地构建、浏览器或生产验证。
 
 ## 结构概览
 
@@ -27,9 +27,9 @@ ProjectsPage.vue 约 775 行；ExplorerPage.vue 约 472 行，包含筛选、批
 
 src/types.ts 与 apps/admin/src/types.ts 重复 Project、DistFile、WorkflowInfo、WorkflowRun；Prediction / ProjectPrediction 命名不同。评估只共享 API DTO，不共享 Worker Env/内部类型。
 
-### A-03（进行中，PR #26）：Explorer 使用宽泛类型
+### A-03（已解决，PR #26）：Explorer 使用宽泛类型
 
-基线代码中 src/services/explorer.ts 的 Candidate 使用 Record<string, any>，GitHub Search、Commit、Tree 和 Rate Limit 响应也直接使用 any。PR #26 已改为 unknown + 运行时类型守卫并补测试，当前 CI 通过；仍待 PR 合并后从基线移除此项。
+PR #26 已合并至 main（2026-11-23）。Explorer 搜索候选和关键 GitHub 响应改为 unknown + 运行时类型守卫并补测试。此项从当前基线移除；Scanner/Actions 中仍有其他宽泛 GitHub API 类型，见 A-08。
 
 ### A-04（已解决，PR #28）：移除未使用的 Pinia
 
@@ -59,11 +59,11 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 
 功能分支 README 曾未同步主分支 CI/CD 改造。以单一 CI/CD 文档为部署事实源。
 
-### A-12（部分完成，PR #31）：运行监控 UI
+### A-12（部分完成，PR #31 已合并）：运行监控 UI
 
 新增 `/admin/monitoring`，从项目 KV 快照聚合最近缓存的 GitHub Actions 运行记录、非成功结束数量、未结束数量和项目索引错误；明确标注读取快照，不会自动请求 GitHub。尚未实现实时轮询或独立任务事件历史。
 
-### A-13（部分完成，PR #32）：只读文件管理 UI
+### A-13（部分完成，PR #32 已合并）：只读文件管理 UI
 
 新增 `/admin/files`，从项目 KV 快照读取 dist 文件路径、大小和 Blob SHA，并链接现有分发路由的 JSON5/Markdown 预览及原始文件。无文件内容写入、无在线编辑；路径不符合当前分发路由允许字符时不生成链接。尚未实现版本差异、编辑器和保存流程。
 
@@ -110,3 +110,65 @@ Service 已分层，但部分文件职责密集且格式紧凑。仅在测试或
 3. 按路线图推进监控、文件和历史页面。
 
 修复后必须关联 PR/commit；未运行测试不得从待验证改成通过。
+
+## 管理端体验反馈审计（2026-11-23）
+
+以下条目来自维护者对已部署管理端的 11 项反馈。本节把源码确认与线上待复现分开；不将未证实的根因记录为事实。
+
+### A-14（低）：登录占位文案泄露部署变量名
+
+`apps/admin/src/pages/LoginPage.vue` 的标签已是“管理员密码”，但输入框 placeholder 为“输入 ADMIN_PASSWORD”。改为面向用户的“请输入管理员密码”。这是文案修正，不涉及 Secret 名称或认证逻辑。
+
+### A-15（待复现）：桌面侧栏线上显示在右侧
+
+`AdminLayout.vue` 的 `NLayoutSider` 在 `NLayoutContent` 之前，结构上应为左侧侧栏；移动端 Drawer 也声明 `placement="left"`。维护者反馈线上菜单显示在右侧。当前不能仅凭源码确定原因。验收需记录部署 Commit、浏览器、视口宽度、页面截图，并检查 CSS direction、Naive UI 布局计算、缓存/Preview 与 Production 是否版本一致。
+
+### A-16（中）：项目注册表单缺少分支发现
+
+新增项目表单使用自由文本分支；Worker 注册 API 也只接收 `branch` 字符串。建议增加受控的分支列表 API/选择器，并在仓库 URL 验证后加载默认分支和分支列表；需处理网络失败、无权限/仓库不存在和分支删除竞态。
+
+### A-17（高，方向已确定、尚未实现）：Provider Adapter 支持 GitHub / GitLab / Gitea
+
+此前讨论已明确首批平台为 GitHub、GitLab、Gitea；其他平台仅要求架构可扩展，未明确列出 Codeberg 或 GitLab self-managed。当前 `src/services/scanner.ts` 的 `parseRepo()` 仅接受 `github.com`，注册、扫描和文件分发直接依赖 GitHub API/Raw，与已确定方向不符。
+
+此前明确的 Provider 抽象范围：
+
+- 解析平台仓库 URL、Provider、项目 ID/路径和实例地址。
+- 通过平台 API 拉取 Release、Tag、Commit 等版本信息。
+- 将 Push、Release、Actions/Pipeline 等平台事件统一为内部事件模型（具体事件能力按平台支持情况映射）。
+- Adapter 隔离平台 API、认证、限流、分页、事件签名验证和去重差异。
+
+更新策略已确定：本端主动轮询为主，平台通知为可选加速；统一通知入口 `/hooks/notify`，通知只触发本端拉取和验证，不信任通知载荷中的版本或内容。CI 状态不是此前已确认的统一能力，不能假定 GitHub Actions、GitLab CI、Gitea Actions 完全等价。
+
+统一订阅入口为 `/<id>/<dist>`，不兼容旧订阅 URL；新系统接管域名后旧 Worker 退役，回滚脚本保留。各平台适配优先级、轮询周期和 API 限额仍需按实现阶段确定。
+
+### A-18（中）：项目列表信息层级与源码入口
+
+当前表格在“订阅源”单元格把 ID 放在仓库名上方；项目操作只有“打开订阅、刷新、删除”，没有直达上游源码仓库的独立入口。重新设计为仓库名优先、ID 作为次级元信息，并加入上游仓库链接。图标按钮须提供 Tooltip/aria-label；删除仍需确认。
+
+### A-19（中）：Markdown 预览体验
+
+`src/routes/subscription.ts` 使用 markdown-it，禁用原始 HTML；当前没有专门的 Markdown 阅读主题/样式系统。需检查 `documentPage()` 的基础 CSS 和常见 Markdown 元素表现，补安全链接策略与窄屏验收。
+
+### A-20（中）：JSON5 预览不可读
+
+当前 JSON5 浏览器预览把原始内容直接放入 `pre/code`，无 JSON5 解析、格式化、树形展开或语法高亮。仓库已有 `src/services/json5.ts` 的受限解析器，但它位于 Worker 服务端，不能直接假设可用于前端。需评估共享解析依赖/前端专用解析器与轻量高亮组件，支持源码/结构化双视图、解析失败回退、超大文件保护和原始文件入口。
+
+### A-21（中）：订阅管理缺少源码入口
+
+与 A-18 同一根因：列表可打开分发订阅，但没有清晰区分并链接上游仓库源码。新增仓库链接应基于已保存的 `repoUrl` 或 Provider URL，不应从 owner/repo 字符串拼接未验证地址。
+
+### A-22（中）：Explorer 搜索与候选收集耦合
+
+当前 `stepExplorer()` 仅在候选缓冲区为空时读取下一页 Search API 结果；读取后每个 step 最多验证缓冲区中的 4 个候选。若页面产生超过 4 个候选，同一页会跨多个 step 验证完成后才读取下一页。Repository Search 最多遍历 10 页（每页 100），Code Search 每个查询只读第一页。维护者希望先收集候选再逐层筛选。建议评估两阶段有界流程（候选收集阶段 + 候选验证阶段），但不能承诺无界全量抓取：GitHub 搜索结果上限/索引不完整、Workers 执行预算、KV 单值限制和 GitHub 配额仍然存在。应保留可恢复游标、候选去重和不完整标记。
+
+### A-23（待复现）：Explorer 结果中出现大量订阅 ID 233
+
+`filterExplorerEntries()` 对仓库名、描述、Owner、Topic、订阅名称、作者、订阅 ID、版本和自定义字段执行合并后的子串匹配；没有独立的精确 ID 筛选。后端按 GitHub repository ID 去重，但未对不同仓库的相同 subscription ID 作显式冲突诊断。当前源码不能证明 ID 233 重复是数据真实如此、搜索词误匹配、缓存问题还是分页问题。需要取得具体搜索词、目录快照和相关仓库，核对原始 JSON5、repository.id、subscription.id、搜索命中字段及 row-key；补充精确 ID 筛选与重复 ID 冲突报告。
+
+### 验收证据要求
+
+- 线上布局类问题：部署 SHA + 浏览器/设备 + 视口 + 截图/复现步骤。
+- 搜索/数据类问题：原始搜索词 + 返回仓库 full_name/repository.id + subscription.id + 对应订阅文件 SHA。
+- 渲染类问题：原始文件样本（可脱敏）+ Content-Type/Accept 行为 + 浏览器截图。
+- 未取得上述证据前，相关根因保持“待复现/未证实”。
