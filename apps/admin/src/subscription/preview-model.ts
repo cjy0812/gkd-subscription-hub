@@ -79,6 +79,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isRawSubscription(value: unknown): value is RawSubscription {
   if (!isRecord(value)) return false
+  const isAppRule = (rule: unknown) => typeof rule === 'string' || isRecord(rule)
+  const isAppRules = (rules: unknown) =>
+    typeof rules === 'string' ||
+    isRecord(rules) ||
+    (Array.isArray(rules) && rules.every(isAppRule))
   const appsValid =
     value.apps === undefined ||
     (Array.isArray(value.apps) &&
@@ -92,7 +97,7 @@ export function isRawSubscription(value: unknown): value is RawSubscription {
               isRecord(group) &&
               typeof group.key === 'number' &&
               typeof group.name === 'string' &&
-              (typeof group.rules === 'string' || Array.isArray(group.rules)),
+              isAppRules(group.rules),
           ),
       ))
   const groupsValid =

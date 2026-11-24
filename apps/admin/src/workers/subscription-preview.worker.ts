@@ -29,7 +29,7 @@ function handleMessage(message: SubscriptionPreviewWorkerRequest): unknown {
   switch (message.type) {
     case 'parse': {
       if (message.source.byteLength > MAX_PREVIEW_BYTES) {
-        throw new Error('文件超过 10 MB 安全预览上限，请使用原始文件查看')
+        throw new Error('文件超过 50 MB 预览硬上限，请使用原始文件查看')
       }
       const source = new TextDecoder().decode(message.source)
       const parsed: unknown = JSON5.parse(source)

@@ -65,6 +65,18 @@ describe('GKD subscription preview model', () => {
     const value = makeSubscription()
     expect(isRawSubscription(value)).toBe(true)
     expect(isRawSubscription({ id: 1, name: '', version: 2 })).toBe(false)
+    const objectRule = makeSubscription()
+    if (objectRule.apps?.[0]?.groups[0]) {
+      objectRule.apps[0].groups[0].rules = {
+        key: 777,
+        matches: 'TextView[text="继续"]',
+      }
+    }
+    expect(isRawSubscription(objectRule)).toBe(true)
+    expect(getRulesPage(objectRule, 'app', 0, 0, 1, 50).items[0]).toMatchObject({
+      key: 777,
+      matches: 'TextView[text="继续"]',
+    })
     expect(summarizeSubscription(value)).toMatchObject({
       meta: { id: 233, name: 'GKD 测试订阅', version: 123, author: 'tester' },
       stats: {
