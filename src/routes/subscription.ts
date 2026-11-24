@@ -67,6 +67,9 @@ app.all('*', async (c) => {
     return bad('Bad path', 400)
   }
 
+  if (/^v[^/]+\/gkd\.json5$/i.test(path) && !/^v[1-9]\d*\/gkd\.json5$/i.test(path)) {
+    return bad('Invalid version path', 400)
+  }
   const versionMatch = path.match(/^v([1-9]\d*)\/gkd\.json5$/i)
   if (versionMatch) {
     const version = Number(versionMatch[1])
@@ -74,7 +77,14 @@ app.all('*', async (c) => {
     const snapshot = await getVersionSnapshot(c.env, Number(id), version)
     if (!snapshot) return bad('Historical version not found', 404)
     if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {
-      return Response.redirect(new URL(`/preview/${id}?version=${version}`, url), 302)
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: new URL(`/preview/${id}?version=${version}`, url).href,
+          vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
+          'cache-control': 'private, no-store',
+        },
+      })
     }
     let source: string
     try {
@@ -89,7 +99,8 @@ app.all('*', async (c) => {
       'x-content-type-options': 'nosniff',
       'x-gkd-subscription-id': id,
       'x-gkd-subscription-version': String(version),
-      etag: `"${snapshot.contentSha256 || snapshot.commitSha}"`,
+      etag: `"${snapshot.contentSha256}"`,
+      vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
     })
     return new Response(req.method === 'HEAD' ? null : source, { status: 200, headers })
   }
