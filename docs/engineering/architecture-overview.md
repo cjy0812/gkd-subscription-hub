@@ -104,3 +104,13 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - 共享 API DTO 仅在真实重复和兼容成本证明有收益时提取。
 - 管理端页面按复杂度逐步拆分，不按目录模板机械搬迁。
 - 重大跨模块决策写入 docs/adr/。
+
+
+## 订阅版本历史与归档
+
+- `gkd.version.json5` 是当前订阅版本元数据；版本号相同不会创建重复快照。
+- 扫描和刷新通过固定 Commit SHA 记录版本；刷新时先补录旧 Commit 的版本，再记录新版本。
+- 历史 URL 使用 `/<id>/v<version>/gkd.json5`；不通过当前分支或最新版回退伪造旧内容。
+- KV 保存小型版本索引；Git Commit 是可追溯来源，R2 保存不可变副本并用 SHA-256 校验。
+- Worker 可选绑定名为 `HISTORY_ARCHIVE` 的 R2 Bucket。启用后在 `wrangler.jsonc` 中增加 `r2_buckets` binding；未启用时记录状态为 Git-only，并在后续刷新或管理员手动重试时尝试归档。
+- 归档失败不影响 Git 快照读取；Git 与 R2 均不可用时明确返回历史版本不可用，不将最新版作为替代。

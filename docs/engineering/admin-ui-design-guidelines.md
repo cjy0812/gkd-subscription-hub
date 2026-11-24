@@ -89,3 +89,10 @@
 - Addy Osmani, `frontend-ui-engineering`: https://github.com/addyosmani/agent-skills/tree/main/skills/frontend-ui-engineering
 - Vercel, `web-design-guidelines`: https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
 - Vercel Web Interface Guidelines snapshot: https://github.com/vercel-labs/web-interface-guidelines/blob/434b7f91364665f2f733b310ec54809bf8f37937/command.md
+
+
+## 订阅历史的稳定性约束
+
+- 历史版本号以 `dist/gkd.version.json5` 中与订阅 ID 匹配的正整数版本为依据；普通提交不创建新版本。
+- 历史文件使用不可变 Commit SHA 和文件 SHA 定位；R2 对象以订阅 ID、版本号为唯一对象键，重复归档必须幂等。
+- 读取历史时优先读取并校验 R2 副本，失败时回退同一 Commit 的 Git 文件；绝不回退到当前分支的最新版。
