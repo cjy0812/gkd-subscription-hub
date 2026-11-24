@@ -160,7 +160,9 @@ describe('subscription version history', () => {
     const env = { STATE: state.namespace } as Env
     const project = makeProject()
     project.distFiles = [{ path: 'GKD.JSON5', sha: 'upper-blob-sha', size: 100 }]
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response('{id:233,version:643}'))
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL) => new Response('{id:233,version:643}'),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const record = await recordSubscriptionVersion(env, project)
