@@ -1,13 +1,13 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter 扫描 GitHub、GitLab.com、Gitea.com 公开仓库的 `dist/`，按订阅 ID 分配统一路径，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider Adapter 扫描 GitHub、GitLab.com、Gitea.com 公开仓库的 `dist/`，按订阅 ID 提供统一分发路径；根路径为公共只读目录，管理后台独立位于 `/admin/`。
 
 ## 功能
 
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
 - 自动索引 `dist/` 的递归文件树；根路径显示目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
+- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染，允许常见 HTML 但经过严格 allowlist 清理；访问 JSON5 时提供只读树形预览、较大文件的主动加载选项和原始文件入口。
 - `?raw=1` 强制原始内容。
 - GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
@@ -29,7 +29,7 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter �
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
 - 新增订阅源支持 GitHub、GitLab.com、Gitea.com 公开仓库；可读取对应平台分支列表并通过下拉框选择，默认分支置顶。
 - 手动刷新单个订阅源，并查看最近检查错误。
-- 打开项目目录中的 `gkd.json5` 订阅文件，或删除项目元数据。
+- 打开项目 `dist/` 文件目录、复制主订阅 JSON5 地址，或删除项目元数据。
 
 状态标签是根据当前项目记录中的最近检查时间和错误字段推导的，不代表 Worker 正在执行任务，也不代表上游仓库实时可用。自动检查仍由 Worker Cron 负责。
 
@@ -47,14 +47,15 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 所有服务共用一个主机名，通过路径分流，不再使用项目数字子域名：
 
+- 公共门户：`https://gkd.example.com/`（只读订阅源与规则发现目录）
 - 管理端：`https://gkd.example.com/admin/`
 - 文件管理：`https://gkd.example.com/admin/files`
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
-- 项目目录：`https://gkd.example.com/<id>/`
+- 项目目录：`https://gkd.example.com/<id>/dist/`（`/<id>/` 仍作为兼容目录入口）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
 - 通知入口：`POST https://gkd.example.com/hooks/notify`
-- 根路径 `/` 重定向到 `/admin/`；未知路径返回 404。
+- 公共只读 API：`https://gkd.example.com/api/public/*`；未知路径返回 404。
 
 ### 仅使用 workers.dev 时
 
@@ -174,13 +175,13 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 6. 注册订阅
 
-访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
+访问公共门户 `https://<worker-name>.<account-subdomain>.workers.dev/` 浏览目录；管理员访问 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
 
 - GitHub：`https://github.com/<owner>/<repository>`
 - GitLab：`https://gitlab.com/<group>/<subgroup>/<project>`
 - Gitea：`https://gitea.com/<owner>/<repository>`
 
-服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：`https://gkd.example.com/<id>/gkd.json5`。不要使用目录页 URL。
+服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的主订阅链接：`https://gkd.example.com/<id>/gkd.json5`。`/<id>/dist/` 是浏览目录，不是 GKD 订阅地址。
 
 ## 管理 API
 

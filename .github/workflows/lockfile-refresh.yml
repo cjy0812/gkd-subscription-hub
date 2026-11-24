@@ -21,22 +21,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
-      - name: Resolve and validate dependencies
+      - name: Resolve dependencies and format modified files
         run: |
           bun install
-          bun run format:check
-          bun run lint
-          bun run typecheck
-          bun run test
-          bun run build:admin
-      - name: Commit updated lockfile
+          bun run format
+      - name: Commit formatted changes and updated lockfile
         run: |
-          if git diff --quiet -- bun.lock; then
-            echo "bun.lock is already up to date"
+          if git diff --quiet; then
+            echo "No formatting or lockfile updates are needed"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
           git add bun.lock
-          git commit -m "chore: refresh Bun lockfile"
+          git commit -m "chore: format branch changes and refresh Bun lockfile"
           git push

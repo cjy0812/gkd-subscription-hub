@@ -1,6 +1,7 @@
 {
   "name": "gkd-subscription-hub",
   "version": "0.2.0",
+  "description": "GKD Subscription Hub",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-or-later",

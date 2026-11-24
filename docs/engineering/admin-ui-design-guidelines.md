@@ -54,8 +54,8 @@
 
 ## 内容阅读器
 
-- Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染，不需要 Vue 专用 Markdown VNode 渲染器）。通过 `highlight.js/lib/core` + 显式语言子集实现语法高亮，避免导入全语言包；HTML 关闭、协议危险链接由 markdown-it 默认策略拦截。渲染器增加中文标题锚点/目录、代码复制、响应式表格、暗色主题、外链 rel 安全属性和图片 lazy loading。
-- JSON5：当前预览在 Cloudflare Worker 的静态 HTML 路由，不引入 Vue 编辑器。复用 `src/services/json5.ts` 的有界、非 eval 解析器，使用原生 `<details>/<summary>` 生成只读树形视图；支持键名/值搜索、展开/折叠、类型区分和原始文件入口。限制预览输入 500 KB、解析器 2 MB、树节点 20,000、嵌套深度 64；解析失败回退转义后的原文。
+- Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染）。允许常见 HTML 排版标签，但最终 HTML 必须经过 `sanitize-html` 严格 allowlist 清理；脚本、事件属性、内嵌框架、对象、SVG/MathML、危险 URL 和协议相对 URL 均不得通过。外链强制 `noopener noreferrer`，图片仅允许 HTTPS/相对地址。保留 `highlight.js/lib/core` 显式语言子集、标题目录、代码复制和图片 lazy loading。
+- JSON5：复用 `src/services/json5.ts` 的有界、非 eval 解析器，使用原生 `<details>/<summary>` 生成只读树形视图；支持键名/值搜索、展开/折叠、类型区分和原始文件入口。500 KB 以上先提供继续结构化解析的选项；解析器仍限制 2 MB、树节点 20,000、嵌套深度 64；超过硬上限或解析失败时提供原始内容入口。
 - 只读预览与上游原始文件分离；任何格式化不得改变分发给客户端的字节内容。
 - 大文件设置尺寸保护和虚拟滚动；禁止无上限展开导致页面卡死。
 
@@ -71,6 +71,11 @@
 - [ ] 大列表/大文件有性能保护。
 - [ ] 减少动态效果并尊重 prefers-reduced-motion。
 - [ ] CI 通过；真实浏览器验收另行记录，不能以 CI 代替。
+
+## CSS 与图标依赖的 ROI 决策
+
+- 图标使用官方 `@lucide/vue` 包，替换组件内维护的 SVG 字符串/路径映射，统一图标来源和 stroke/size 参数。
+- 当前项目已经具备 Naive UI 和单一的 CSS Design Tokens。现阶段不叠加 Tailwind/UnoCSS，因为会增加第二套样式语法和构建约束；如后续出现大量重复 CSS 且框架能通过可量化试点减少维护代码，再重新评估。此次保留 Naive UI 与现有 Tokens。
 
 ## 阅读器依赖选型证据
 

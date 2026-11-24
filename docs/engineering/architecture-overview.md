@@ -15,15 +15,22 @@
 
 Worker 入口位于 src/index.ts：
 
-- GET /：302 重定向到 /admin/。
+- GET /：提供公共只读门户 SPA。
 - GET /gkd.json5：兼容旧订阅入口，代理旧订阅内容。
 - /admin：重定向到 /admin/。
 - /admin/api/*：去掉 /admin 前缀后交给 Hono Admin Router；API 路由通过 auth middleware。
-- 其他 /admin/*：交给 Worker Static Assets，Vue Router 处理 SPA 页面。
+- 其他 /admin/*：交给 Worker Static Assets，Vue Router 处理受保护管理页面。
 - POST /hooks/notify：验证 NOTIFY_TOKEN、校验仓库格式、确认仓库已登记、检查 KV 冷却键，再用 waitUntil 异步刷新。
-- /{numeric-id}/*：交给订阅分发 Router。
+- /api/public/*：交给只读公共 API，仅注册 GET 路由。\n- /{numeric-id}/*：交给订阅分发 Router；`/<id>/dist/` 展示目录，`/<id>/dist/<file>` 访问文件。
 - 其他路径：404。
 - Cron：每 6 小时触发一次，按项目预测时间检查是否需要刷新。
+
+## 公共门户数据流
+
+1. 浏览器在 `/` 加载公共只读 SPA。
+2. 页面只调用 `/api/public/subscriptions` 与 `/api/public/explorer` 两个 GET 接口。
+3. Worker 返回 allowlist DTO，不暴露 Git Blob SHA、项目错误、扫描任务、配额或写入能力。
+4. 公共目录不读取管理 Token，也不调用 Admin API。
 
 ## 管理端数据流
 
@@ -57,7 +64,7 @@ Worker 入口位于 src/index.ts：
 ### 分发
 
 1. 请求 /{id}/...，从 KV 读取 project:{id}。
-2. 根路径展示当前已索引的 dist 文件目录。
+2. `/<id>/` 和 `/<id>/dist/` 展示当前已索引的 dist 文件目录；文件链接使用 `/dist/` 前缀。
 3. 文件路径必须通过路径校验，并且存在于项目 distFiles 索引中。
 4. 新登记项目的上游文件 URL 由 Provider Adapter 生成：GitHub 按 commit SHA、GitLab 按 blob SHA、Gitea Media API 按 commit SHA；不在分发路由硬编码 GitHub Raw。
 5. 非浏览器请求获取原始内容；浏览器可将 Markdown 渲染为 HTML，或预览 JSON5。
