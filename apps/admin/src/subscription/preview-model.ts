@@ -1,6 +1,5 @@
 import type {
   RawApp,
-  RawAppGroup,
   RawAppRule,
   RawCategory,
   RawGlobalGroup,
@@ -10,7 +9,9 @@ import type {
 
 export type PreviewScope = 'app' | 'global'
 export type PreviewRule = RawAppRule | RawGlobalRule | string
-export type PreviewGroup = RawAppGroup | RawGlobalGroup
+export type PreviewGroup = RawSubscription['globalGroups'] extends Array<infer T>
+  ? T
+  : RawGlobalGroup
 
 export interface SubscriptionStats {
   apps: number
@@ -85,9 +86,10 @@ export function isRawSubscription(value: unknown): value is RawSubscription {
     typeof value.version === 'number' &&
     Number.isSafeInteger(value.version) &&
     typeof value.name === 'string' &&
-    Array.isArray(value.apps || []) &&
-    Array.isArray(value.globalGroups || []) &&
-    Array.isArray(value.categories || [])
+    value.name.trim().length > 0 &&
+    (value.apps === undefined || Array.isArray(value.apps)) &&
+    (value.globalGroups === undefined || Array.isArray(value.globalGroups)) &&
+    (value.categories === undefined || Array.isArray(value.categories))
   )
 }
 
@@ -109,10 +111,10 @@ export function summarizeSubscription(subscription: RawSubscription): {
   stats: SubscriptionStats
 } {
   const apps = subscription.apps || []
-  const globalGroups = subscription.globalGroups || []
+  const globalGroups = (subscription.globalGroups || []) as PreviewGroup[]
   const appGroups = apps.reduce((total, app) => total + app.groups.length, 0)
   const appRules = apps.reduce(
-    (total, app) => total + getRuleCount(app.groups),
+    (total, app) => total + getRuleCount(app.groups as PreviewGroup[]),
     0,
   )
   return {
@@ -167,7 +169,7 @@ export function getAppsPage(
     id: app.id,
     name: app.name || app.id,
     groupCount: app.groups.length,
-    ruleCount: getRuleCount(app.groups),
+    ruleCount: getRuleCount(app.groups as PreviewGroup[]),
   }))
   return paginate(
     apps.filter((app) => includesQuery([app.id, app.name], query)),
