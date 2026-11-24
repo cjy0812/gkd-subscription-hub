@@ -342,10 +342,9 @@ function normalizeRule(rule: PreviewRule): RawAppRule | RawGlobalRule | { matche
   return typeof rule === 'string' ? { matches: rule } : rule
 }
 
-function getRuleMatches(value: unknown): string {
-  return toArray(value as string | string[] | undefined)
-    .map(String)
-    .join('\n')
+function getRuleMatches(value: unknown, maxLength = 2000): string {
+  const text = toArray(value as string | string[] | undefined).map(String).join('\n')
+  return text.length > maxLength ? text.slice(0, maxLength) + '…' : text
 }
 
 function summarizeRule(rule: PreviewRule, index: number): RulePreviewSummary {
