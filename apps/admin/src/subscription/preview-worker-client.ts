@@ -73,19 +73,24 @@ interface PendingRequest {
 }
 
 export class SubscriptionPreviewWorkerClient {
-  private worker: Worker
+  private worker?: Worker
   private requestId = 0
   private pending = new Map<number, PendingRequest>()
   private disposed = false
+  private terminalError?: Error
 
   constructor() {
-    this.worker = new Worker(
-      new URL('../workers/subscription-preview.worker.ts', import.meta.url),
-      { type: 'module', name: 'gkd-subscription-preview' },
-    )
-    this.worker.addEventListener('message', this.onMessage)
-    this.worker.addEventListener('error', this.onError)
-    this.worker.addEventListener('messageerror', this.onMessageError)
+    try {
+      this.worker = new Worker(
+        new URL('../workers/subscription-preview.worker.ts', import.meta.url),
+        { type: 'module', name: 'gkd-subscription-preview' },
+      )
+      this.worker.addEventListener('message', this.onMessage)
+      this.worker.addEventListener('error', this.onError)
+      this.worker.addEventListener('messageerror', this.onMessageError)
+    } catch (error) {
+      this.terminalError = error instanceof Error ? error : new Error(String(error))
+    }
   }
 
   private onMessage = (event: MessageEvent<SubscriptionPreviewWorkerResponse>) => {
@@ -97,12 +102,23 @@ export class SubscriptionPreviewWorkerClient {
     else pending.reject(new Error(message.error))
   }
 
+  private fail(error: Error) {
+    if (this.disposed || this.terminalError) return
+    this.terminalError = error
+    this.rejectAll(error)
+    this.worker?.removeEventListener('message', this.onMessage)
+    this.worker?.removeEventListener('error', this.onError)
+    this.worker?.removeEventListener('messageerror', this.onMessageError)
+    this.worker?.terminate()
+    this.worker = undefined
+  }
+
   private onError = (event: ErrorEvent) => {
-    this.rejectAll(new Error(event.message || 'JSON5 Worker 执行失败'))
+    this.fail(new Error(event.message || 'JSON5 Worker 执行失败'))
   }
 
   private onMessageError = () => {
-    this.rejectAll(new Error('JSON5 Worker 消息传输失败'))
+    this.fail(new Error('JSON5 Worker 消息传输失败'))
   }
 
   private rejectAll(error: Error) {
@@ -112,6 +128,8 @@ export class SubscriptionPreviewWorkerClient {
 
   request<T>(request: RequestWithoutId, transfer: Transferable[] = []): Promise<T> {
     if (this.disposed) return Promise.reject(new Error('预览任务已关闭'))
+    if (this.terminalError) return Promise.reject(this.terminalError)
+    if (!this.worker) return Promise.reject(new Error('JSON5 Worker 不可用'))
     const id = ++this.requestId
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, {
@@ -119,7 +137,7 @@ export class SubscriptionPreviewWorkerClient {
         reject,
       })
       try {
-        this.worker.postMessage({ ...request, id }, transfer)
+        this.worker?.postMessage({ ...request, id }, transfer)
       } catch (error) {
         this.pending.delete(id)
         reject(error instanceof Error ? error : new Error(String(error)))
@@ -162,9 +180,10 @@ export class SubscriptionPreviewWorkerClient {
     if (this.disposed) return
     this.disposed = true
     this.rejectAll(new Error('预览已切换，任务已取消'))
-    this.worker.removeEventListener('message', this.onMessage)
-    this.worker.removeEventListener('error', this.onError)
-    this.worker.removeEventListener('messageerror', this.onMessageError)
-    this.worker.terminate()
+    this.worker?.removeEventListener('message', this.onMessage)
+    this.worker?.removeEventListener('error', this.onError)
+    this.worker?.removeEventListener('messageerror', this.onMessageError)
+    this.worker?.terminate()
+    this.worker = undefined
   }
 }

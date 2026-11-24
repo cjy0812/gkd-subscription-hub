@@ -16,7 +16,7 @@ import {
   NTabs,
   NTag,
 } from 'naive-ui'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import {
   PreviewFileTooLargeError,
@@ -34,7 +34,6 @@ import type {
 } from '../subscription/preview-model'
 
 const route = useRoute()
-const router = useRouter()
 const PAGE_SIZE = 50
 
 const client = ref<SubscriptionPreviewWorkerClient>()
@@ -46,6 +45,22 @@ const meta = ref<SubscriptionMeta>()
 const stats = ref<SubscriptionStats>()
 const loading = ref(false)
 const actionLoading = ref(false)
+let pendingActionRequests = 0
+let appsRequestId = 0
+let groupsRequestId = 0
+let rulesRequestId = 0
+let detailRequestId = 0
+let categoriesRequestId = 0
+
+function beginActionRequest() {
+  pendingActionRequests += 1
+  actionLoading.value = true
+}
+
+function endActionRequest() {
+  pendingActionRequests = Math.max(0, pendingActionRequests - 1)
+  actionLoading.value = pendingActionRequests > 0
+}
 const error = ref('')
 const largeFileBytes = ref<number | null>(null)
 const activeTab = ref('apps')
@@ -77,6 +92,18 @@ const filePath = computed(() => {
   const value = route.query.file
   return typeof value === 'string' && value.trim() ? value : 'gkd.json5'
 })
+const invalidFilePath = computed(() => {
+  const value = route.query.file
+  if (value == null) return false
+  if (typeof value !== 'string' || !value.trim()) return true
+  return (
+    value.startsWith('/') ||
+    value.includes('\\\\') ||
+    value.includes(String.fromCharCode(0)) ||
+    value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
+  )
+})
+const invalidVersion = computed(() => route.query.version != null && version.value === null)
 const pageTitle = computed(() => meta.value?.name || 'GKD 订阅预览')
 const sourceUrl = computed(() => {
   if (version.value) return `/${subscriptionId.value}/v${version.value}/gkd.json5?raw=1`
@@ -88,7 +115,12 @@ const metadataLinkBase = computed(() =>
 )
 const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
 const safeSupportUrl = computed(() => safeHttpUrl(meta.value?.supportUri, metadataLinkBase.value))
-const safeCheckUrl = computed(() => safeHttpUrl(meta.value?.checkUpdateUrl, metadataLinkBase.value))
+const safeCheckUrl = computed(() =>
+  safeHttpUrl(
+    meta.value?.checkUpdateUrl,
+    safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value) || metadataLinkBase.value,
+  ),
+)
 const isVersionMismatch = computed(() => Boolean(meta.value && meta.value.id !== subscriptionId.value))
 
 function safeHttpUrl(value?: string, baseUrl = sourceUrl.value): string | undefined {
@@ -119,7 +151,8 @@ function resetDetailState() {
 async function loadApps(page = appPage.value) {
   const instance = client.value
   if (!instance) return
-  actionLoading.value = true
+  const requestId = ++appsRequestId
+  beginActionRequest()
   error.value = ''
   try {
     const result = await instance.request<PageResult<AppPreviewSummary>>({
@@ -128,12 +161,15 @@ async function loadApps(page = appPage.value) {
       pageSize: PAGE_SIZE,
       query: appQuery.value,
     })
+    if (requestId !== appsRequestId || client.value !== instance) return
     apps.value = result
     appPage.value = result.page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '读取应用列表失败'
+    if (requestId === appsRequestId && client.value === instance) {
+      error.value = cause instanceof Error ? cause.message : '读取应用列表失败'
+    }
   } finally {
-    actionLoading.value = false
+    endActionRequest()
   }
 }
 
@@ -144,7 +180,8 @@ async function loadGroups(
 ) {
   const instance = client.value
   if (!instance) return
-  actionLoading.value = true
+  const requestId = ++groupsRequestId
+  beginActionRequest()
   error.value = ''
   try {
     const result = await instance.request<PageResult<GroupPreviewSummary>>({
@@ -155,12 +192,20 @@ async function loadGroups(
       pageSize: PAGE_SIZE,
       query: groupQuery.value,
     })
+    const stillSelected =
+      requestId === groupsRequestId &&
+      client.value === instance &&
+      groupScope.value === scope &&
+      (scope === 'global' || selectedApp.value?.index === appIndex)
+    if (!stillSelected) return
     groups.value = result
     groupPage.value = result.page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '读取规则组失败'
+    if (requestId === groupsRequestId && client.value === instance) {
+      error.value = cause instanceof Error ? cause.message : '读取规则组失败'
+    }
   } finally {
-    actionLoading.value = false
+    endActionRequest()
   }
 }
 
@@ -168,24 +213,36 @@ async function loadRules(page = rulePage.value) {
   const instance = client.value
   const group = selectedGroup.value
   if (!instance || !group) return
-  actionLoading.value = true
+  const requestId = ++rulesRequestId
+  const selectedAppIndex = groupScope.value === 'app' ? selectedApp.value?.index : undefined
+  const selectedScope = groupScope.value
+  beginActionRequest()
   error.value = ''
   try {
     const result = await instance.request<PageResult<RulePreviewSummary>>({
       type: 'rules-page',
       scope: groupScope.value,
-      appIndex: groupScope.value === 'app' ? selectedApp.value?.index : undefined,
+      appIndex: selectedAppIndex,
       groupIndex: group.index,
       page,
       pageSize: PAGE_SIZE,
       query: ruleQuery.value,
     })
+    const stillSelected =
+      requestId === rulesRequestId &&
+      client.value === instance &&
+      selectedGroup.value?.index === group.index &&
+      groupScope.value === selectedScope &&
+      (selectedScope === 'global' || selectedApp.value?.index === selectedAppIndex)
+    if (!stillSelected) return
     rules.value = result
     rulePage.value = result.page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '读取规则列表失败'
+    if (requestId === rulesRequestId && client.value === instance) {
+      error.value = cause instanceof Error ? cause.message : '读取规则列表失败'
+    }
   } finally {
-    actionLoading.value = false
+    endActionRequest()
   }
 }
 
@@ -195,6 +252,9 @@ async function selectApp(app: AppPreviewSummary) {
   selectedRule.value = undefined
   ruleDetail.value = undefined
   rules.value = undefined
+  groups.value = undefined
+  rulesRequestId += 1
+  detailRequestId += 1
   groupScope.value = 'app'
   groupPage.value = 1
   groupQuery.value = ''
@@ -207,6 +267,9 @@ async function selectGlobalGroups() {
   selectedRule.value = undefined
   ruleDetail.value = undefined
   rules.value = undefined
+  groups.value = undefined
+  rulesRequestId += 1
+  detailRequestId += 1
   groupScope.value = 'global'
   groupPage.value = 1
   groupQuery.value = ''
@@ -218,6 +281,8 @@ async function selectGroup(group: GroupPreviewSummary) {
   selectedRule.value = undefined
   ruleDetail.value = undefined
   rules.value = undefined
+  rulesRequestId += 1
+  detailRequestId += 1
   rulePage.value = 1
   ruleQuery.value = ''
   await loadRules(1)
@@ -229,26 +294,41 @@ async function selectRule(rule: RulePreviewSummary) {
   const instance = client.value
   const group = selectedGroup.value
   if (!instance || !group) return
-  actionLoading.value = true
+  const requestId = ++detailRequestId
+  const selectedScope = groupScope.value
+  const selectedAppIndex = selectedScope === 'app' ? selectedApp.value?.index : undefined
+  beginActionRequest()
   try {
-    ruleDetail.value = await instance.request<unknown>({
+    const result = await instance.request<unknown>({
       type: 'rule-detail',
-      scope: groupScope.value,
-      appIndex: groupScope.value === 'app' ? selectedApp.value?.index : undefined,
+      scope: selectedScope,
+      appIndex: selectedAppIndex,
       groupIndex: group.index,
       ruleIndex: rule.index,
     })
+    if (
+      requestId === detailRequestId &&
+      client.value === instance &&
+      selectedGroup.value?.index === group.index &&
+      selectedRule.value?.index === rule.index &&
+      groupScope.value === selectedScope
+    ) {
+      ruleDetail.value = result
+    }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '读取规则详情失败'
+    if (requestId === detailRequestId && client.value === instance) {
+      error.value = cause instanceof Error ? cause.message : '读取规则详情失败'
+    }
   } finally {
-    actionLoading.value = false
+    endActionRequest()
   }
 }
 
 async function loadCategories(page = categoryPage.value) {
   const instance = client.value
   if (!instance) return
-  actionLoading.value = true
+  const requestId = ++categoriesRequestId
+  beginActionRequest()
   error.value = ''
   try {
     const result = await instance.request<PageResult<CategoryPreviewSummary>>({
@@ -257,12 +337,15 @@ async function loadCategories(page = categoryPage.value) {
       pageSize: PAGE_SIZE,
       query: categoryQuery.value,
     })
+    if (requestId !== categoriesRequestId || client.value !== instance) return
     categories.value = result
     categoryPage.value = result.page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '读取分类失败'
+    if (requestId === categoriesRequestId && client.value === instance) {
+      error.value = cause instanceof Error ? cause.message : '读取分类失败'
+    }
   } finally {
-    actionLoading.value = false
+    endActionRequest()
   }
 }
 
@@ -278,8 +361,27 @@ async function loadSubscription(allowLarge = false) {
     error.value = '订阅 ID 无效'
     return
   }
+  if (invalidVersion.value) {
+    client.value = undefined
+    loading.value = false
+    error.value = '历史版本号无效，未请求当前最新版'
+    return
+  }
+  if (invalidFilePath.value) {
+    client.value = undefined
+    loading.value = false
+    error.value = '订阅文件路径无效'
+    return
+  }
   client.value = undefined
   resetDetailState()
+  appsRequestId += 1
+  groupsRequestId += 1
+  rulesRequestId += 1
+  detailRequestId += 1
+  categoriesRequestId += 1
+  pendingActionRequests = 0
+  actionLoading.value = false
   activeTab.value = 'apps'
   groupScope.value = 'app'
   appQuery.value = ''
@@ -353,7 +455,7 @@ async function loadRawSource() {
 }
 
 function backToDirectory() {
-  void router.push(`/${subscriptionId.value}/dist/`)
+  window.location.assign(`/${subscriptionId.value}/dist/`)
 }
 
 function openRawFile() {
@@ -388,6 +490,13 @@ watch(categoryQuery, () => {
 watch(activeTab, (tab) => {
   if (tab === 'global' && groupScope.value !== 'global') void selectGlobalGroups()
   if (tab === 'categories' && !categories.value) void loadCategories(1)
+  if (tab === 'raw') void loadRawSource()
+  else {
+    rawAbortController.value?.abort()
+    rawAbortController.value = undefined
+    rawSource.value = null
+    rawLoading.value = false
+  }
 })
 
 onBeforeUnmount(() => {
@@ -613,6 +722,7 @@ onBeforeUnmount(() => {
                 <textarea
                   v-if="rawSource !== null"
                   class="raw-source"
+                  aria-label="原始 JSON5 内容"
                   :value="rawSource"
                   readonly
                   spellcheck="false"
