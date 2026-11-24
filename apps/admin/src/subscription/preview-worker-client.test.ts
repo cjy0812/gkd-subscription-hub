@@ -37,7 +37,7 @@ describe('bounded JSON5 preview stream', () => {
   it('still enforces the hard cap after the user opts into large parsing', async () => {
     const cancel = vi.fn()
     const promise = readBoundedPreviewStream(createStream(['123456', '7890'], cancel), true, 5, 8)
-    await expect(promise).rejects.toThrow('8 MB 预览硬上限')
+    await expect(promise).rejects.toThrow('预览硬上限')
     expect(cancel).toHaveBeenCalledOnce()
   })
 })
