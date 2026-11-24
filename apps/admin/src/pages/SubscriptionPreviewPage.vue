@@ -572,7 +572,7 @@ onBeforeUnmount(() => {
             <n-tab-pane name="apps" tab="应用规则">
               <div class="tab-toolbar">
                 <div><h2>应用列表</h2><p>按应用分页浏览，每页 50 项；选择应用后才加载它的规则组。</p></div>
-                <label class="search-field"><span>应用搜索</span><n-input v-model:value="appQuery" clearable size="small" aria-label="搜索包名或应用名称" placeholder="输入包名或应用名称" class="search-input" /></label>
+                <div class="search-field"><span id="app-search-label">应用搜索</span><n-input v-model:value="appQuery" clearable size="small" aria-labelledby="app-search-label" placeholder="输入包名或应用名称" class="search-input" /></div>
               </div>
               <n-spin :show="actionLoading">
                 <n-empty v-if="apps && apps.items.length === 0" description="没有匹配的应用" />
@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="tab-toolbar compact-toolbar">
                   <span>规则组 · {{ groups?.total ?? selectedApp.groupCount }}</span>
-                  <label class="search-field"><span>规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-label="搜索规则组名称" placeholder="输入规则组名称" class="search-input" /></label>
+                  <div class="search-field"><span id="group-search-label">规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-labelledby="group-search-label" placeholder="输入规则组名称" class="search-input" /></div>
                 </div>
                 <n-empty v-if="groups && !groups.items.length" description="没有匹配的规则组" />
                 <div class="group-list">
@@ -626,7 +626,7 @@ onBeforeUnmount(() => {
                     <div v-if="selectedGroup?.index === group.index && groupScope === 'app'" class="rule-panel">
                       <div class="tab-toolbar compact-toolbar">
                         <span>规则列表</span>
-                        <label class="search-field"><span>规则搜索</span><n-input v-model:value="ruleQuery" clearable size="small" aria-label="搜索规则名、选择器或动作" placeholder="输入规则名、选择器或动作" class="search-input" /></label>
+                        <div class="search-field"><span id="rule-search-label">规则搜索</span><n-input v-model:value="ruleQuery" clearable size="small" aria-labelledby="rule-search-label" placeholder="输入规则名、选择器或动作" class="search-input" /></div>
                       </div>
                       <n-empty v-if="rules && !rules.items.length" description="该规则组没有匹配的规则" />
                       <div v-for="rule in rules?.items || []" :key="rule.index" class="rule-row">
@@ -654,7 +654,7 @@ onBeforeUnmount(() => {
             <n-tab-pane name="global" tab="全局规则">
               <div class="tab-toolbar">
                 <div><h2>全局规则组</h2><p>只在打开此标签时加载全局规则组；规则详情按需读取。</p></div>
-                <label class="search-field"><span>全局规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-label="搜索全局规则组" placeholder="输入规则组名称" class="search-input" /></label>
+                <div class="search-field"><span id="global-group-search-label">全局规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-labelledby="global-group-search-label" placeholder="输入规则组名称" class="search-input" /></div>
               </div>
               <n-empty v-if="groups && !groups.items.length" description="没有全局规则组" />
               <div class="group-list">
@@ -676,7 +676,7 @@ onBeforeUnmount(() => {
                   <div v-if="selectedGroup?.index === group.index && groupScope === 'global'" class="rule-panel">
                     <div class="tab-toolbar compact-toolbar">
                       <span>规则列表</span>
-                      <label class="search-field"><span>全局规则搜索</span><n-input v-model:value="ruleQuery" clearable size="small" aria-label="搜索全局规则名、选择器或动作" placeholder="输入规则名、选择器或动作" class="search-input" /></label>
+                      <div class="search-field"><span id="global-rule-search-label">全局规则搜索</span><n-input v-model:value="ruleQuery" clearable size="small" aria-labelledby="global-rule-search-label" placeholder="输入规则名、选择器或动作" class="search-input" /></div>
                     </div>
                     <div v-for="rule in rules?.items || []" :key="rule.index" class="rule-row">
                       <button class="rule-summary" type="button" @click="selectRule(rule)">
@@ -702,7 +702,7 @@ onBeforeUnmount(() => {
             <n-tab-pane name="categories" tab="分类">
               <div class="tab-toolbar">
                 <div><h2>订阅分类</h2><p>分类默认状态决定捕获的应用规则组是否启用。</p></div>
-                <label class="search-field"><span>分类搜索</span><n-input v-model:value="categoryQuery" clearable size="small" aria-label="搜索分类名称或 Key" placeholder="输入分类名称或 Key" class="search-input" /></label>
+                <div class="search-field"><span id="category-search-label">分类搜索</span><n-input v-model:value="categoryQuery" clearable size="small" aria-labelledby="category-search-label" placeholder="输入分类名称或 Key" class="search-input" /></div>
               </div>
               <n-empty v-if="categories && !categories.items.length" description="没有分类" />
               <div v-for="category in categories?.items || []" :key="category.key" class="category-row">
