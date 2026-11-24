@@ -8,12 +8,12 @@ import {
 import { parseJson5 } from './json5'
 import { fetchProjectFile, readRepositoryFileAtRef } from './providers'
 
-const MAX_HISTORY_SNAPSHOT_BYTES = 50 * 1024 * 1024
+const MAX_HISTORY_SNAPSHOT_BYTES = 20 * 1024 * 1024
 
 export class HistorySnapshotTooLargeError extends Error {
   constructor(readonly byteLength: number) {
     super(
-      '历史订阅文件超过 50 MB 安全读取上限（约 ' +
+      '历史订阅文件超过 20 MB 安全读取上限（约 ' +
         (byteLength / 1024 / 1024).toFixed(1) +
         ' MB）',
     )

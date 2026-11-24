@@ -88,7 +88,7 @@ async function readIndexedSnapshots(env: Env, id: number): Promise<VersionSnapsh
 }
 
 export async function listVersionSnapshots(env: Env, id: number): Promise<VersionSnapshot[]> {
-  // Read the legacy array while older deployments' history records are migrated lazily.
+  // Read the legacy array for backwards compatibility with snapshots written by older deployments.
   const legacy = await env.STATE.get<VersionSnapshot[]>(legacyKey(id), 'json')
   const indexed = await readIndexedSnapshots(env, id)
   const candidates = [
