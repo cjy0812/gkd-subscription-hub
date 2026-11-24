@@ -20,13 +20,92 @@ export interface VersionSnapshot {
   archiveError?: string
 }
 
-function key(id: number) {
+function legacyKey(id: number) {
   return `history:${id}:versions`
 }
 
+function snapshotPrefix(id: number) {
+  return `history:${id}:snapshot:`
+}
+
+function snapshotKey(snapshot: VersionSnapshot) {
+  return (
+    snapshotPrefix(snapshot.id) +
+    `${snapshot.version}:${snapshot.archiveStatus}:${snapshot.commitSha}`
+  )
+}
+
+function normalizeSnapshot(snapshot: VersionSnapshot): VersionSnapshot {
+  if (
+    snapshot.archiveStatus !== 'git-only' ||
+    !snapshot.contentSha256 ||
+    !/^[a-f0-9]{64}$/i.test(snapshot.contentSha256)
+  ) {
+    return {
+      ...snapshot,
+      archiveStatus: 'unavailable',
+      contentSha256: undefined,
+      archiveError: snapshot.archiveError || '历史快照缺少有效的 SHA-256 校验值',
+    }
+  }
+  return snapshot
+}
+
+function snapshotRank(snapshot: VersionSnapshot): number {
+  return snapshot.archiveStatus === 'git-only' && snapshot.contentSha256 ? 0 : 1
+}
+
+function preferSnapshot(current: VersionSnapshot, candidate: VersionSnapshot): VersionSnapshot {
+  const rankDifference = snapshotRank(candidate) - snapshotRank(current)
+  if (rankDifference < 0) return candidate
+  if (rankDifference > 0) return current
+  if (candidate.createdAt !== current.createdAt) {
+    return candidate.createdAt < current.createdAt ? candidate : current
+  }
+  return candidate.commitSha.localeCompare(current.commitSha) < 0 ? candidate : current
+}
+
+async function readIndexedSnapshots(env: Env, id: number): Promise<VersionSnapshot[]> {
+  const result: VersionSnapshot[] = []
+  let cursor: string | undefined
+
+  do {
+    const page = await env.STATE.list({
+      prefix: snapshotPrefix(id),
+      limit: 1000,
+      ...(cursor ? { cursor } : {}),
+    })
+    const snapshots = await Promise.all(
+      page.keys.map((entry) => env.STATE.get<VersionSnapshot>(entry.name, 'json')),
+    )
+    for (const snapshot of snapshots) {
+      if (snapshot) result.push(normalizeSnapshot(snapshot))
+    }
+    cursor = page.list_complete ? undefined : page.cursor
+  } while (cursor)
+
+  return result
+}
+
 export async function listVersionSnapshots(env: Env, id: number): Promise<VersionSnapshot[]> {
-  const value = await env.STATE.get<VersionSnapshot[]>(key(id), 'json')
-  return Array.isArray(value) ? value : []
+  // Read the legacy array while older deployments' history records are migrated lazily.
+  const legacy = await env.STATE.get<VersionSnapshot[]>(legacyKey(id), 'json')
+  const indexed = await readIndexedSnapshots(env, id)
+  const candidates = [
+    ...(Array.isArray(legacy) ? legacy.map(normalizeSnapshot) : []),
+    ...indexed,
+  ]
+  const byVersion = new Map<number, VersionSnapshot>()
+
+  for (const snapshot of candidates) {
+    const current = byVersion.get(snapshot.version)
+    byVersion.set(
+      snapshot.version,
+      current ? preferSnapshot(current, snapshot) : snapshot,
+    )
+  }
+
+  return [...byVersion.values()].sort((a, b) => a.version - b.version)
 }
 
 export async function getVersionSnapshot(
@@ -38,10 +117,23 @@ export async function getVersionSnapshot(
 }
 
 export async function saveVersionSnapshot(env: Env, snapshot: VersionSnapshot): Promise<void> {
-  const items = await listVersionSnapshots(env, snapshot.id)
-  const index = items.findIndex((item) => item.version === snapshot.version)
-  if (index >= 0) items[index] = snapshot
-  else items.push(snapshot)
-  items.sort((a, b) => a.version - b.version)
-  await env.STATE.put(key(snapshot.id), JSON.stringify(items))
+  if (!Number.isSafeInteger(snapshot.id) || snapshot.id <= 0) {
+    throw new Error('Invalid subscription ID for version snapshot')
+  }
+  if (!Number.isSafeInteger(snapshot.version) || snapshot.version <= 0) {
+    throw new Error('Invalid subscription version snapshot')
+  }
+  if (!snapshot.commitSha || !snapshot.fileSha) {
+    throw new Error('Version snapshot requires immutable Git commit and blob SHAs')
+  }
+  if (
+    snapshot.archiveStatus === 'git-only' &&
+    (!snapshot.contentSha256 || !/^[a-f0-9]{64}$/i.test(snapshot.contentSha256))
+  ) {
+    throw new Error('Git-only version snapshot requires a valid SHA-256 checksum')
+  }
+
+  // Each immutable snapshot has its own KV key. Concurrent releases no longer
+  // perform a read-modify-write of one shared per-project array.
+  await env.STATE.put(snapshotKey(snapshot), JSON.stringify(snapshot))
 }
