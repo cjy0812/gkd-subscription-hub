@@ -30,7 +30,8 @@ describe('Markdown preview renderer', () => {
     expect(html).not.toContain('<script')
     expect(html).not.toContain('<iframe')
     expect(html).not.toContain('href="javascript:')
-    expect(html).not.toContain('alert(1)')
+    expect(html).toContain('[bad](javascript:alert(1))')
+    expect(html).not.toContain('src="javascript:')
   })
 
   it('highlights registered code languages and safely escapes unknown languages', () => {

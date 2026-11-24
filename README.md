@@ -5,7 +5,7 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 ## 功能
 
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
-- 自动索引 `dist/` 的递归文件树；根路径显示目录。
+- 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/dist/` 展示订阅文件目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
 - 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染，允许常见 HTML 但经过严格 allowlist 清理；访问 JSON5 时提供只读树形预览、较大文件的主动加载选项和原始文件入口。
 - `?raw=1` 强制原始内容。

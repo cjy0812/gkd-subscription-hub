@@ -104,9 +104,10 @@ onMounted(() => { void load() })
 .portal-section-heading h2{margin:0 0 5px;font-size:21px}.portal-section-heading p{margin:0;color:var(--color-text-secondary);font-size:13px}
 .portal-card{height:100%;border:1px solid var(--color-border);border-radius:var(--radius-large);box-shadow:var(--shadow-card)}
 .portal-card-top{display:flex;align-items:center;justify-content:space-between}.portal-id{font-weight:700;color:var(--color-accent);font-variant-numeric:tabular-nums}
+.portal-footer{border-top:1px solid var(--color-border);padding-top:20px;color:var(--color-text-secondary);font-size:12px}.portal-footer a{color:inherit}
+.portal-error{margin:16px 0}
 .portal-card h3{font-size:16px;overflow-wrap:anywhere;margin:16px 0 6px}.portal-card h3 a{color:inherit;text-decoration:none}.portal-card h3 a:hover{color:var(--color-accent)}
 .portal-card .portal-meta{min-height:38px;overflow-wrap:anywhere}.portal-card a{color:var(--color-accent);text-decoration:none}.portal-card a:hover{text-decoration:underline}
 .rule-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--color-border)}.rule-row span{font-size:12px;color:var(--color-text-secondary)}
-.portal-error{margin:16px 0}.portal-footer{border-top:1px solid var(--color-border);padding-top:20px;color:var(--color-text-secondary);font-size:12px}.portal-footer a{color:inherit}
 @media(max-width:600px){.portal-page{padding:16px 16px 36px}.portal-hero{padding:48px 0 32px}.portal-section-heading{align-items:flex-start}.portal-card .portal-meta{min-height:0}}
 </style>

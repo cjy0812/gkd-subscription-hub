@@ -90,7 +90,8 @@ describe('subscription version history', () => {
       archiveStatus: 'git-only',
     })
     expect(await listVersionSnapshots(env, 233)).toHaveLength(1)
-    expect(await readVersionContent(env, record!)).toBe('{id:233,version:643}')
+    if (!record) throw new Error('Expected a recorded Git history snapshot')
+    expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
   })
 
   it('stores and verifies the R2 copy when an archive binding is configured', async () => {
@@ -110,7 +111,8 @@ describe('subscription version history', () => {
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record?.archiveStatus).toBe('r2-archived')
     expect(bucket.put).toHaveBeenCalledOnce()
-    expect(await readVersionContent(env, record!)).toBe('{id:233,version:643}')
+    if (!record) throw new Error('Expected an R2-archived snapshot')
+    expect(await readVersionContent(env, record)).toBe('{id:233,version:643}')
     expect(bucket.get).toHaveBeenCalledWith('subscriptions/233/v643/gkd.json5')
   })
 })
