@@ -7,7 +7,7 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
 - 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/dist/` 展示订阅文件目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染，允许常见 HTML 但经过严格 allowlist 清理；访问 JSON5 时提供只读树形预览、较大文件的主动加载选项和原始文件入口。
+- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用 GKD 专用页面，复用官方 `@gkd-kit/api` 类型，在 Web Worker 中解析；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。超过 10 MB 会先询问，用户可选择继续结构化解析（最高 50 MB），更大文件使用原始文件入口。
 - `?raw=1` 强制原始内容。
 - GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
@@ -24,7 +24,7 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 - 订阅管理、仪表盘和 Explorer 共用 AdminLayout；桌面端采用左侧图标导航，悬停显示菜单名称，移动端使用抽屉导航；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
 - 运行监控按项目 → Workflow YAML 文件 → Run 分层展示 GitHub Actions 缓存记录，显示 workflow 文件路径、触发方式、状态与更新时间；Job/Step 留在 GitHub 单次运行详情中。GitLab/Gitea 暂无等价 YAML Workflow 文件索引；页面读取缓存快照，不会自动轮询上游。
-- 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
+- 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；JSON5 打开 GKD 专用预览，Markdown 使用安全阅读器，其他文件提供原始文件入口，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
 - 新增订阅源支持 GitHub、GitLab.com、Gitea.com 公开仓库；可读取对应平台分支列表并通过下拉框选择，默认分支置顶。
@@ -53,6 +53,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
 - 项目目录：`https://gkd.example.com/<id>/dist/`（`/<id>/` 仍作为兼容目录入口）
+- JSON5 预览：`https://gkd.example.com/preview/<id>?file=gkd.json5`（浏览器 UI；GKD 客户端仍使用原始订阅 URL）
 - 历史订阅：`https://gkd.example.com/<id>/v<version>/gkd.json5`（版本号来自 `gkd.version.json5`，不代表每日 commit）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
 - 通知入口：`POST https://gkd.example.com/hooks/notify`
@@ -80,7 +81,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。业务状态继续使用 Composition API，不额外引入 Pinia。
 - **后端**：Cloudflare Workers、Hono、KV；历史订阅只通过 Git 固定 Commit 追溯，不启用 R2，避免引入额外对象存储计费风险。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
-- **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js（按需语言子集代码高亮）。
+- **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js；GKD JSON5 使用 `@gkd-kit/api` 与 `json5`，并在专用 Web Worker 中解析。
 
 Vue SFC 使用 Biome 2.6.8 的实验性 HTML super-language 进行 Lint，并由 vue-tsc 负责模板/脚本类型检查；CI 已观察到 `noUnusedImports` 对模板中实际使用的组件产生误报，因此仅对 Vue SFC 关闭该规则。由于格式化器仍属实验性且可能造成较大模板格式变动，当前明确关闭 Vue SFC 格式化。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的质量缺口，再单独评估补充工具。
 
@@ -93,6 +94,8 @@ apps/
       layouts/           # 管理端共享布局
       pages/             # Vue 页面
       styles/            # Design Tokens 与全局样式
+      subscription/      # GKD 订阅预览模型与 Worker 通信
+      workers/           # 浏览器端 JSON5 解析 Worker
     index.html
     vite.config.ts
 src/

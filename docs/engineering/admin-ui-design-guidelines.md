@@ -55,9 +55,10 @@
 ## 内容阅读器
 
 - Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染）。允许常见 HTML 排版标签，但最终 HTML 必须经过 `sanitize-html` 严格 allowlist 清理；脚本、事件属性、内嵌框架、对象、SVG/MathML、危险 URL 和协议相对 URL 均不得通过。外链强制 `noopener noreferrer`，图片仅允许 HTTPS/相对地址。保留 `highlight.js/lib/core` 显式语言子集、标题目录、代码复制和图片 lazy loading。
-- JSON5：复用 `src/services/json5.ts` 的有界、非 eval 解析器，使用原生 `<details>/<summary>` 生成只读树形视图；支持键名/值搜索、展开/折叠、类型区分和原始文件入口。500 KB 以上先提供继续结构化解析的选项；解析器仍限制 2 MB、树节点 20,000、嵌套深度 64；超过硬上限或解析失败时提供原始内容入口。
-- 只读预览与上游原始文件分离；任何格式化不得改变分发给客户端的字节内容。
-- 大文件先按尺寸提示用户选择结构化加载；当前 Worker 服务端树形预览限制 2 MB 输入与 20,000 个节点。超过硬上限显示原始文件。当前尚未实现浏览器端 Web Worker/虚拟滚动，不能将节点上限描述为虚拟化。
+- JSON5：浏览器端使用 GKD 专用预览页，类型直接来自官方 `@gkd-kit/api`（`RawSubscription`、`RawApp`、`RawAppGroup`、`RawGlobalGroup`、`RawCategory`），用 `json5` 在独立 Web Worker 解析。应用列表、规则组和规则列表每页 50 项；用户选择应用后才请求规则组，展开规则组后才请求规则摘要，点击单条规则后才请求完整详情。全局规则与分类各自懒加载。
+- 原始 JSON5 文本不在解析时复制到主线程；解析输入的 ArrayBuffer 转移给 Worker。原始 JSON5 标签只在用户主动打开时重新请求并显示；切换订阅或离开页面时取消 fetch、终止 Worker、清理待处理任务。
+- 大文件保护采用两阶段策略：10 MB 以内自动结构化解析；10–50 MB 显示明确警告，用户主动选择后再解析；超过 50 MB 保留原始文件入口。这个硬上限是浏览器内存保护，不应描述成无限文件支持。
+- 只读预览与上游原始文件分离；格式化不得改变分发给 GKD 客户端的原始字节内容。GKD 客户端原订阅 URL 不重定向；仅浏览器 HTML 导航重定向到预览 SPA。
 
 ## 完成交付检查
 
@@ -79,10 +80,9 @@
 
 ## 阅读器依赖选型证据
 
-- `markdown-it` 是当前 Worker HTML 预览路径的合适基础：支持 CommonMark/GFM 表格与扩展、可定制 renderer/highlight hook；保留现有依赖可避免把 Vue 组件体系带入 Worker。VueMarkik 等 Vue VNode renderer 不适用于当前服务端 HTML 响应路径。
-
-- 不采用 `json-editor-vue` / `vue-json-pretty`：当前预览执行在 Worker 静态 HTML 路由，不在 Vue SPA 中；原生 details 树可以避免新增客户端框架依赖，也能复用项目已有 JSON5 parser。
-- 不引入 Shiki：当前渲染运行在 Cloudflare Worker 请求路径，使用 `highlight.js/lib/core` + 显式语言子集，避免 Shiki 主题/语法引擎带来的额外 Worker 包体积与初始化成本。
+- Markdown 保留 Worker 侧 `markdown-it` 服务端 HTML 输出，配合 `sanitize-html` allowlist 过滤；不把 Markdown 原始 HTML 直接交给浏览器执行。
+- GKD JSON5 预览直接参考 `gkd-kit/inspect` 的 `SubscriptionPreview.vue`、`SubscriptionDirectoryPreview.vue`、`directory_preview.ts` 与 `JsonPreview.vue`。采用官方 `@gkd-kit/api` 类型，不手工复制不完整的 GKD 数据结构。
+- 不使用递归渲染完整 JSON DOM 的方式处理大型订阅；将解析和数据分页放入 Worker，主线程只渲染当前分页和展开详情。保留原始 JSON5 入口供排错和兼容。
 
 ## 上游 Skill 来源
 
@@ -93,5 +93,5 @@
 ## 订阅历史的稳定性约束
 
 - 历史版本号以 `dist/gkd.version.json5` 中与订阅 ID 匹配的正整数版本为依据；普通提交不创建新版本。
-- 历史文件使用不可变 Commit SHA 和文件 SHA 定位；R2 对象以订阅 ID、版本号为唯一对象键，重复归档必须幂等。
-- 读取历史时优先读取并校验 R2 副本，失败时回退同一 Commit 的 Git 文件；绝不回退到当前分支的最新版。
+- 历史文件使用不可变 Commit SHA 和文件 Blob SHA 定位，读取时校验 SHA-256。
+- 本项目严格采用 Git-only，不配置 R2 Bucket、不执行 R2 读写，也不保留任何 R2 归档 API。上游 Git 历史被删除或改写时，历史版本可能不可恢复；明确标记不可用，绝不使用最新版冒充历史版本。

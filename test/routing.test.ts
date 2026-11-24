@@ -39,6 +39,18 @@ describe('top-level routing', () => {
     expect(await response.json()).toMatchObject({ ok: true, subscriptions: [] })
   })
 
+  it('serves the GKD preview SPA for its deep link', async () => {
+    const env = environment()
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('/')
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
+  })
+
   it('serves the admin SPA from the assets root', async () => {
     const env = environment()
     const response = await worker.fetch(new Request('https://gkd.example.com/admin/'), env, context)

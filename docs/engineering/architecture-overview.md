@@ -114,3 +114,12 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - KV 仅保存小型版本索引；Git 固定 Commit SHA 与文件 Blob SHA 是唯一历史来源，读取时校验 SHA-256。
 - Worker 不绑定 R2、不写入 R2，也不提供任何 R2 归档 API，避免订阅服务因对象存储用量超额而产生额外费用。
 - 上游 Git 历史被删除或改写后，历史版本可能不可恢复；必须明确显示不可用，绝不以最新版冒充历史快照。
+
+
+## GKD JSON5 预览器
+
+- 浏览器对订阅 JSON5 的 HTML 导航使用 `/preview/<id>?file=<dist-path>`；历史版本使用 `/preview/<id>?version=<version>`。GKD 客户端访问 `/<id>/gkd.json5` 与历史 URL 时仍获得原始 JSON5 字节，不改变订阅 URL 兼容性。
+- Preview SPA 在同源读取 JSON5，默认结构化预览上限 10 MB；10–50 MB 需要用户主动选择继续，超过 50 MB 提供原始文件入口。
+- 主线程将 ArrayBuffer 转移给独立 Web Worker；Worker 内使用 JSON5 和官方 `@gkd-kit/api` 的订阅结构完成解析及数据摘要。应用、规则组、规则分页每页 50 项，规则详情按需请求。
+- 原始 JSON5 文本只在用户打开原始 Tab 后重新请求；页面切换/卸载时取消网络请求并终止 Worker。
+- 此预览器只用于交互展示，不改写上游 JSON5，不将 HTML 预览内容作为 GKD 订阅响应。
