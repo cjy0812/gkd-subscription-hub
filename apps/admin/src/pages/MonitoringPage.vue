@@ -48,6 +48,9 @@ function runStatusType(run: MonitoringRun): 'success' | 'error' | 'info' | 'warn
   if (run.status === 'completed') return run.conclusion === 'success' ? 'success' : 'error'
   return run.status === 'in_progress' ? 'info' : 'warning'
 }
+function formatRunTime(value: string): string {
+  return Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString() : '—'
+}
 async function load() {
   loading.value = true
   loadError.value = ''
@@ -149,6 +152,13 @@ onMounted(() => { void load() })
 .collapse-heading{display:grid;min-width:0;gap:4px}.collapse-heading strong,.collapse-heading span{overflow-wrap:anywhere}
 .collapse-heading span{font-size:12px;color:var(--color-text-secondary)}.collapse-heading code{font-size:11px}
 .project-error{margin-bottom:12px}.error-list{display:grid;gap:12px}
+.mobile-runs{display:none}
+.mobile-run-card{display:grid;min-width:0;gap:10px;border:1px solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface-secondary);padding:12px}
+.mobile-run-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.mobile-run-heading>span,.mobile-run-card time{overflow-wrap:anywhere;font-size:12px;color:var(--color-text-secondary)}
+.mobile-run-card a{justify-self:start;color:var(--color-accent);font-size:13px;text-decoration:none}
+.mobile-run-card a:hover{text-decoration:underline}
+@media(max-width:640px){.desktop-runs{display:none}.mobile-runs{display:grid;gap:8px}}
 .error-item{display:grid;min-width:0;gap:6px;border:1px solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface-secondary);padding:14px}
 .error-item strong{overflow-wrap:anywhere}
 </style>
