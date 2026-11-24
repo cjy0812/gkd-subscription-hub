@@ -13,6 +13,54 @@ export class PreviewFileTooLargeError extends Error {
   }
 }
 
+export async function readBoundedPreviewStream(
+  stream: ReadableStream<Uint8Array> | null,
+  allowLarge: boolean,
+  autoLimit = AUTO_PREVIEW_BYTES,
+  maxLimit = MAX_PREVIEW_BYTES,
+): Promise<ArrayBuffer> {
+  if (!stream) return new ArrayBuffer(0)
+  const reader = stream.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  try {
+    while (true) {
+      const result = await reader.read()
+      if (result.done) break
+      const chunk = result.value
+      totalBytes += chunk.byteLength
+
+      if (totalBytes > maxLimit) {
+        throw new Error(
+          '文件超过 ' + (maxLimit / 1024 / 1024).toFixed(0) + ' MB 预览硬上限，请使用原始文件查看',
+        )
+      }
+      if (!allowLarge && totalBytes > autoLimit) {
+        throw new PreviewFileTooLargeError(totalBytes)
+      }
+      chunks.push(chunk)
+    }
+  } catch (error) {
+    try {
+      await reader.cancel(error)
+    } catch {
+      // The source may already have canceled itself after an abort or network failure.
+    }
+    throw error
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes.buffer
+}
+
 type RequestWithoutId = SubscriptionPreviewWorkerRequest extends infer T
   ? T extends { id: number }
     ? Omit<T, 'id'>
@@ -98,14 +146,7 @@ export class SubscriptionPreviewWorkerClient {
       await response.body?.cancel()
       throw new PreviewFileTooLargeError(declaredLength)
     }
-    const bytes = await response.arrayBuffer()
-    if (bytes.byteLength > MAX_PREVIEW_BYTES) {
-      throw new Error('文件超过 50 MB 预览硬上限，请使用原始文件查看')
-    }
-    if (!allowLarge && bytes.byteLength > AUTO_PREVIEW_BYTES) {
-      throw new PreviewFileTooLargeError(bytes.byteLength)
-    }
-    return bytes
+    return readBoundedPreviewStream(response.body, allowLarge)
   }
 
   loadSourceBytes(url: string, signal?: AbortSignal, allowLarge = false): Promise<ArrayBuffer> {
