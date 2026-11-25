@@ -132,7 +132,7 @@ try {
     assert.equal(focusVisible, true, `keyboard focus indicator missing at ${width}px`)
 
     await page.getByRole('button', { name: '展开任务' }).first().click()
-    await page.getByText('Build', { exact: true }).waitFor()
+    await page.getByText('Build', { exact: true }).click()
     await page.getByText(/Run tests/).click()
     await page.getByRole('button', { name: '加载日志' }).click()
     await page.getByText('admin step log output', { exact: true }).waitFor()
