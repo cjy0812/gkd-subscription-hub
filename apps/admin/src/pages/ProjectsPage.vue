@@ -835,7 +835,6 @@ onMounted(() => {
   font-size: 12px;
 }
 .provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
-.provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
 .repo-title-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--color-text); text-decoration: none; }
 .repo-title-link strong,.repo-title-link > span:not(.provider-mark) { min-width: 0; overflow-wrap: anywhere; }
 .repo-title-link svg { flex: 0 0 auto; }
