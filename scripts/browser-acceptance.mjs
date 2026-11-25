@@ -242,6 +242,7 @@ try {
       '/233/',
       'public directory links must use the canonical URL',
     )
+    await publicPage.getByText(/最近运行/).click()
     await publicPage.getByRole('button', { name: '任务与日志' }).click()
     await publicPage.getByText('Build', { exact: true }).waitFor()
     const logButton = publicPage.getByRole('button', { name: '查看日志' })
