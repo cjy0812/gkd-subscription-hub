@@ -306,7 +306,13 @@ try {
       body: JSON.stringify({ ok: true, projects: [project] }),
     }),
   )
+  projectsPage.on('pageerror', (error) => console.error('PROJECTS PAGE ERROR', error))
   await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
+  console.log(
+    'PROJECTS PAGE DEBUG',
+    projectsPage.url(),
+    (await projectsPage.locator('body').innerText()).slice(0, 1200),
+  )
   await projectsPage.getByText('ID 233', { exact: true }).waitFor()
   const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
   await projectCheckbox.waitFor({ state: 'visible' })
