@@ -44,7 +44,7 @@ jobs:
         run: npx --yes playwright@1.56.1 install --with-deps chromium
       - name: Start admin browser test server
         run: |
-          bun run --filter @gkd-hub/admin dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/gkd-admin-vite.log 2>&1 &
+          bun run --filter @gkd-hub/admin dev -- --host 127.0.0.1 --port 4173 --strictPort --base / > /tmp/gkd-admin-vite.log 2>&1 &
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:4173/admin/monitoring > /dev/null; then
               exit 0
