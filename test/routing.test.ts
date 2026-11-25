@@ -105,7 +105,7 @@ describe('top-level routing', () => {
     expect(response.status).toBe(401)
   })
 
-  it('rewrites browser HTML navigation to JSON5 into the GKD preview SPA', async () => {
+  it('serves the preview SPA at the canonical JSON5 URL without redirecting', async () => {
     const project = {
       id: 233,
       distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
@@ -116,7 +116,7 @@ describe('top-level routing', () => {
       } as unknown as KVNamespace,
     })
     const response = await worker.fetch(
-      new Request('https://gkd.example.com/233/dist/gkd.json5', {
+      new Request('https://gkd.example.com/233/gkd.json5', {
         headers: {
           accept: 'text/html',
           'sec-fetch-mode': 'navigate',
@@ -126,10 +126,9 @@ describe('top-level routing', () => {
       env,
       context,
     )
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe(
-      'https://gkd.example.com/preview/233?file=gkd.json5',
-    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(await response.text()).toBe('/')
   })
 
   it('serves raw JSON5 when the browser explicitly requests raw=1', async () => {
@@ -188,10 +187,9 @@ describe('top-level routing', () => {
       env,
       context,
     )
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe(
-      'https://gkd.example.com/preview/233?file=%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5',
-    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(await response.text()).toBe('/')
   })
 
   it('keeps the preview deep-link routed to Static Assets', async () => {

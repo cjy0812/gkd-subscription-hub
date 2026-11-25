@@ -21,6 +21,12 @@ import {
 
 const app = new Hono<{ Bindings: Env }>()
 
+async function previewApp(req: Request, assets: Fetcher) {
+  const assetUrl = new URL(req.url)
+  assetUrl.pathname = '/'
+  return assets.fetch(new Request(assetUrl, req))
+}
+
 function directory(project: Project, versions: Awaited<ReturnType<typeof listVersionSnapshots>>) {
   const prefix = `/${project.id}/dist/`
   const rows = project.distFiles
@@ -29,9 +35,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .map((file) => {
       const path = file.path.split('/').map(encodeURIComponent).join('/')
       const type = mime(file.path).split(';', 1)[0]
-      const href = file.path.toLowerCase().endsWith('.json5')
-        ? `/preview/${project.id}?file=${encodeURIComponent(file.path)}`
-        : `${prefix}${path}`
+      const href = `/${project.id}/${path}`
       return `<tr><td><a href="${href}">${escapeHtml(file.path)}</a></td><td>${escapeHtml(type)}</td><td>${file.size.toLocaleString()} bytes</td></tr>`
     })
     .join('')
@@ -47,7 +51,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
             : item.archiveStatus === 'pending'
               ? '归档处理中'
               : '暂不可用'
-      return `<tr><td><a href="/preview/${project.id}?version=${item.version}">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
+      return `<tr><td><a href="/${project.id}/v${item.version}/gkd.json5">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
   const history = versions.length
@@ -105,16 +109,7 @@ app.all('*', async (c) => {
     }
     if (!snapshot) return bad('Historical version not found', 404)
 
-    if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: new URL(`/preview/${id}?version=${version}`, url).href,
-          vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
-          'cache-control': 'private, no-store',
-        },
-      })
-    }
+    if (wantsHtml(req) && url.searchParams.get('raw') !== '1') return previewApp(req, c.env.ASSETS)
 
     if (snapshot.archiveStatus !== 'r2') {
       snapshot = await archiveHistoricalSnapshot(c.env, snapshot)
@@ -197,13 +192,7 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
-  if (
-    wantsHtml(req) &&
-    url.searchParams.get('raw') !== '1' &&
-    path.toLowerCase().endsWith('.json5')
-  ) {
-    return Response.redirect(new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url), 302)
-  }
+  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && /\.json5?$/i.test(path)) return previewApp(req, c.env.ASSETS)
 
   const response = await fetchProjectFile(c.env, project, file, {
     method: req.method,

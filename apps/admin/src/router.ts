@@ -14,7 +14,8 @@ const router = createRouter({
   history: createWebHistory('/'),
   routes: [
     { path: '/', name: 'portal', component: PublicPortal },
-    { path: '/preview/:id', name: 'subscription-preview', component: SubscriptionPreviewPage },
+    { path: '/preview/:id', name: 'subscription-preview-legacy', component: SubscriptionPreviewPage },
+    { path: '/:id(\\d+)/:pathMatch(.*)*', name: 'subscription-file-preview', component: SubscriptionPreviewPage },
     { path: '/admin', redirect: '/admin/' },
     {
       path: '/admin/',
