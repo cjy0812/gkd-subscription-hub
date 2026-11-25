@@ -55,12 +55,12 @@
 
 | Viewport | MonitoringPage | PublicPortal | 横向溢出 |
 | -------: | -------------- | ------------ | -------- |
-|   320 px | PASS           | PASS          | 无       |
-|   640 px | PASS           | PASS          | 无       |
-|   641 px | PASS           | PASS          | 无       |
-|   768 px | PASS           | PASS          | 无       |
-|  1024 px | PASS           | PASS          | 无       |
-|  1440 px | PASS           | PASS          | 无       |
+|   320 px | PASS           | PASS         | 无       |
+|   640 px | PASS           | PASS         | 无       |
+|   641 px | PASS           | PASS         | 无       |
+|   768 px | PASS           | PASS         | 无       |
+|  1024 px | PASS           | PASS         | 无       |
+|  1440 px | PASS           | PASS         | 无       |
 
 额外检查：
 
