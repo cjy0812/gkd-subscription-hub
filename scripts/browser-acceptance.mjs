@@ -259,6 +259,7 @@ try {
   const previewCases = [
     ['/233/v1/gkd.json5?version=2', '/233/v1/gkd.json5'],
     ['/233/a.json5?file=b.json5', '/233/a.json5'],
+    ['/233/dist/gkd.json5', '/233/dist/gkd.json5'],
   ]
   for (const [routePath, expectedPath] of previewCases) {
     const previewPage = await browser.newPage({ viewport: { width: 1024, height: 900 } })
