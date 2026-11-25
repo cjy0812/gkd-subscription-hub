@@ -381,25 +381,23 @@ describe('top-level routing', () => {
     }
     const env = environment({
       STATE: {
-        get: vi.fn(
-          async (key: string) =>
-            key === 'project:233' ? project : key === 'projects:index' ? [233] : null,
+        get: vi.fn(async (key: string) =>
+          key === 'project:233' ? project : key === 'projects:index' ? [233] : null,
         ),
       } as unknown as KVNamespace,
     })
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            id: 1,
-            full_name: 'owner/repo',
-            html_url: 'https://github.com/owner/repo',
-            default_branch: 'main',
-            private: true,
-            archived: false,
-            fork: false,
-          }),
-        ),
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 1,
+          full_name: 'owner/repo',
+          html_url: 'https://github.com/owner/repo',
+          default_branch: 'main',
+          private: true,
+          archived: false,
+          fork: false,
+        }),
+      ),
     )
     vi.stubGlobal('fetch', fetchMock)
     const response = await worker.fetch(
