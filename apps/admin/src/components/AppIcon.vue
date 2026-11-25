@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder, GitBranch
+  Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder, GitBranch,
   LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Trash2,
 } from '@lucide/vue'
 import type { Component } from 'vue'
