@@ -21,17 +21,40 @@ import {
 
 const app = new Hono<{ Bindings: Env }>()
 
+async function previewApp(req: Request, assets: Fetcher) {
+  const assetUrl = new URL(req.url)
+  assetUrl.pathname = '/'
+  const response = await assets.fetch(new Request(assetUrl, req))
+  const headers = new Headers(response.headers)
+  const vary = new Set(
+    (headers.get('vary') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )
+  for (const value of ['Accept', 'Sec-Fetch-Mode', 'Sec-Fetch-Dest']) {
+    if (![...vary].some((item) => item.toLowerCase() === value.toLowerCase())) vary.add(value)
+  }
+  headers.set('vary', [...vary].join(', '))
+  headers.set('cache-control', 'no-store')
+  headers.set('x-content-type-options', 'nosniff')
+  headers.set('referrer-policy', 'no-referrer')
+  headers.set('x-frame-options', 'DENY')
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
 function directory(project: Project, versions: Awaited<ReturnType<typeof listVersionSnapshots>>) {
-  const prefix = `/${project.id}/dist/`
   const rows = project.distFiles
     .slice()
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((file) => {
       const path = file.path.split('/').map(encodeURIComponent).join('/')
       const type = mime(file.path).split(';', 1)[0]
-      const href = file.path.toLowerCase().endsWith('.json5')
-        ? `/preview/${project.id}?file=${encodeURIComponent(file.path)}`
-        : `${prefix}${path}`
+      const href = `/${project.id}/${path}`
       return `<tr><td><a href="${href}">${escapeHtml(file.path)}</a></td><td>${escapeHtml(type)}</td><td>${file.size.toLocaleString()} bytes</td></tr>`
     })
     .join('')
@@ -47,7 +70,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
             : item.archiveStatus === 'pending'
               ? '归档处理中'
               : '暂不可用'
-      return `<tr><td><a href="/preview/${project.id}?version=${item.version}">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
+      return `<tr><td><a href="/${project.id}/v${item.version}/gkd.json5">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
   const history = versions.length
@@ -105,16 +128,7 @@ app.all('*', async (c) => {
     }
     if (!snapshot) return bad('Historical version not found', 404)
 
-    if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: new URL(`/preview/${id}?version=${version}`, url).href,
-          vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
-          'cache-control': 'private, no-store',
-        },
-      })
-    }
+    if (wantsHtml(req) && url.searchParams.get('raw') !== '1') return previewApp(req, c.env.ASSETS)
 
     if (snapshot.archiveStatus !== 'r2') {
       snapshot = await archiveHistoricalSnapshot(c.env, snapshot)
@@ -166,7 +180,7 @@ app.all('*', async (c) => {
     return response
   }
 
-  if (!path || path === 'dist' || path === 'dist/') {
+  if (!path) {
     const project = await get(c.env, Number(id))
     if (!project) return bad('Subscription not registered', 404)
     const versions = await listVersionSnapshots(c.env, Number(id), project)
@@ -184,7 +198,6 @@ app.all('*', async (c) => {
   }
   const project = await get(c.env, Number(id))
   if (!project) return bad('Subscription not registered', 404)
-  if (path.startsWith('dist/')) path = path.slice(5)
   if (!path) return bad('Not found', 404)
   if (
     path
@@ -197,13 +210,8 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
-  if (
-    wantsHtml(req) &&
-    url.searchParams.get('raw') !== '1' &&
-    path.toLowerCase().endsWith('.json5')
-  ) {
-    return Response.redirect(new URL(`/preview/${id}?file=${encodeURIComponent(path)}`, url), 302)
-  }
+  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && /\.json5$/i.test(path))
+    return previewApp(req, c.env.ASSETS)
 
   const response = await fetchProjectFile(c.env, project, file, {
     method: req.method,

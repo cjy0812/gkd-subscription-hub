@@ -43,6 +43,7 @@ const rawSource = ref<string | null>(null)
 const rawLoading = ref(false)
 const meta = ref<SubscriptionMeta>()
 const stats = ref<SubscriptionStats>()
+const sourceOnlyMode = ref(false)
 const loading = ref(false)
 const actionLoading = ref(false)
 let pendingActionRequests = 0
@@ -84,31 +85,27 @@ const categoryPage = ref(1)
 const categoryQuery = ref('')
 
 const subscriptionId = computed(() => Number(route.params.id))
+const routeFilePath = computed(() => {
+  const value = route.params.pathMatch
+  return Array.isArray(value) ? value.join('/') : typeof value === 'string' ? value : ''
+})
+const historyPathVersion = computed(() => routeFilePath.value.match(/^v([1-9]\d*)\/gkd\.json5$/i)?.[1])
 const version = computed(() => {
-  const value = Number(route.query.version)
-  return Number.isSafeInteger(value) && value > 0 ? value : null
+  const parsed = Number(historyPathVersion.value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
-const filePath = computed(() => {
-  const value = route.query.file
-  return typeof value === 'string' && value.trim() ? value : 'gkd.json5'
-})
+const filePath = computed(() => routeFilePath.value || 'gkd.json5')
 const invalidFilePath = computed(() => {
-  const value = route.query.file
-  if (value == null) return false
-  if (typeof value !== 'string' || !value.trim()) return true
-  return (
-    value.startsWith('/') ||
-    value.includes(String.fromCharCode(92)) ||
-    value.includes(String.fromCharCode(0)) ||
-    value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
-  )
+  const value = routeFilePath.value
+  if (!value) return false
+  return value.startsWith('/') || value.includes(String.fromCharCode(92)) || value.includes(String.fromCharCode(0)) || value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
 })
-const invalidVersion = computed(() => route.query.version != null && version.value === null)
+const invalidVersion = computed(() => historyPathVersion.value != null && version.value === null)
 const pageTitle = computed(() => meta.value?.name || 'GKD 订阅预览')
 const sourceUrl = computed(() => {
   if (version.value) return `/${subscriptionId.value}/v${version.value}/gkd.json5?raw=1`
   const path = filePath.value.split('/').map(encodeURIComponent).join('/')
-  return `/${subscriptionId.value}/dist/${path}?raw=1`
+  return `/${subscriptionId.value}/${path}?raw=1`
 })
 const metadataLinkBase = computed(() => sourceUrl.value)
 const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
@@ -362,7 +359,8 @@ async function loadSubscription(allowLarge = false) {
   rulesRequestId += 1
   detailRequestId += 1
   categoriesRequestId += 1
-  activeTab.value = 'apps'
+  sourceOnlyMode.value = route.query.view === 'source'
+  activeTab.value = sourceOnlyMode.value ? 'raw' : 'apps'
   groupScope.value = 'app'
   appQuery.value = ''
   groupQuery.value = ''
@@ -397,6 +395,11 @@ async function loadSubscription(allowLarge = false) {
   client.value = instance
 
   try {
+    if (sourceOnlyMode.value) {
+      loading.value = false
+      await loadRawSource()
+      return
+    }
     const bytes = await instance.loadSourceBytes(sourceUrl.value, controller.signal, allowLarge)
     if (controller.signal.aborted) return
     const parsed = await instance.request<{
@@ -459,7 +462,7 @@ function openRawFile() {
 }
 
 watch(
-  () => [route.params.id, route.query.file, route.query.version],
+  () => [route.params.id, route.params.pathMatch, route.query.view],
   () => {
     void loadSubscription()
   },
@@ -537,13 +540,13 @@ onBeforeUnmount(() => {
       </div>
     </n-alert>
 
-    <n-spin :show="loading" description="在独立 Worker 中解析 GKD 订阅…">
-      <template v-if="meta && stats">
-        <n-alert v-if="isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
+    <n-spin :show="loading" :description="sourceOnlyMode ? '正在读取原始文件…' : '在独立 Worker 中解析 GKD 订阅…'">
+      <template v-if="(meta && stats) || sourceOnlyMode">
+        <n-alert v-if="meta && !sourceOnlyMode && isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
           订阅 ID 不匹配：URL 中的 ID 是 {{ subscriptionId }}，文件内部 ID 是 {{ meta.id }}。请检查订阅来源。
         </n-alert>
 
-        <section class="subscription-overview">
+        <section v-if="meta && stats" class="subscription-overview">
           <n-card :bordered="false" class="meta-card">
             <div class="meta-topline">
               <n-tag :bordered="false" type="success">GKD 订阅</n-tag>
@@ -569,7 +572,7 @@ onBeforeUnmount(() => {
 
         <n-card :bordered="false" class="preview-content">
           <n-tabs v-model:value="activeTab" type="line" animated>
-            <n-tab-pane name="apps" tab="应用规则">
+            <n-tab-pane v-if="!sourceOnlyMode" name="apps" tab="应用规则">
               <div class="tab-toolbar">
                 <div><h2>应用列表</h2><p>按应用分页浏览，每页 50 项；选择应用后才加载它的规则组。</p></div>
                 <div class="search-field"><span id="app-search-label">应用搜索</span><n-input v-model:value="appQuery" clearable size="small" aria-labelledby="app-search-label" placeholder="输入包名或应用名称" class="search-input" /></div>
@@ -651,7 +654,7 @@ onBeforeUnmount(() => {
               </section>
             </n-tab-pane>
 
-            <n-tab-pane name="global" tab="全局规则">
+            <n-tab-pane v-if="!sourceOnlyMode" name="global" tab="全局规则">
               <div class="tab-toolbar">
                 <div><h2>全局规则组</h2><p>只在打开此标签时加载全局规则组；规则详情按需读取。</p></div>
                 <div class="search-field"><span id="global-group-search-label">全局规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-labelledby="global-group-search-label" placeholder="输入规则组名称" class="search-input" /></div>
@@ -699,7 +702,7 @@ onBeforeUnmount(() => {
               </div>
             </n-tab-pane>
 
-            <n-tab-pane name="categories" tab="分类">
+            <n-tab-pane v-if="!sourceOnlyMode" name="categories" tab="分类">
               <div class="tab-toolbar">
                 <div><h2>订阅分类</h2><p>分类默认状态决定捕获的应用规则组是否启用。</p></div>
                 <div class="search-field"><span id="category-search-label">分类搜索</span><n-input v-model:value="categoryQuery" clearable size="small" aria-labelledby="category-search-label" placeholder="输入分类名称或 Key" class="search-input" /></div>

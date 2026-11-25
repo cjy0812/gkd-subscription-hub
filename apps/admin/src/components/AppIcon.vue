@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder,
+  Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder, GitBranch,
   LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Trash2,
 } from '@lucide/vue'
 import type { Component } from 'vue'
@@ -14,6 +14,7 @@ type IconName =
   | 'external-link'
   | 'file-text'
   | 'folder'
+  | 'git-branch'
   | 'layout-dashboard'
   | 'log-out'
   | 'menu'
@@ -35,6 +36,7 @@ const icons: Record<IconName, Component> = {
   'external-link': ExternalLink,
   'file-text': FileText,
   folder: Folder,
+  'git-branch': GitBranch,
   'layout-dashboard': LayoutDashboard,
   'log-out': LogOut,
   menu: Menu,

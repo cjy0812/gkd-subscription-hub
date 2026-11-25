@@ -22,7 +22,21 @@ export interface WorkflowInfo {
   cron: string[]
   relevant: boolean
 }
+export interface WorkflowStep {
+  number: number
+  name: string
+  status: string
+  conclusion: string | null
+}
+export interface WorkflowJob {
+  id: number
+  name: string
+  status: string
+  conclusion: string | null
+  steps: WorkflowStep[]
+}
 export interface WorkflowRun {
+  runId?: number
   workflowId: number
   workflowName: string
   event: string

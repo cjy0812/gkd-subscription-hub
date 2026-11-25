@@ -5,6 +5,7 @@ import { listProjectVersions, recordSubscriptionVersion } from '../services/vers
 import { listBranches, parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
+import { getProviderAdapter } from '../services/providers'
 import { bad, json } from '../utils/http'
 import explorer from './explorer'
 
@@ -70,6 +71,52 @@ app.post('/api/projects/:id/refresh', async (c) => {
       },
     })
     return bad(message, 502)
+  }
+})
+app.get('/api/projects/:id/runs/:runId/jobs', async (c) => {
+  const id = Number(c.req.param('id'))
+  const runId = Number(c.req.param('runId'))
+  const project = await get(c.env, id)
+  if (!project || !Number.isSafeInteger(runId) || runId <= 0)
+    return bad('项目或运行记录不存在', 404)
+  if (!project.lastRuns?.some((run) => run.runId === runId))
+    return bad('运行记录不在当前公开快照中', 404)
+  try {
+    return json({
+      ok: true,
+      jobs: await getProviderAdapter(project.provider).listRunJobs(c.env, project, runId),
+    })
+  } catch (error) {
+    return bad(error instanceof Error ? error.message : '读取 Job 失败', 502)
+  }
+})
+app.get('/api/projects/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
+  const id = Number(c.req.param('id'))
+  const runId = Number(c.req.param('runId'))
+  const jobId = Number(c.req.param('jobId'))
+  const stepParam = c.req.query('step')
+  const stepNumber = stepParam == null ? undefined : Number(stepParam)
+  const project = await get(c.env, id)
+  if (
+    !project ||
+    !Number.isSafeInteger(runId) ||
+    runId <= 0 ||
+    !project.lastRuns?.some((run) => run.runId === runId) ||
+    !Number.isSafeInteger(jobId) ||
+    jobId <= 0 ||
+    (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
+  )
+    return bad('项目、Job 或 Step 参数无效', 400)
+  try {
+    const adapter = getProviderAdapter(project.provider)
+    const jobs = await adapter.listRunJobs(c.env, project, runId)
+    if (!jobs.some((job) => job.id === jobId)) return bad('Job 不属于指定的 Run', 404)
+    const log = await adapter.getJobLog(c.env, project, jobId, stepNumber)
+    return new Response(JSON.stringify({ ok: true, log }), {
+      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  } catch (error) {
+    return bad(error instanceof Error ? error.message : '读取日志失败', 502)
   }
 })
 app.get('/api/projects/:id/versions', async (c) => {

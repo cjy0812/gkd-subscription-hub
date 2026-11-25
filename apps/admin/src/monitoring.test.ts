@@ -28,10 +28,11 @@ function project(
 }
 function run(
   workflowId: number,
-  updatedAt: string,
+  createdAt: string,
   status: string,
   conclusion: string | null,
   runId = workflowId,
+  updatedAt = createdAt,
 ) {
   return {
     workflowId,
@@ -39,7 +40,7 @@ function run(
     event: 'push',
     status,
     conclusion,
-    created_at: updatedAt,
+    created_at: createdAt,
     updated_at: updatedAt,
     html_url: `https://github.com/owner/repo/actions/runs/${runId}`,
     head_sha: `sha-${workflowId}`,
@@ -82,6 +83,20 @@ describe('buildMonitoringOverview', () => {
       path: '工作流文件路径未记录（非 GitHub Workflow）',
     })
     expect(result.projectErrors.map((item) => item.id)).toEqual([1])
+  })
+
+  it('sorts monitoring records by trigger time, not the later update time', () => {
+    const result = buildMonitoringOverview([
+      project(
+        1,
+        [],
+        [
+          run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 1, '2026-01-05T00:00:00Z'),
+          run(2, '2026-01-01T00:00:00Z', 'completed', 'success', 2, '2026-01-06T00:00:00Z'),
+        ],
+      ),
+    ])
+    expect(result.recentRuns.map((item) => item.workflowId)).toEqual([1, 2])
   })
 
   it('applies a limit to recent runs and handles empty projects', () => {

@@ -250,7 +250,7 @@ async function batchDelete() {
 
 function openSubscription(id: number) {
   if (!projects.value.some((item) => item.id === id) || !subscriptionDomain.value) return
-  window.open(`https://${subscriptionDomain.value}/${id}/dist/`, '_blank', 'noopener,noreferrer')
+  window.open(`https://${subscriptionDomain.value}/${id}/`, '_blank', 'noopener,noreferrer')
 }
 
 async function copySubscriptionUrl(id: number) {
@@ -271,7 +271,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('strong', `${row.owner}/${row.repo}`)]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: 'git-branch', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -635,11 +635,10 @@ onMounted(() => {
                 <div class="mobile-project-title">
                   <n-checkbox
                     :checked="selectedIds.includes(project.id)"
+                    :aria-label="`选择项目 ${project.id}（${project.owner}/${project.repo}）`"
                     :disabled="batchBusy"
                     @update:checked="(checked) => toggleProjectSelection(project.id, checked)"
-                  >
-                    选择
-                  </n-checkbox>
+                  />
                   <strong>ID {{ project.id }}</strong>
                   <n-tag
                     size="small"
@@ -650,7 +649,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link">{{ project.owner }}/{{ project.repo }}</a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><AppIcon :name="'git-branch'" :size="15" /><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="12" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{

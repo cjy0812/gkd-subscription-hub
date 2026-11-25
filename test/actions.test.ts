@@ -75,6 +75,7 @@ describe('provider CI monitoring', () => {
     const result = await runs({} as never, project('gitlab'))
     expect(result).toEqual([
       {
+        runId: 901,
         workflowId: 901,
         workflowName: 'Build and test',
         event: 'push',
@@ -86,6 +87,7 @@ describe('provider CI monitoring', () => {
         head_sha: 'abc123',
       },
       {
+        runId: 902,
         workflowId: 902,
         workflowName: 'GitLab CI',
         event: 'schedule',
@@ -97,6 +99,7 @@ describe('provider CI monitoring', () => {
         head_sha: 'def456',
       },
       {
+        runId: 903,
         workflowId: 903,
         workflowName: 'GitLab CI',
         event: 'web',
@@ -136,6 +139,7 @@ describe('provider CI monitoring', () => {
     const result = await runs({} as never, project('gitea'))
     expect(result).toEqual([
       {
+        runId: 701,
         workflowId: 701,
         workflowName: 'build.yml',
         event: 'push',

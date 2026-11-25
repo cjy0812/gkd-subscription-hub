@@ -68,11 +68,6 @@ export default {
     const path = url.pathname
 
     if (path === '/') return env.ASSETS.fetch(req)
-    if (path.startsWith('/preview/')) {
-      const assetUrl = new URL(req.url)
-      assetUrl.pathname = '/'
-      return env.ASSETS.fetch(new Request(assetUrl, req))
-    }
     if (path.startsWith('/api/public/')) {
       const rewritten = new URL(req.url)
       rewritten.pathname = path.slice('/api/public'.length)

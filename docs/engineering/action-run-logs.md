@@ -1,0 +1,47 @@
+# Action 运行记录与日志
+
+## 数据流
+
+管理端和公共只读门户复用同一套 Provider Adapter：
+
+1. 项目快照中的 `lastRuns` 提供最近 Run 列表，不在页面访问时重新扫描所有 Workflow。
+2. 用户展开某个 Run 时，按需读取该 Run 的 Job 列表。
+3. 用户展开 Step 时，按需读取该 Step 或 Job 的日志。
+4. 日志只在当前页面状态中暂存，不写入 D1、R2 或 KV。
+
+## Provider API
+
+- **GitHub Actions**
+  - Run Jobs：`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`
+  - Job Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`
+  - Step Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/steps/{step_number}/logs`
+- **GitLab CI**
+  - Pipeline Jobs：`GET /projects/:id/pipelines/:pipeline_id/jobs`
+  - Job Trace：`GET /projects/:id/jobs/:job_id/trace`
+- **Gitea Actions**
+  - Run Jobs：`GET /repos/{owner}/{repo}/actions/runs/{run}/jobs`
+  - Job Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`
+
+## 展示粒度
+
+- GitHub API 同时提供 Job 与 Step 元数据，展示 Run → Job → Step → Log；若独立 Step 日志端点返回 404，则明确提示并回退到完整 Job 日志。
+- GitLab 的 Job Trace API 返回 Job 级完整 trace，不提供与 GitHub 等价的独立 Step 日志端点；因此将 Job Trace 作为单个“Job 日志”入口，不伪造 Step。
+- Gitea Jobs API 可提供 Step 元数据；若某实例未返回步骤，则回退为 Job 日志入口。
+
+## 接口与安全
+
+- 管理端接口位于 `/admin/api/projects/:id/runs/:runId/jobs` 与 `/admin/api/projects/:id/runs/:runId/jobs/:jobId/logs`。
+- 公共只读接口位于 `/api/public/subscriptions/:id/runs/:runId/jobs` 与 `/api/public/subscriptions/:id/runs/:runId/jobs/:jobId/logs`。
+- 日志请求必须验证 Run 属于项目最近一次公开快照，并重新确认 Job 属于指定 Run，避免通过项目 ID 任意读取其他 Job。
+- Provider URL 由固定 Provider Adapter 生成，不接受用户提交的 URL，避免 SSRF。
+- 日志按纯文本显示，不解释为 HTML。
+- 单份日志最大 2 MiB；读取时流式限制，超过上限即取消上游读取。
+- 日志与 Job 接口使用 `Cache-Control: no-store`；不缓存临时下载 URL。
+- 公共端 Job 列表在当前 Worker isolate 内缓存 15 秒（最多 500 项）；公共 Job 与日志接口共用来源 IP 限频，每个 isolate 每 IP 每分钟最多 20 次。两类请求均在读取缓存/Provider 数据前检查限频。
+- 每次请求仍重新读取仓库元数据，确认仓库当前公开且未归档。这里刻意不缓存可见性结果，避免仓库刚转为私有或归档后，短 TTL 内仍向匿名调用者返回数据；Job 缓存只有通过当次可见性检查后才可使用。
+- 上述 Map 缓存与限频是 isolate 级尽力保护，不是跨地域共享或强一致的全局配额；若公开访问量增长，应改用 Cloudflare Cache API 或集中式限流组件，并按成本/复杂度评估，不把当前实现描述成全局限流。
+- Provider API 限流、权限或暂时不可用时，显示错误并保留托管平台 Run 链接作为 fallback。
+
+## 缓存策略
+
+目前只复用项目快照中的 Run 元数据；Job 与 Log 按需实时读取，不引入持久化缓存。后续是否增加短期缓存，需根据 Provider 限流、访问量、日志大小与 Cloudflare 成本单独评估。

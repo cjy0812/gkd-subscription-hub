@@ -1,20 +1,29 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue'
 import {
-  NButton, NCard, NCollapse, NCollapseItem, NDataTable, NEmpty, NGrid, NGridItem,
-  NStatistic, NSpace, NSpin, NTag, NText, type DataTableColumns,
+  NButton, NCard, NCollapse, NCollapseItem, NDataTable, NDrawer, NDrawerContent, NEmpty, NGrid, NGridItem,
+  NStatistic, NSpace, NSpin, NTag, NText, NTooltip, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
 import { getAdminToken } from '../auth'
-import { buildMonitoringOverview, type MonitoringRun } from '../monitoring'
-import type { ProjectsResponse } from '../types'
+import { buildMonitoringOverview, runEventLabel, type MonitoringRun } from '../monitoring'
+import type { ProjectsResponse, WorkflowJob } from '../types'
 
 const projects = ref<ProjectsResponse['projects']>([])
 const loading = ref(false)
 const loadError = ref('')
 const overview = computed(() => buildMonitoringOverview(projects.value))
+const showRunDrawer = ref(false)
+const selectedRun = ref<MonitoringRun>()
+const selectedJobs = ref<WorkflowJob[]>([])
+const jobsLoading = ref(false)
+const runRequestId = ref(0)
+const jobsError = ref('')
+const jobLogs = ref<Record<string, string>>({})
+const jobLogErrors = ref<Record<string, string>>({})
+const logLoading = ref(new Set<string>())
 const columns: DataTableColumns<MonitoringRun> = [
-  { title: '触发方式', key: 'event', width: 120, render: (row) => row.event || '—' },
+  { title: '触发方式', key: 'event', width: 120, render: (row) => h(NTooltip, {}, { trigger: () => h('span', { tabindex: 0 }, runEventLabel(row.event)), default: () => `原始事件：${row.event || '未知'}` }) },
   {
     title: '状态',
     key: 'status',
@@ -22,10 +31,14 @@ const columns: DataTableColumns<MonitoringRun> = [
     render: (row) => h(NTag, { size: 'small', bordered: false, type: runStatusType(row) }, { default: () => runStatusLabel(row) }),
   },
   {
-    title: '更新时间',
-    key: 'updated_at',
+    title: '触发时间',
+    key: 'created_at',
     minWidth: 180,
-    render: (row) => Number.isFinite(Date.parse(row.updated_at)) ? new Date(row.updated_at).toLocaleString() : '—',
+    render: (row) => Number.isFinite(Date.parse(row.created_at)) ? new Date(row.created_at).toLocaleString() : '—',
+  },
+  {
+    title: '任务', key: 'jobs', width: 100,
+    render: (row) => h(NButton, { size: 'small', quaternary: true, disabled: !row.runId, onClick: () => void openRun(row) }, { default: () => '展开任务' }),
   },
   {
     title: '运行记录',
@@ -34,6 +47,57 @@ const columns: DataTableColumns<MonitoringRun> = [
     render: (row) => h('a', { href: row.html_url, target: '_blank', rel: 'noopener noreferrer' }, '查看 Run'),
   },
 ]
+async function openRun(run: MonitoringRun) {
+  const requestId = ++runRequestId.value
+  selectedRun.value = run
+  selectedJobs.value = []
+  jobsError.value = ''
+  jobLogs.value = {}
+  jobLogErrors.value = {}
+  logLoading.value = new Set()
+  showRunDrawer.value = true
+  if (!run.runId) {
+    jobsLoading.value = false
+    return
+  }
+  jobsLoading.value = true
+  try {
+    const result = await api<{ jobs: WorkflowJob[] }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs`, getAdminToken())
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      selectedJobs.value = result.jobs
+  } catch (cause) {
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobsError.value = cause instanceof Error ? cause.message : '读取 Job 列表失败'
+  } finally {
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobsLoading.value = false
+  }
+}
+async function loadJobLog(job: WorkflowJob, stepNumber?: number) {
+  const run = selectedRun.value
+  if (!run) return
+  const requestId = runRequestId.value
+  const key = `${run.key}:${job.id}:${stepNumber ?? 'all'}`
+  if (jobLogs.value[key] !== undefined || logLoading.value.has(key)) return
+  logLoading.value = new Set(logLoading.value).add(key)
+  try {
+    const suffix = stepNumber == null ? '' : `?step=${stepNumber}`
+    const result = await api<{ log: string }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, getAdminToken())
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key) {
+      jobLogs.value = { ...jobLogs.value, [key]: result.log }
+      const errors = { ...jobLogErrors.value }; delete errors[key]; jobLogErrors.value = errors
+    }
+  } catch (cause) {
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobLogErrors.value = { ...jobLogErrors.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }
+  } finally {
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key) {
+      const next = new Set(logLoading.value)
+      next.delete(key)
+      logLoading.value = next
+    }
+  }
+}
 function runStatusLabel(run: MonitoringRun): string {
   if (run.status === 'completed') {
     if (run.conclusion === 'success') return '已完成 · 成功'
@@ -124,13 +188,13 @@ onMounted(() => { void load() })
                 <div v-if="workflow.runs.length" class="mobile-runs">
                   <article v-for="run in workflow.runs" :key="run.key" class="mobile-run-card">
                     <div class="mobile-run-heading">
-                      <span>{{ run.event || '未知触发方式' }}</span>
+                      <n-tooltip><template #trigger><span>{{ runEventLabel(run.event) }}</span></template>原始事件：{{ run.event || '未知' }}</n-tooltip>
                       <n-tag size="small" :bordered="false" :type="runStatusType(run)">
                         {{ runStatusLabel(run) }}
                       </n-tag>
                     </div>
-                    <time>{{ formatRunTime(run.updated_at) }}</time>
-                    <a :href="run.html_url" target="_blank" rel="noopener noreferrer">查看 Run</a>
+                    <time>{{ formatRunTime(run.created_at) }}</time>
+                    <n-space><n-button size="tiny" quaternary :disabled="!run.runId" @click="openRun(run)">展开任务</n-button><a :href="run.html_url" target="_blank" rel="noopener noreferrer">查看 Run</a></n-space>
                   </article>
                 </div>
                 <n-empty v-else description="该 Workflow 暂无缓存运行记录" />
@@ -154,6 +218,35 @@ onMounted(() => { void load() })
       </n-card>
     </n-spin>
   </div>
+
+    <n-drawer v-model:show="showRunDrawer" width="min(720px, 94vw)">
+      <n-drawer-content :title="selectedRun ? `Run · ${selectedRun.workflowName}` : 'Run 详情'" closable>
+        <n-spin :show="jobsLoading">
+          <n-text v-if="jobsError" type="error">{{ jobsError }}</n-text>
+          <n-empty v-else-if="!jobsLoading && !selectedJobs.length" description="暂无 Job 详情，或此 Provider 暂不支持读取" />
+          <n-collapse v-else accordion>
+            <n-collapse-item v-for="job in selectedJobs" :key="job.id" :name="String(job.id)">
+              <template #header>
+                <div class="collapse-heading"><strong>{{ job.name }}</strong><span>{{ job.status }} · {{ job.conclusion || '未结束' }}</span></div>
+              </template>
+              <n-collapse v-if="job.steps.length" accordion>
+                <n-collapse-item v-for="step in job.steps" :key="step.number" :name="String(step.number)">
+                  <template #header><div class="collapse-heading"><strong>{{ step.number ? `Step ${step.number} · ` : '' }}{{ step.name }}</strong><span>{{ step.status }} · {{ step.conclusion || '—' }}</span></div></template>
+                  <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:${step.number}`)" @click="loadJobLog(job, step.number)">加载日志</n-button>
+                  <n-text v-if="jobLogErrors[`${selectedRun?.key}:${job.id}:${step.number}`]" type="error">{{ jobLogErrors[`${selectedRun?.key}:${job.id}:${step.number}`] }}</n-text>
+                  <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] !== undefined" class="job-log">{{ jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] }}</pre>
+                </n-collapse-item>
+              </n-collapse>
+              <template v-else>
+                <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:all`)" @click="loadJobLog(job)">加载 Job 日志</n-button>
+                <n-text v-if="jobLogErrors[`${selectedRun?.key}:${job.id}:all`]" type="error">{{ jobLogErrors[`${selectedRun?.key}:${job.id}:all`] }}</n-text>
+                <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:all`] !== undefined" class="job-log">{{ jobLogs[`${selectedRun?.key}:${job.id}:all`] }}</pre>
+              </template>
+            </n-collapse-item>
+          </n-collapse>
+        </n-spin>
+      </n-drawer-content>
+    </n-drawer>
 </template>
 
 <style scoped>
@@ -166,6 +259,7 @@ onMounted(() => { void load() })
 .collapse-heading span{font-size:12px;color:var(--color-text-secondary)}.collapse-heading code{font-size:11px}
 .project-error{margin-bottom:12px}.error-list{display:grid;gap:12px}
 .mobile-runs{display:none}
+.job-log{max-height:55vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border-radius:8px;background:var(--color-surface-secondary);font:12px/1.5 ui-monospace,monospace}
 .mobile-run-card{display:grid;min-width:0;gap:10px;border:1px solid var(--color-border);border-radius:var(--radius-container);background:var(--color-surface-secondary);padding:12px}
 .mobile-run-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
 .mobile-run-heading>span,.mobile-run-card time{overflow-wrap:anywhere;font-size:12px;color:var(--color-text-secondary)}

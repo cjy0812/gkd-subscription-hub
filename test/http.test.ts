@@ -6,10 +6,28 @@ describe('HTTP helpers', () => {
     expect(wantsHtml(new Request('https://x/a', { headers: { accept: '*/*' } }))).toBe(false)
     expect(wantsHtml(new Request('https://x/a', { headers: { accept: 'text/html' } }))).toBe(true)
   })
-  it('raw query overrides Accept', () =>
-    expect(wantsHtml(new Request('https://x/a?raw=1', { headers: { accept: 'text/html' } }))).toBe(
-      false,
-    ))
+  it('supports the source-view query without changing the file URL', () => {
+    expect(
+      wantsHtml(new Request('https://x/a.json5?view=source', { headers: { accept: 'text/html' } })),
+    ).toBe(true)
+  })
+  it('keeps source-view query requests raw for App-style fetches', () => {
+    expect(
+      wantsHtml(
+        new Request('https://x/a.json5?view=source', {
+          headers: {
+            accept: 'application/json5, */*',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+          },
+        }),
+      ),
+    ).toBe(false)
+  })
+  it('raw query overrides Accept and source view', () =>
+    expect(
+      wantsHtml(new Request('https://x/a?raw=1&view=source', { headers: { accept: 'text/html' } })),
+    ).toBe(false))
   it('recognizes browser document navigation', () =>
     expect(
       wantsHtml(

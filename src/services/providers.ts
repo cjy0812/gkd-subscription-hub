@@ -1,4 +1,11 @@
-import type { DistFile, Env, ProjectProvider, WorkflowInfo, WorkflowRun } from '../types'
+import type {
+  DistFile,
+  Env,
+  ProjectProvider,
+  WorkflowInfo,
+  WorkflowJob,
+  WorkflowRun,
+} from '../types'
 import { decode, gh } from './github'
 
 export interface RepositoryLocator {
@@ -37,6 +44,8 @@ export interface ProviderAdapter {
   listDistFiles(env: Env, locator: RepositoryLocator, commitSha: string): Promise<DistFile[]>
   readFile(env: Env, locator: RepositoryLocator, path: string, ref: string): Promise<string>
   listWorkflowRuns(env: Env, project: ProjectSource): Promise<WorkflowRun[]>
+  listRunJobs(env: Env, project: ProjectSource, runId: number): Promise<WorkflowJob[]>
+  getJobLog(env: Env, project: ProjectSource, jobId: number, stepNumber?: number): Promise<string>
   rawFileUrl(project: ProjectSource, file: DistFile): string
 }
 
@@ -53,6 +62,42 @@ export interface ProjectSource {
 
 const MAX_PAGES = 10
 const PAGE_SIZE = 100
+
+const MAX_JOB_LOG_BYTES = 2 * 1024 * 1024
+
+async function readBoundedLog(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length') || 0)
+  if (declaredLength > MAX_JOB_LOG_BYTES) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+  if (!response.body) return ''
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_JOB_LOG_BYTES) {
+        try {
+          await reader.cancel()
+        } catch {
+          // Preserve the size-limit error if the upstream stream cannot be canceled.
+        }
+        throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
+}
 
 function parsePath(host: string, segments: string[], provider: ProjectProvider, minimum: number) {
   if (
@@ -172,6 +217,7 @@ const githubAdapter: ProviderAdapter = {
           try {
             const data = await gh<{
               workflow_runs: Array<{
+                id: number
                 event: string
                 status: string
                 conclusion: string | null
@@ -185,6 +231,7 @@ const githubAdapter: ProviderAdapter = {
               `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/workflows/${workflow.id}/runs?per_page=10`,
             )
             return data.workflow_runs.map((run) => ({
+              runId: run.id,
               workflowId: workflow.id,
               workflowName: workflow.name,
               event: run.event,
@@ -202,13 +249,75 @@ const githubAdapter: ProviderAdapter = {
     )
     return groups
       .flat()
-      .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       .slice(0, 30)
+  },
+  async listRunJobs(env, project, runId) {
+    const base = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs`
+    const jobs: Array<{
+      id: number
+      name: string
+      status: string
+      conclusion: string | null
+      steps?: Array<{ number: number; name: string; status: string; conclusion: string | null }>
+    }> = []
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const data = await gh<{ jobs: typeof jobs }>(
+        env,
+        `${base}?per_page=${PAGE_SIZE}&page=${page}`,
+      )
+      jobs.push(...data.jobs)
+      if (data.jobs.length < PAGE_SIZE) break
+      if (page === MAX_PAGES)
+        throw Error(`GitHub Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
+    }
+    return jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: job.conclusion,
+      steps: (job.steps || []).map((step) => ({
+        number: step.number,
+        name: step.name,
+        status: step.status,
+        conclusion: step.conclusion,
+      })),
+    }))
+  },
+  async getJobLog(env, project, jobId, stepNumber) {
+    const suffix = stepNumber == null ? '' : `/steps/${stepNumber}`
+    const path = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}${suffix}/logs`
+    const headers = {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'gkd-subscription-hub',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+    }
+    const response = await fetch(`https://api.github.com${path}`, { headers })
+    if (response.status === 404 && stepNumber != null) {
+      const jobResponse = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}/logs`,
+        { headers },
+      )
+      if (!jobResponse.ok) throw Error(`GitHub Job 日志读取失败：HTTP ${jobResponse.status}`)
+      const jobLog = await readBoundedLog(jobResponse)
+      return ['GitHub 暂未提供该 Step 的独立日志，以下为完整 Job 日志。', '', jobLog].join('\n')
+    }
+    if (!response.ok) throw Error(`GitHub 日志读取失败：HTTP ${response.status}`)
+    return readBoundedLog(response)
   },
   rawFileUrl(project, file) {
     const ref = project.commitSha || encodeURIComponent(project.branch)
     return `https://raw.githubusercontent.com/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/${ref}/dist/${file.path.split('/').map(encodeURIComponent).join('/')}`
   },
+}
+
+async function readProviderLog(url: string, provider: string): Promise<string> {
+  const response = await fetch(url, { headers: { Accept: 'text/plain, */*' } })
+  if (response.status === 403 || response.status === 429)
+    throw Error(`${provider} 日志 API 触发限流（HTTP ${response.status}）`)
+  if (!response.ok) throw Error(`${provider} 日志读取失败：HTTP ${response.status}`)
+  return readBoundedLog(response)
 }
 
 async function providerJson<T>(url: string, provider: string): Promise<T> {
@@ -411,6 +520,7 @@ const gitlabAdapter: ProviderAdapter = {
           ? 'queued'
           : 'in_progress'
       return {
+        runId: pipeline.id,
         workflowId: pipeline.id,
         workflowName: pipeline.name || 'GitLab CI',
         event: pipeline.source,
@@ -422,6 +532,48 @@ const gitlabAdapter: ProviderAdapter = {
         head_sha: pipeline.sha,
       }
     })
+  },
+  async listRunJobs(_env, project, runId) {
+    const projectId = encodeURIComponent(
+      project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`,
+    )
+    let url: string | null =
+      `https://gitlab.com/api/v4/projects/${projectId}/pipelines/${runId}/jobs?per_page=${PAGE_SIZE}`
+    const jobs: Array<{ id: number; name: string; status: string }> = []
+    let pages = 0
+    while (url && pages < MAX_PAGES) {
+      if (new URL(url).hostname !== 'gitlab.com') throw Error('GitLab 分页链接主机无效')
+      const pageResult: {
+        data: Array<{ id: number; name: string; status: string }>
+        next: string | null
+      } = await gitlabPage<Array<{ id: number; name: string; status: string }>>(url)
+      jobs.push(...pageResult.data)
+      url = pageResult.next
+      pages += 1
+      if (!url && pageResult.data.length === PAGE_SIZE && pages < MAX_PAGES)
+        throw Error('GitLab Job 列表返回满页但缺少下一页链接，无法确认完整性')
+    }
+    if (url) throw Error(`GitLab Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
+    return jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: ['success', 'failed', 'canceled', 'skipped'].includes(job.status)
+        ? job.status === 'success'
+          ? 'success'
+          : job.status
+        : null,
+      steps: [{ number: 0, name: 'Job 日志', status: job.status, conclusion: null }],
+    }))
+  },
+  async getJobLog(_env, project, jobId) {
+    const projectId = encodeURIComponent(
+      project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`,
+    )
+    return readProviderLog(
+      `https://gitlab.com/api/v4/projects/${projectId}/jobs/${jobId}/trace`,
+      'GitLab',
+    )
   },
   rawFileUrl(project, file) {
     return `https://gitlab.com/api/v4/projects/${encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)}/repository/blobs/${file.sha}/raw`
@@ -558,6 +710,7 @@ const giteaAdapter: ProviderAdapter = {
           ? 'queued'
           : 'in_progress'
       return {
+        runId: run.id,
         workflowId: run.id,
         workflowName: run.path?.split('/').at(-1) || 'Gitea Actions',
         event: run.event,
@@ -569,6 +722,42 @@ const giteaAdapter: ProviderAdapter = {
         head_sha: run.head_sha,
       }
     })
+  },
+  async listRunJobs(_env, project, runId) {
+    const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs`
+    const jobs: Array<{
+      id: number
+      name: string
+      status: string
+      conclusion?: string | null
+      steps?: Array<{ number?: number; name: string; status: string; conclusion?: string | null }>
+    }> = []
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const data = await providerJson<{ jobs: typeof jobs }>(
+        `${base}?limit=50&page=${page}`,
+        'Gitea',
+      )
+      jobs.push(...(data.jobs || []))
+      if ((data.jobs || []).length < 50) break
+      if (page === MAX_PAGES)
+        throw Error(`Gitea Job 列表超过 ${50 * MAX_PAGES} 条上限，无法确认完整性`)
+    }
+    return jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: job.conclusion || null,
+      steps: (job.steps || [{ name: 'Job 日志', status: job.status }]).map((step, index) => ({
+        number: step.number ?? index,
+        name: step.name,
+        status: step.status,
+        conclusion: step.conclusion || null,
+      })),
+    }))
+  },
+  async getJobLog(_env, project, jobId) {
+    const url = `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}/logs`
+    return readProviderLog(url, 'Gitea')
   },
   rawFileUrl(project, file) {
     const owner = encodeURIComponent(project.owner)

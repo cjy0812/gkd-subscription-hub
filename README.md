@@ -5,9 +5,9 @@ Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider A
 ## 功能
 
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
-- 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/dist/` 展示订阅文件目录。
+- 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/` 展示订阅文件目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用 GKD 专用页面，复用官方 `@gkd-kit/api` 类型，在 Web Worker 中解析；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。响应体按块读取，超过 10 MB 会先取消读取并询问，用户可选择继续结构化解析（最高 50 MB）；超过 50 MB 立即取消，需使用原始文件入口。历史版本由 Worker 再施加 20 MB 服务端流式读取限制，且无 SHA-256 校验值的记录拒绝返回。
+- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用同一文件 URL 的内容协商，浏览器进入预览界面，App 获取原始字节；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。响应体按块读取，超过 10 MB 会先取消读取并询问，用户可选择继续结构化解析（最高 50 MB）；超过 50 MB 立即取消，需使用原始文件入口。历史版本由 Worker 再施加 20 MB 服务端流式读取限制，且无 SHA-256 校验值的记录拒绝返回。
 - `?raw=1` 强制原始内容。
 - GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
@@ -52,8 +52,8 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - 文件管理：`https://gkd.example.com/admin/files`
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
-- 项目目录：`https://gkd.example.com/<id>/dist/`（`/<id>/` 仍作为兼容目录入口）
-- JSON5 预览：`https://gkd.example.com/preview/<id>?file=gkd.json5`（浏览器 UI；GKD 客户端仍使用原始订阅 URL）
+- 项目目录：`https://gkd.example.com/<id>/`
+- JSON5 预览：`https://gkd.example.com/<id>/gkd.json5`（浏览器预览；GKD 客户端按非 HTML 请求获取原始 JSON5）
 - 历史订阅：`https://gkd.example.com/<id>/v<version>/gkd.json5`（版本号来自 `gkd.version.json5`，不代表每日 commit）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
 - 通知入口：`POST https://gkd.example.com/hooks/notify`
@@ -62,7 +62,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ### 仅使用 workers.dev 时
 
 - 管理端：`https://<worker-name>.<account-subdomain>.workers.dev/admin/`
-- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/dist/`
+- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/`
 - GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/gkd.json5`
 
 其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。
@@ -73,7 +73,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 `/gkd.json5` 仅作为当前维护者自己旧订阅的短期兼容入口，代理到其个人订阅仓库；它不属于任何登记项目 ID。兼容窗口结束后会通过独立 PR 删除，不作为长期 API。
 
-优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=1` 强制浏览器预览。
+优先使用 Fetch Metadata（`Sec-Fetch-Mode`、`Sec-Fetch-Dest`）识别浏览器页面导航与 fetch 请求，`Accept` 作为回退。该识别仅用于内容协商，请求头可以伪造，不能证明客户端身份。可用 `?raw=1` 强制原文，`?view=source` 在浏览器中打开源码视图。
 
 ## 技术栈
 
@@ -185,7 +185,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - GitLab：`https://gitlab.com/<group>/<subgroup>/<project>`
 - Gitea：`https://gitea.com/<owner>/<repository>`
 
-服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的主订阅链接：`https://gkd.example.com/<id>/gkd.json5`。`/<id>/dist/` 是浏览目录，不是 GKD 订阅地址。
+服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的主订阅链接：`https://gkd.example.com/<id>/gkd.json5`。`/<id>/` 是文件目录，不是 GKD 订阅地址。
 
 ## 管理 API
 
@@ -210,7 +210,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 根路径 `/` 仅提供公开只读门户，使用 `GET /api/public/subscriptions` 和 `GET /api/public/explorer`；该 API 不注册写入、扫描或刷新路由。管理员仍通过 `/admin/` 登录。
 
-项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
+项目 `/<id>/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
 
 历史版本使用 `/<id>/v<version>/gkd.json5`。首次登记时从 Provider 固定 Commit 读取原始字节，计算 SHA-256，使用 Gzip 压缩后写入 Cloudflare R2；D1 以订阅 ID + 仓库身份 + 版本号建立唯一索引，并按内容 SHA-256 对象去重。后续历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。生产归档压缩对象上限默认 512 MiB，Preview 上限 64 MiB；每个环境每天最多预留 200 个新对象、执行 200 次 R2 PUT 和 20,000 次 R2 GET。配额耗尽时拒绝新增归档/读取，不自动升级计划。旧 KV Git-only 快照会在首次访问时尝试迁移到 R2；迁移完成后源仓库不再是历史读取依赖。
 

@@ -73,6 +73,26 @@ describe('subscription preview worker lifecycle', () => {
     client.dispose()
   })
 
+  it('allows source-only reads above the automatic threshold up to the hard cap', async () => {
+    class FakeWorker extends EventTarget {
+      postMessage = vi.fn()
+      terminate = vi.fn()
+    }
+    vi.stubGlobal('Worker', FakeWorker)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('raw source', {
+            headers: { 'content-length': String(10 * 1024 * 1024 + 1) },
+          }),
+      ),
+    )
+    const client = new SubscriptionPreviewWorkerClient()
+    await expect(client.loadRawSource('/large.json5')).resolves.toBe('raw source')
+    client.dispose()
+  })
+
   it('converts synchronous Worker construction failures into rejected requests', async () => {
     vi.stubGlobal(
       'Worker',
