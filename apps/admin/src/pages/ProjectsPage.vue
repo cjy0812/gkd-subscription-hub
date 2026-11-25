@@ -32,12 +32,23 @@ import AppIcon from '../components/AppIcon.vue'
 const message = useMessage()
 const token = ref(getAdminToken())
 const projects = ref<Project[]>([])
+function normalizedProvider(provider: string | undefined) {
+  return provider || 'github'
+}
 function providerLabel(provider: string | undefined) {
-  switch (provider) {
+  switch (normalizedProvider(provider)) {
     case 'github': return 'GH'
     case 'gitlab': return 'GL'
     case 'gitea': return 'GT'
     default: return 'Git'
+  }
+}
+function providerName(provider: string | undefined) {
+  switch (normalizedProvider(provider)) {
+    case 'github': return 'GitHub'
+    case 'gitlab': return 'GitLab'
+    case 'gitea': return 'Gitea'
+    default: return 'Git 托管平台'
   }
 }
 
@@ -280,7 +291,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('span', { class: ['provider-mark', `provider-${row.provider || 'unknown'}`], 'aria-label': `托管平台：${row.provider || '未知'}` }, providerLabel(row.provider)), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('span', { class: ['provider-mark', `provider-${normalizedProvider(row.provider)}`], role: 'img', 'aria-label': `托管平台：${providerName(row.provider)}` }, providerLabel(row.provider)), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -658,7 +669,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><span class="provider-mark" :class="`provider-${project.provider || 'unknown'}`" :aria-label="`托管平台：${project.provider || '未知'}`">{{ providerLabel(project.provider) }}</span><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><span class="provider-mark" :class="`provider-${normalizedProvider(project.provider)}`" role="img" :aria-label="`托管平台：${providerName(project.provider)}`">{{ providerLabel(project.provider) }}</span><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
