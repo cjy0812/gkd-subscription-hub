@@ -16,7 +16,7 @@
     "typegen": "wrangler types --include-env=false",
     "typecheck:worker": "bun run typegen && tsc --noEmit",
     "typecheck": "bun run typecheck:worker && bun run --filter @gkd-hub/admin typecheck",
-    "lint": "biome lint .",
+    "lint": "biome lint --max-diagnostics=100 .",
     "format": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false --write .",
     "test": "vitest run",
     "db:migrate:preview": "wrangler d1 migrations apply gkd-subscription-hub --remote --preview",
