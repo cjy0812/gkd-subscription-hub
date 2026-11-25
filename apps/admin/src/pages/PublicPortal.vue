@@ -162,7 +162,7 @@ onMounted(() => { void load() })
                   <template #header>最近运行 · {{ item.lastRuns.length }}</template>
                   <div v-for="run in item.lastRuns" :key="run.runId || run.html_url" class="public-run">
                     <div class="public-run-row">
-                      <span>{{ publicEventLabel(run.event) }} · {{ run.conclusion || run.status }} · {{ new Date(run.created_at).toLocaleString() }}</span>
+                      <span :title="`原始事件：${run.event}`">{{ publicEventLabel(run.event) }} · {{ run.conclusion || run.status }} · {{ new Date(run.created_at).toLocaleString() }}</span>
                       <n-space align="center" size="small"><a :href="run.html_url" target="_blank" rel="noopener noreferrer">查看 Run</a><n-button size="tiny" quaternary :disabled="!run.runId" @click="togglePublicRun(item, run)">任务与日志</n-button></n-space>
                     </div>
                     <div v-if="expandedRun === `${item.id}:${run.runId}`" class="public-job-panel">
