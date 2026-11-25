@@ -28,7 +28,6 @@ async function previewApp(req: Request, assets: Fetcher) {
 }
 
 function directory(project: Project, versions: Awaited<ReturnType<typeof listVersionSnapshots>>) {
-  const prefix = `/${project.id}/dist/`
   const rows = project.distFiles
     .slice()
     .sort((a, b) => a.path.localeCompare(b.path))
