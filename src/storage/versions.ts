@@ -141,12 +141,20 @@ export async function saveVersionSnapshot(
   env: Env,
   snapshot: VersionSnapshot,
 ): Promise<VersionSnapshot> {
-  if (!Number.isSafeInteger(snapshot.id) || snapshot.id <= 0) throw new Error('Invalid subscription ID')
-  if (!Number.isSafeInteger(snapshot.version) || snapshot.version <= 0) throw new Error('Invalid subscription version')
-  if (!snapshot.commitSha || !snapshot.fileSha) throw new Error('Version snapshot requires immutable source SHAs')
+  if (!Number.isSafeInteger(snapshot.id) || snapshot.id <= 0)
+    throw new Error('Invalid subscription ID')
+  if (!Number.isSafeInteger(snapshot.version) || snapshot.version <= 0)
+    throw new Error('Invalid subscription version')
+  if (!snapshot.commitSha || !snapshot.fileSha)
+    throw new Error('Version snapshot requires immutable source SHAs')
 
   const key = repositoryKey(snapshot)
-  const initial = { ...snapshot, archiveStatus: 'pending' as const, contentSha256: undefined, objectKey: undefined }
+  const initial = {
+    ...snapshot,
+    archiveStatus: 'pending' as const,
+    contentSha256: undefined,
+    objectKey: undefined,
+  }
   await statement(
     env,
     'INSERT INTO subscription_versions (subscription_id, repository_key, version, snapshot_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(subscription_id, repository_key, version) DO NOTHING',
@@ -170,7 +178,10 @@ export async function saveVersionSnapshot(
   return winner
 }
 
-export async function reserveArchiveObject(env: Env, object: ArchiveObject): Promise<ArchiveObject> {
+export async function reserveArchiveObject(
+  env: Env,
+  object: ArchiveObject,
+): Promise<ArchiveObject> {
   try {
     await statement(
       env,
@@ -204,7 +215,8 @@ export async function reserveArchiveObject(env: Env, object: ArchiveObject): Pro
     row.original_size !== object.originalSize ||
     row.compressed_size !== object.compressedSize ||
     row.object_key !== object.objectKey
-  ) throw new Error('R2 内容寻址对象元数据冲突')
+  )
+    throw new Error('R2 内容寻址对象元数据冲突')
   return {
     contentSha256: row.content_sha256,
     objectKey: row.object_key,
@@ -215,7 +227,11 @@ export async function reserveArchiveObject(env: Env, object: ArchiveObject): Pro
 }
 
 export async function markArchiveObjectReady(env: Env, hash: string) {
-  await statement(env, "UPDATE archive_objects SET status = 'ready' WHERE content_sha256 = ?", hash).run()
+  await statement(
+    env,
+    "UPDATE archive_objects SET status = 'ready' WHERE content_sha256 = ?",
+    hash,
+  ).run()
 }
 
 export async function markVersionReady(

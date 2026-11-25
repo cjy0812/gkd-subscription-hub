@@ -20,7 +20,14 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
         bind(...values: unknown[]) {
           const execute = async (): Promise<Row | null> => {
             if (sql.includes('INSERT INTO subscription_versions')) {
-              const [id, repo, version, snapshot, status, createdAt] = values as [number, string, number, string, string, string]
+              const [id, repo, version, snapshot, status, createdAt] = values as [
+                number,
+                string,
+                number,
+                string,
+                string,
+                string,
+              ]
               const k = key(id, repo, version)
               if (!versions.has(k)) {
                 versions.set(k, {
@@ -40,9 +47,19 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
               return versions.get(key(id, repo, version)) || null
             }
             if (sql.includes('INSERT INTO archive_objects')) {
-              const [hash, objectKey, originalSize, compressedSize, status, createdAt] = values as [string, string, number, number, string, string]
+              const [hash, objectKey, originalSize, compressedSize, status, createdAt] = values as [
+                string,
+                string,
+                number,
+                number,
+                string,
+                string,
+              ]
               if (!objects.has(hash)) {
-                const used = [...objects.values()].reduce((sum, item) => sum + Number(item.compressed_size), 0)
+                const used = [...objects.values()].reduce(
+                  (sum, item) => sum + Number(item.compressed_size),
+                  0,
+                )
                 if (used + compressedSize > limit) throw new Error('R2_ARCHIVE_QUOTA_EXCEEDED')
                 objects.set(hash, {
                   content_sha256: hash,
@@ -64,22 +81,32 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
               return null
             }
             if (sql.includes("UPDATE subscription_versions SET status = 'ready'")) {
-              const [hash, objectKey, originalSize, compressedSize, id, repo, version] = values as [string, string, number, number, number, string, number]
+              const [hash, objectKey, originalSize, compressedSize, id, repo, version] = values as [
+                string,
+                string,
+                number,
+                number,
+                number,
+                string,
+                number,
+              ]
               const row = versions.get(key(id, repo, version))
-              if (row && row.status !== 'ready') Object.assign(row, {
-                status: 'ready',
-                content_sha256: hash,
-                object_key: objectKey,
-                original_size: originalSize,
-                compressed_size: compressedSize,
-                archive_error: null,
-              })
+              if (row && row.status !== 'ready')
+                Object.assign(row, {
+                  status: 'ready',
+                  content_sha256: hash,
+                  object_key: objectKey,
+                  original_size: originalSize,
+                  compressed_size: compressedSize,
+                  archive_error: null,
+                })
               return null
             }
             if (sql.includes("UPDATE subscription_versions SET status = 'unavailable'")) {
               const [error, id, repo, version] = values as [string, number, string, number]
               const row = versions.get(key(id, repo, version))
-              if (row && row.status !== 'ready') Object.assign(row, { status: 'unavailable', archive_error: error })
+              if (row && row.status !== 'ready')
+                Object.assign(row, { status: 'unavailable', archive_error: error })
               return null
             }
             if (sql.includes('INSERT INTO archive_daily_usage')) {
@@ -96,7 +123,10 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
             return null
           }
           return {
-            run: async () => { await execute(); return { success: true, meta: {} } },
+            run: async () => {
+              await execute()
+              return { success: true, meta: {} }
+            },
             first: async <T>() => (await execute()) as T | null,
             all: async <T>() => {
               if (sql.includes('FROM subscription_versions')) {
@@ -133,7 +163,13 @@ function makeProject(version = 643, repo = 'repo'): Project {
     commitSha: `commit-${version}`,
     subscriptionVersion: version,
     repoUrl: `https://github.com/owner/${repo}`,
-    distFiles: [{ path: 'gkd.json5', sha: `blob-${version}`, size: new TextEncoder().encode('{id:233,version:643}').byteLength }],
+    distFiles: [
+      {
+        path: 'gkd.json5',
+        sha: `blob-${version}`,
+        size: new TextEncoder().encode('{id:233,version:643}').byteLength,
+      },
+    ],
     distHash: 'hash',
     workflows: [],
     registeredAt: '2026-01-01T00:00:00Z',
@@ -151,7 +187,9 @@ function makeBucket() {
   let puts = 0
   return {
     stored,
-    get puts() { return puts },
+    get puts() {
+      return puts
+    },
     bucket: {
       head: async (key: string) => {
         const item = stored.get(key)
@@ -160,7 +198,11 @@ function makeBucket() {
           customMetadata: item.customMetadata,
         } : null
       },
-      put: async (key: string, value: ArrayBuffer | ArrayBufferView | string | ReadableStream, options?: { customMetadata?: Record<string, string> }) => {
+      put: async (
+        key: string,
+        value: ArrayBuffer | ArrayBufferView | string | ReadableStream,
+        options?: { customMetadata?: Record<string, string> },
+      ) => {
         const bytes = new Uint8Array(await new Response(value as BodyInit).arrayBuffer())
         stored.set(key, { bytes, customMetadata: options?.customMetadata })
         puts += 1
@@ -196,7 +238,10 @@ describe('Cloudflare R2 subscription version archive', () => {
     const { env, bucket, database } = makeEnv()
     const source = '{id:233,version:643}'
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(source)])
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes)),
+    )
 
     const firstProject = makeProject()
     firstProject.distFiles[0].size = bytes.byteLength
@@ -207,7 +252,11 @@ describe('Cloudflare R2 subscription version archive', () => {
     expect(await readVersionContent(env, first as VersionSnapshot)).toEqual(bytes)
 
     const secondProject = makeProject(644)
-    secondProject.distFiles[0] = { path: 'gkd.json5', sha: 'different-blob', size: bytes.byteLength }
+    secondProject.distFiles[0] = {
+      path: 'gkd.json5',
+      sha: 'different-blob',
+      size: bytes.byteLength,
+    }
     const second = await recordSubscriptionVersion(env, secondProject)
     expect(second?.archiveStatus).toBe('r2')
     expect(second?.objectKey).toBe(first?.objectKey)

@@ -1,9 +1,6 @@
 import { Hono } from 'hono'
 import { fetchProjectFile } from '../services/providers'
-import {
-  archiveHistoricalSnapshot,
-  readVersionContent,
-} from '../services/version-history'
+import { archiveHistoricalSnapshot, readVersionContent } from '../services/version-history'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
 import { getVersionSnapshot, listVersionSnapshots } from '../storage/versions'
@@ -106,11 +103,7 @@ app.all('*', async (c) => {
     if (snapshot.archiveStatus !== 'r2') {
       snapshot = await archiveHistoricalSnapshot(c.env, snapshot)
     }
-    if (
-      snapshot.archiveStatus !== 'r2' ||
-      !snapshot.contentSha256 ||
-      !snapshot.objectKey
-    ) {
+    if (snapshot.archiveStatus !== 'r2' || !snapshot.contentSha256 || !snapshot.objectKey) {
       return bad(snapshot.archiveError || '历史版本尚未完成 Cloudflare R2 归档', 503)
     }
 
@@ -135,7 +128,8 @@ app.all('*', async (c) => {
     const cache = caches.default
     if (req.method === 'GET') {
       const cached = await cache.match(cacheKey)
-      if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers })
+      if (cached)
+        return new Response(cached.body, { status: cached.status, headers: cached.headers })
     }
 
     let source: Uint8Array
