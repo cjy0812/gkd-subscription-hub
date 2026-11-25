@@ -381,13 +381,26 @@ describe('top-level routing', () => {
     }
     const env = environment({
       STATE: {
-        get: vi.fn(async (key: string) => key === 'project:233' ? project : key === 'projects:index' ? [233] : null),
+        get: vi.fn(
+          async (key: string) =>
+            key === 'project:233' ? project : key === 'projects:index' ? [233] : null,
+        ),
       } as unknown as KVNamespace,
     })
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      id: 1, full_name: 'owner/repo', html_url: 'https://github.com/owner/repo',
-      default_branch: 'main', private: true, archived: false, fork: false,
-    })))
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: 1,
+            full_name: 'owner/repo',
+            html_url: 'https://github.com/owner/repo',
+            default_branch: 'main',
+            private: true,
+            archived: false,
+            fork: false,
+          }),
+        ),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const response = await worker.fetch(
       new Request('https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs'),
@@ -395,7 +408,10 @@ describe('top-level routing', () => {
       context,
     )
     expect(response.status).toBe(502)
-    expect(await response.json()).toMatchObject({ ok: false, error: '仓库已不再是未归档公开仓库' })
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: '仓库已不再是未归档公开仓库',
+    })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
