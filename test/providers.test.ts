@@ -165,6 +165,76 @@ describe('repository provider adapters', () => {
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/actions/jobs/7/steps/1/logs')
   })
 
+  it('loads GitLab pipeline jobs and job traces', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/pipelines/88/jobs')) {
+        return new Response(JSON.stringify([{ id: 9, name: 'test', status: 'success' }]))
+      }
+      return new Response('gitlab trace')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const adapter = getProviderAdapter('gitlab')
+    const project = {
+      provider: 'gitlab' as const,
+      providerId: '123',
+      owner: 'group',
+      repo: 'repo',
+      branch: 'main',
+    }
+    const jobs = await adapter.listRunJobs({} as Env, project, 88)
+    expect(jobs[0]).toMatchObject({
+      id: 9,
+      name: 'test',
+      steps: [{ number: 0, name: 'Job 日志' }],
+    })
+    await expect(adapter.getJobLog({} as Env, project, 9)).resolves.toBe('gitlab trace')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/jobs/9/trace')
+  })
+
+  it('loads Gitea workflow jobs and job logs', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/actions/runs/77/jobs')) {
+        return new Response(
+          JSON.stringify({
+            jobs: [
+              {
+                id: 12,
+                name: 'Build',
+                status: 'success',
+                steps: [{ number: 1, name: 'Checkout', status: 'success' }],
+              },
+            ],
+          }),
+        )
+      }
+      return new Response('gitea log')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const adapter = getProviderAdapter('gitea')
+    const project = { owner: 'owner', repo: 'repo', branch: 'main' }
+    const jobs = await adapter.listRunJobs({} as Env, project, 77)
+    expect(jobs[0]).toMatchObject({
+      id: 12,
+      name: 'Build',
+      steps: [{ number: 1, name: 'Checkout' }],
+    })
+    await expect(adapter.getJobLog({} as Env, project, 12)).resolves.toBe('gitea log')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/actions/jobs/12/logs')
+  })
+
+  it('rejects workflow logs above the bounded response size', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('x'.repeat(2 * 1024 * 1024 + 1))),
+    )
+    const adapter = getProviderAdapter('github')
+    await expect(
+      adapter.getJobLog({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 7),
+    ).rejects.toThrow('超过 2 MB 上限')
+  })
+
   it('forwards HEAD and ETag to the provider raw endpoint', async () => {
     const fetchMock = vi.fn(async () => new Response(null, { status: 304 }))
     vi.stubGlobal('fetch', fetchMock)
