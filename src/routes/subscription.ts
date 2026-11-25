@@ -125,7 +125,7 @@ app.all('*', async (c) => {
     const cacheUrl = new URL(req.url)
     cacheUrl.searchParams.set('__archive', snapshot.contentSha256)
     const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' })
-    const cache = caches.default
+    const cache = await caches.open('gkd-subscription-history-v1')
     if (req.method === 'GET') {
       const cached = await cache.match(cacheKey)
       if (cached)

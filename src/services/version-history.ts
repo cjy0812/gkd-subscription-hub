@@ -20,7 +20,7 @@ const MAX_COMPRESSED_SNAPSHOT_BYTES = 21 * 1024 * 1024
 export class HistorySnapshotTooLargeError extends Error {
   constructor(readonly byteLength: number) {
     super(
-      '历史订阅文件超过 20 MB 安全读取上限（约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB）',
+      `历史订阅文件超过 20 MB 安全读取上限（约 ${(byteLength / 1024 / 1024).toFixed(1)} MB）`,
     )
     this.name = 'HistorySnapshotTooLargeError'
   }
@@ -28,7 +28,7 @@ export class HistorySnapshotTooLargeError extends Error {
 
 function sha256(value: Uint8Array): Promise<string> {
   return crypto.subtle
-    .digest('SHA-256', value)
+    .digest('SHA-256', value.slice().buffer as ArrayBuffer)
     .then((digest) =>
       [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
     )
@@ -123,7 +123,7 @@ async function readSourceSnapshot(env: Env, snapshot: VersionSnapshot): Promise<
 }
 
 async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([bytes.slice().buffer])
+  const stream = new Blob([bytes.slice().buffer as ArrayBuffer])
     .stream()
     .pipeThrough(new CompressionStream('gzip'))
   return new Uint8Array(await new Response(stream).arrayBuffer())

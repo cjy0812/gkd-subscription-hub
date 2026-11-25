@@ -216,7 +216,7 @@ function makeBucket() {
           ? {
               size: item.bytes.byteLength,
               customMetadata: item.customMetadata,
-              body: new Response(item.bytes).body,
+              body: new Response(item.bytes.slice().buffer as ArrayBuffer).body,
             }
           : null
       },
@@ -244,7 +244,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(source)])
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(bytes)),
+      vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer)),
     )
 
     const firstProject = makeProject()
@@ -285,7 +285,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const source = new Uint8Array(new TextEncoder().encode('{id:233,version:643}'))
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(source)),
+      vi.fn(async () => new Response(source.slice().buffer as ArrayBuffer)),
     )
     await recordSubscriptionVersion(env, makeProject())
     expect(await getVersionSnapshot(env, 233, 643, makeProject(643, 'different-repo'))).toBeNull()
@@ -309,7 +309,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const bytes = new TextEncoder().encode('{id:233,version:643}')
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(bytes)),
+      vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer)),
     )
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record?.archiveStatus).toBe('r2')
