@@ -106,9 +106,7 @@ async function gitBlobSha(bytes: Uint8Array, expectedSha: string): Promise<strin
   payload.set(header)
   payload.set(bytes, header.byteLength)
   const digest = await crypto.subtle.digest(algorithm, payload.buffer as ArrayBuffer)
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 async function readSourceSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
