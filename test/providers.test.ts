@@ -255,9 +255,11 @@ describe('repository provider adapters', () => {
         }))
         return new Response(JSON.stringify({ jobs }))
       }
-      return new Response(JSON.stringify({
-        jobs: [{ id: 101, name: 'Job 101', status: 'completed', conclusion: 'success' }],
-      }))
+      return new Response(
+        JSON.stringify({
+          jobs: [{ id: 101, name: 'Job 101', status: 'completed', conclusion: 'success' }],
+        }),
+      )
     })
     vi.stubGlobal('fetch', fetchMock)
     const jobs = await getProviderAdapter('github').listRunJobs(
@@ -306,9 +308,11 @@ describe('repository provider adapters', () => {
         }))
         return new Response(JSON.stringify({ jobs }))
       }
-      return new Response(JSON.stringify({
-        jobs: [{ id: 51, name: 'Job 51', status: 'success' }],
-      }))
+      return new Response(
+        JSON.stringify({
+          jobs: [{ id: 51, name: 'Job 51', status: 'success' }],
+        }),
+      )
     })
     vi.stubGlobal('fetch', fetchMock)
     const jobs = await getProviderAdapter('gitea').listRunJobs(
