@@ -17,6 +17,7 @@ const showRunDrawer = ref(false)
 const selectedRun = ref<MonitoringRun>()
 const selectedJobs = ref<WorkflowJob[]>([])
 const jobsLoading = ref(false)
+const runRequestId = ref(0)
 const jobsError = ref('')
 const jobLogs = ref<Record<string, string>>({})
 const logLoading = ref(new Set<string>())
@@ -46,38 +47,51 @@ const columns: DataTableColumns<MonitoringRun> = [
   },
 ]
 async function openRun(run: MonitoringRun) {
+  const requestId = ++runRequestId.value
   selectedRun.value = run
   selectedJobs.value = []
   jobsError.value = ''
   jobLogs.value = {}
+  logLoading.value = new Set()
   showRunDrawer.value = true
   if (!run.runId) return
   jobsLoading.value = true
   try {
     const result = await api<{ jobs: WorkflowJob[] }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs`, getAdminToken())
-    if (selectedRun.value?.key === run.key) selectedJobs.value = result.jobs
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      selectedJobs.value = result.jobs
   } catch (cause) {
-    jobsError.value = cause instanceof Error ? cause.message : '读取 Job 列表失败'
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobsError.value = cause instanceof Error ? cause.message : '读取 Job 列表失败'
   } finally {
-    jobsLoading.value = false
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobsLoading.value = false
   }
 }
 async function loadJobLog(job: WorkflowJob, stepNumber?: number) {
   const run = selectedRun.value
   if (!run) return
-  const key = `${job.id}:${stepNumber ?? 'all'}`
+  const requestId = runRequestId.value
+  const key = `${run.key}:${job.id}:${stepNumber ?? 'all'}`
   if (jobLogs.value[key] !== undefined || logLoading.value.has(key)) return
   logLoading.value = new Set(logLoading.value).add(key)
   try {
     const suffix = stepNumber == null ? '' : `?step=${stepNumber}`
     const result = await api<{ log: string }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, getAdminToken())
-    jobLogs.value = { ...jobLogs.value, [key]: result.log }
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobLogs.value = { ...jobLogs.value, [key]: result.log }
   } catch (cause) {
-    jobLogs.value = { ...jobLogs.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key)
+      jobLogs.value = {
+        ...jobLogs.value,
+        [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败',
+      }
   } finally {
-    const next = new Set(logLoading.value)
-    next.delete(key)
-    logLoading.value = next
+    if (requestId === runRequestId.value && selectedRun.value?.key === run.key) {
+      const next = new Set(logLoading.value)
+      next.delete(key)
+      logLoading.value = next
+    }
   }
 }
 function runStatusLabel(run: MonitoringRun): string {
@@ -214,13 +228,13 @@ onMounted(() => { void load() })
               <n-collapse v-if="job.steps.length" accordion>
                 <n-collapse-item v-for="step in job.steps" :key="step.number" :name="String(step.number)">
                   <template #header><div class="collapse-heading"><strong>{{ step.number ? `Step ${step.number} · ` : '' }}{{ step.name }}</strong><span>{{ step.status }} · {{ step.conclusion || '—' }}</span></div></template>
-                  <n-button size="small" secondary :loading="logLoading.has(`${job.id}:${step.number}`)" @click="loadJobLog(job, step.number)">加载日志</n-button>
-                  <pre v-if="jobLogs[`${job.id}:${step.number}`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:${step.number}`] }}</pre>
+                  <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:${step.number}`)" @click="loadJobLog(job, step.number)">加载日志</n-button>
+                  <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:${step.number}`] }}</pre>
                 </n-collapse-item>
               </n-collapse>
               <template v-else>
-                <n-button size="small" secondary :loading="logLoading.has(`${job.id}:all`)" @click="loadJobLog(job)">加载 Job 日志</n-button>
-                <pre v-if="jobLogs[`${job.id}:all`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:all`] }}</pre>
+                <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:all`)" @click="loadJobLog(job)">加载 Job 日志</n-button>
+                <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:all`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:all`] }}</pre>
               </template>
             </n-collapse-item>
           </n-collapse>

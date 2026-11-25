@@ -25,6 +25,7 @@ const copyMessage = ref('')
 const expandedRun = ref<string | null>(null)
 const publicJobs = ref<PublicJob[]>([])
 const publicJobsLoading = ref(false)
+const publicRunRequestId = ref(0)
 const publicJobsError = ref('')
 const publicJobLogs = ref<Record<string, string>>({})
 const publicLogLoading = ref(new Set<string>())
@@ -67,24 +68,40 @@ async function load() {
 }
 async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
   const key = `${item.id}:${run.runId}`
-  if (expandedRun.value === key) { expandedRun.value = null; return }
+  if (expandedRun.value === key) {
+    publicRunRequestId.value += 1
+    expandedRun.value = null
+    return
+  }
+  const requestId = ++publicRunRequestId.value
   if (!run.runId) return
   expandedRun.value = key
   publicJobs.value = []
   publicJobsError.value = ''
   publicJobLogs.value = {}
+  publicLogLoading.value = new Set()
   publicJobsLoading.value = true
   try {
     const response = await fetch(`/api/public/subscriptions/${item.id}/runs/${run.runId}/jobs`, { headers: { accept: 'application/json' } })
     const result = await response.json() as { jobs?: PublicJob[]; error?: string }
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
-    if (expandedRun.value === key) publicJobs.value = result.jobs || []
+    if (requestId === publicRunRequestId.value && expandedRun.value === key)
+      publicJobs.value = result.jobs || []
   } catch (cause) {
-    publicJobsError.value = cause instanceof Error ? cause.message : '读取 Job 失败'
-  } finally { publicJobsLoading.value = false }
+    if (requestId === publicRunRequestId.value && expandedRun.value === key)
+      publicJobsError.value = cause instanceof Error ? cause.message : '读取 Job 失败'
+  } finally {
+    if (requestId === publicRunRequestId.value && expandedRun.value === key)
+      publicJobsLoading.value = false
+  }
+}
+function publicLogKey(item: PublicSubscription, run: PublicRun, job: PublicJob, stepNumber?: number) {
+  return `${item.id}:${run.runId}:${job.id}:${stepNumber ?? 'all'}`
 }
 async function loadPublicLog(item: PublicSubscription, run: PublicRun, job: PublicJob, stepNumber?: number) {
-  const key = `${job.id}:${stepNumber ?? 'all'}`
+  const key = publicLogKey(item, run, job, stepNumber)
+  const expandedKey = `${item.id}:${run.runId}`
+  const requestId = publicRunRequestId.value
   if (publicJobLogs.value[key] !== undefined || publicLogLoading.value.has(key)) return
   publicLogLoading.value = new Set(publicLogLoading.value).add(key)
   try {
@@ -92,10 +109,21 @@ async function loadPublicLog(item: PublicSubscription, run: PublicRun, job: Publ
     const response = await fetch(`/api/public/subscriptions/${item.id}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, { headers: { accept: 'application/json' } })
     const result = await response.json() as { log?: string; error?: string }
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
-    publicJobLogs.value = { ...publicJobLogs.value, [key]: result.log || '' }
+    if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey)
+      publicJobLogs.value = { ...publicJobLogs.value, [key]: result.log || '' }
   } catch (cause) {
-    publicJobLogs.value = { ...publicJobLogs.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }
-  } finally { const next = new Set(publicLogLoading.value); next.delete(key); publicLogLoading.value = next }
+    if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey)
+      publicJobLogs.value = {
+        ...publicJobLogs.value,
+        [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败',
+      }
+  } finally {
+    if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey) {
+      const next = new Set(publicLogLoading.value)
+      next.delete(key)
+      publicLogLoading.value = next
+    }
+  }
 }
 function publicEventLabel(event: string) {
   const labels: Record<string, string> = { push: '代码推送', schedule: '定时任务', workflow_dispatch: '手动触发', pull_request: '拉取请求', release: '版本发布', web: '网页触发' }
@@ -174,13 +202,13 @@ onMounted(() => { void load() })
                           <template v-if="job.steps.length">
                             <div v-for="step in job.steps" :key="step.number" class="public-step">
                               <span>{{ step.name }}</span>
-                              <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:${step.number}`)" @click="loadPublicLog(item, run, job, step.number)">查看日志</n-button>
-                              <pre v-if="publicJobLogs[`${job.id}:${step.number}`] !== undefined">{{ publicJobLogs[`${job.id}:${step.number}`] }}</pre>
+                              <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job, step.number))" @click="loadPublicLog(item, run, job, step.number)">查看日志</n-button>
+                              <pre v-if="publicJobLogs[publicLogKey(item, run, job, step.number)] !== undefined">{{ publicJobLogs[`${job.id}:${step.number}`] }}</pre>
                             </div>
                           </template>
                           <template v-else>
-                            <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:all`)" @click="loadPublicLog(item, run, job)">查看日志</n-button>
-                            <pre v-if="publicJobLogs[`${job.id}:all`] !== undefined">{{ publicJobLogs[`${job.id}:all`] }}</pre>
+                            <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job))" @click="loadPublicLog(item, run, job)">查看日志</n-button>
+                            <pre v-if="publicJobLogs[publicLogKey(item, run, job)] !== undefined">{{ publicJobLogs[`${job.id}:all`] }}</pre>
                           </template>
                         </div>
                       </n-spin>

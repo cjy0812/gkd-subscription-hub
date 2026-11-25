@@ -109,6 +109,33 @@ describe('top-level routing', () => {
     })
   })
 
+  it('keeps ordinary JSON files raw until the generic reader is available', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      commitSha: 'commit-sha',
+      distFiles: [{ path: 'config.json', sha: 'blob-sha', size: 13 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"enabled":true}')))
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/config.json', {
+        headers: { accept: 'text/html' },
+      }),
+      env,
+      context,
+    )
+    expect(response.headers.get('content-type')).toContain('application/json')
+    expect(await response.text()).toBe('{"enabled":true}')
+  })
+
   it('serves the GKD preview SPA for its deep link', async () => {
     const env = environment()
     const response = await worker.fetch(
