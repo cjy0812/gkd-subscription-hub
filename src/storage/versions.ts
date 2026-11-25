@@ -113,6 +113,32 @@ export async function getVersionSnapshot(
   return match ? { ...match, archiveStatus: match.archiveStatus || 'git-only' } : null
 }
 
+export async function getVersionSnapshotById(
+  env: Env,
+  id: number,
+  version: number,
+): Promise<{ snapshot: VersionSnapshot | null; ambiguous: boolean }> {
+  const rows = await statement(
+    env,
+    'SELECT repository_key, snapshot_json, status, content_sha256, object_key, compressed_size, archive_error FROM subscription_versions WHERE subscription_id = ? AND version = ? ORDER BY created_at DESC',
+    id,
+    version,
+  ).all<VersionRow & { repository_key: string }>()
+  const repositories = new Set((rows.results || []).map((row) => row.repository_key))
+  if (repositories.size > 1) return { snapshot: null, ambiguous: true }
+  if (rows.results?.length) return { snapshot: fromRow(rows.results[0]), ambiguous: false }
+
+  const legacy = (await legacySnapshots(env, id)).filter((item) => item.version === version)
+  const legacyRepositories = new Set(legacy.map((item) => repositoryKey(item)))
+  if (legacyRepositories.size > 1) return { snapshot: null, ambiguous: true }
+  return {
+    snapshot: legacy[0]
+      ? { ...legacy[0], archiveStatus: legacy[0].archiveStatus || 'git-only' }
+      : null,
+    ambiguous: false,
+  }
+}
+
 export async function listVersionSnapshots(
   env: Env,
   id: number,

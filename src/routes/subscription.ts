@@ -3,7 +3,7 @@ import { fetchProjectFile } from '../services/providers'
 import { archiveHistoricalSnapshot, readVersionContent } from '../services/version-history'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
-import { getVersionSnapshot, listVersionSnapshots } from '../storage/versions'
+import { getVersionSnapshot, getVersionSnapshotById, listVersionSnapshots } from '../storage/versions'
 import { renderMarkdown } from '../utils/markdown'
 import {
   bad,
@@ -85,8 +85,16 @@ app.all('*', async (c) => {
       return bad('Invalid version', 400)
     }
     const project = await get(c.env, numericId)
-    if (!project) return bad('Subscription not registered', 404)
-    let snapshot = await getVersionSnapshot(c.env, numericId, version, project)
+    let snapshot
+    if (project) {
+      snapshot = await getVersionSnapshot(c.env, numericId, version, project)
+    } else {
+      const lookup = await getVersionSnapshotById(c.env, numericId, version)
+      if (lookup.ambiguous) {
+        return bad('This subscription ID has multiple repository histories; register the original repository to disambiguate', 409)
+      }
+      snapshot = lookup.snapshot
+    }
     if (!snapshot) return bad('Historical version not found', 404)
 
     if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {

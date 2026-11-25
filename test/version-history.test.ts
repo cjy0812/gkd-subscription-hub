@@ -4,7 +4,7 @@ import {
   recordSubscriptionVersion,
   readVersionContent,
 } from '../src/services/version-history'
-import { getVersionSnapshot, type VersionSnapshot } from '../src/storage/versions'
+import { getVersionSnapshot, getVersionSnapshotById, type VersionSnapshot } from '../src/storage/versions'
 import type { Env, Project } from '../src/types'
 
 type Row = Record<string, unknown>
@@ -130,10 +130,20 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
             first: async <T>() => (await execute()) as T | null,
             all: async <T>() => {
               if (sql.includes('FROM subscription_versions')) {
-                const [id, repo] = values as [number, string]
+                const [id, selector] = values as [number, string | number]
                 const rows = [...versions.entries()]
-                  .filter(([k]) => k.startsWith(`${id}:${repo}:`))
-                  .map(([, row]) => row) as T[]
+                  .filter(([k]) =>
+                    typeof selector === 'number'
+                      ? k.startsWith(`${id}:`) && k.endsWith(`:${selector}`)
+                      : k.startsWith(`${id}:${selector}:`),
+                  )
+                  .map(([k, row]) => ({
+                    ...row,
+                    repository_key:
+                      typeof selector === 'number'
+                        ? k.slice(`${id}:`.length, -(`:${selector}`.length))
+                        : selector,
+                  })) as T[]
                 return { results: rows, success: true, meta: {} }
               }
               return { results: [] as T[], success: true, meta: {} }
@@ -266,6 +276,35 @@ describe('Cloudflare R2 subscription version archive', () => {
     expect(second?.objectKey).toBe(first?.objectKey)
     expect(bucket.puts).toBe(1)
     expect(database.objects.size).toBe(1)
+  })
+
+  it('keeps a unique archived history addressable after project metadata is deleted', async () => {
+    const { env } = makeEnv()
+    const bytes = new TextEncoder().encode('{id:233,version:643}')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer)),
+    )
+    await recordSubscriptionVersion(env, makeProject())
+
+    const lookup = await getVersionSnapshotById(env, 233, 643)
+    expect(lookup.ambiguous).toBe(false)
+    expect(lookup.snapshot?.archiveStatus).toBe('r2')
+  })
+
+  it('refuses to guess when a deleted subscription ID has multiple repository histories', async () => {
+    const { env } = makeEnv()
+    const bytes = new TextEncoder().encode('{id:233,version:643}')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer)),
+    )
+    await recordSubscriptionVersion(env, makeProject())
+    await recordSubscriptionVersion(env, makeProject(643, 'another-repository'))
+
+    const lookup = await getVersionSnapshotById(env, 233, 643)
+    expect(lookup.ambiguous).toBe(true)
+    expect(lookup.snapshot).toBeNull()
   })
 
   it('rejects new objects when the configured compressed-storage budget is exhausted', async () => {
