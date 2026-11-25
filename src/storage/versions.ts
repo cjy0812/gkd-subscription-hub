@@ -71,21 +71,49 @@ function statement(env: Env, sql: string, ...values: (string | number | null)[])
   return env.VERSIONS.prepare(sql).bind(...values)
 }
 
-async function legacySnapshots(env: Env, id: number): Promise<VersionSnapshot[]> {
+function snapshotRank(snapshot: VersionSnapshot): number {
+  return snapshot.archiveStatus === 'git-only' && !!snapshot.contentSha256 && /^[a-f0-9]{64}$/i.test(snapshot.contentSha256) ? 0 : 1
+}
+
+function preferLegacySnapshot(
+  current: VersionSnapshot,
+  candidate: VersionSnapshot,
+): VersionSnapshot {
+  const rankDifference = snapshotRank(candidate) - snapshotRank(current)
+  if (rankDifference < 0) return candidate
+  if (rankDifference > 0) return current
+  if (candidate.createdAt !== current.createdAt) {
+    return candidate.createdAt < current.createdAt ? candidate : current
+  }
+  return candidate.commitSha.localeCompare(current.commitSha) < 0 ? candidate : current
+}
+
+async function legacySnapshots(
+  env: Env,
+  id: number,
+  version?: number,
+): Promise<VersionSnapshot[]> {
   const result: VersionSnapshot[] = []
   const legacy = await env.STATE.get<VersionSnapshot[]>(`history:${id}:versions`, 'json')
-  if (Array.isArray(legacy)) result.push(...legacy)
+  if (Array.isArray(legacy)) {
+    result.push(...legacy.filter((item) => version === undefined || item.version === version))
+  }
+  const prefix = version === undefined
+    ? `history:${id}:snapshot:`
+    : `history:${id}:snapshot:${version}:`
   let cursor: string | undefined
   do {
     const page = await env.STATE.list({
-      prefix: `history:${id}:snapshot:`,
+      prefix,
       limit: 1000,
       ...(cursor ? { cursor } : {}),
     })
     const values = await Promise.all(
       page.keys.map((item) => env.STATE.get<VersionSnapshot>(item.name, 'json')),
     )
-    for (const item of values) if (item) result.push(item)
+    for (const item of values) {
+      if (item && (version === undefined || item.version === version)) result.push(item)
+    }
     cursor = page.list_complete ? undefined : page.cursor
   } while (cursor)
   return result
@@ -106,9 +134,13 @@ export async function getVersionSnapshot(
   ).first<VersionRow>()
   if (row) return fromRow(row)
 
-  const legacy = await legacySnapshots(env, id)
-  const match = legacy.find(
-    (item) => item.version === version && repositoryKey(item) === repositoryKey(project),
+  const candidates = (await legacySnapshots(env, id, version)).filter(
+    (item) => repositoryKey(item) === repositoryKey(project),
+  )
+  const match = candidates.reduce<VersionSnapshot | null>(
+    (current, candidate) =>
+      current ? preferLegacySnapshot(current, candidate) : candidate,
+    null,
   )
   return match ? { ...match, archiveStatus: match.archiveStatus || 'git-only' } : null
 }
@@ -154,9 +186,17 @@ export async function listVersionSnapshots(
     .map((row) => fromRow(row))
     .filter((item): item is VersionSnapshot => !!item)
 
+  const legacyByVersion = new Map<number, VersionSnapshot>()
   for (const item of await legacySnapshots(env, id)) {
     if (repositoryKey(item) !== repositoryKey(project)) continue
-    if (!result.some((existing) => existing.version === item.version)) {
+    const current = legacyByVersion.get(item.version)
+    legacyByVersion.set(
+      item.version,
+      current ? preferLegacySnapshot(current, item) : item,
+    )
+  }
+  for (const [version, item] of legacyByVersion) {
+    if (!result.some((existing) => existing.version === version)) {
       result.push({ ...item, archiveStatus: item.archiveStatus || 'git-only' })
     }
   }
