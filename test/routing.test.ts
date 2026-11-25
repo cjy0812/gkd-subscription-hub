@@ -386,8 +386,9 @@ describe('top-level routing', () => {
         ),
       } as unknown as KVNamespace,
     })
-    const fetchMock = vi.fn(async () =>
-      new Response(
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
         JSON.stringify({
           id: 1,
           full_name: 'owner/repo',
