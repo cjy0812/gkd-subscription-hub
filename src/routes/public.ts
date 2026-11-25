@@ -68,7 +68,7 @@ app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   )
     return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project || !project.lastRuns?.some((run) => run.runId === runId))
+  if (!project?.lastRuns?.some((run) => run.runId === runId))
     return json({ ok: false, error: '运行记录不存在' }, 404)
   try {
     const stepParam = c.req.query('step')

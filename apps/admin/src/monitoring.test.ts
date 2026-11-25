@@ -28,10 +28,11 @@ function project(
 }
 function run(
   workflowId: number,
-  updatedAt: string,
+  createdAt: string,
   status: string,
   conclusion: string | null,
   runId = workflowId,
+  updatedAt = createdAt,
 ) {
   return {
     workflowId,
@@ -39,7 +40,7 @@ function run(
     event: 'push',
     status,
     conclusion,
-    created_at: updatedAt,
+    created_at: createdAt,
     updated_at: updatedAt,
     html_url: `https://github.com/owner/repo/actions/runs/${runId}`,
     head_sha: `sha-${workflowId}`,
