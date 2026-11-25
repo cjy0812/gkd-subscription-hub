@@ -299,13 +299,17 @@ try {
   await projectsPage.addInitScript(() =>
     sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
   )
-  await projectsPage.route('**/admin/api/projects**', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ ok: true, projects: [project] }),
-    }),
-  )
+  await projectsPage.route('**/*', (route) => {
+    const requestUrl = new URL(route.request().url())
+    if (requestUrl.pathname.endsWith('/api/projects')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, projects: [project] }),
+      })
+    }
+    return route.continue()
+  })
   await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
   await projectsPage.getByText('ID 233', { exact: true }).waitFor()
   const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
