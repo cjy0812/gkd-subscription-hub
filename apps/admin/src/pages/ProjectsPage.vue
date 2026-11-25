@@ -250,7 +250,7 @@ async function batchDelete() {
 
 function openSubscription(id: number) {
   if (!projects.value.some((item) => item.id === id) || !subscriptionDomain.value) return
-  window.open(`https://${subscriptionDomain.value}/${id}/dist/`, '_blank', 'noopener,noreferrer')
+  window.open(`https://${subscriptionDomain.value}/${id}/`, '_blank', 'noopener,noreferrer')
 }
 
 async function copySubscriptionUrl(id: number) {
