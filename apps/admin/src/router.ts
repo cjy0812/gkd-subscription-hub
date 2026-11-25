@@ -15,11 +15,6 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'portal', component: PublicPortal },
     {
-      path: '/preview/:id',
-      name: 'subscription-preview-legacy',
-      component: SubscriptionPreviewPage,
-    },
-    {
       path: '/:id(\\d+)/:pathMatch(.*)*',
       name: 'subscription-file-preview',
       component: SubscriptionPreviewPage,
