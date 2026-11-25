@@ -543,7 +543,10 @@ const gitlabAdapter: ProviderAdapter = {
     let pages = 0
     while (url && pages < MAX_PAGES) {
       if (new URL(url).hostname !== 'gitlab.com') throw Error('GitLab 分页链接主机无效')
-      const pageResult = await gitlabPage<Array<{ id: number; name: string; status: string }>>(url)
+      const pageResult: {
+        data: Array<{ id: number; name: string; status: string }>
+        next: string | null
+      } = await gitlabPage<Array<{ id: number; name: string; status: string }>>(url)
       jobs.push(...pageResult.data)
       url = pageResult.next
       pages += 1
