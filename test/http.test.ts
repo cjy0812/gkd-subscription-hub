@@ -9,9 +9,9 @@ describe('HTTP helpers', () => {
   it('supports the source-view query without changing the file URL', () =>
     expect(wantsHtml(new Request('https://x/a.json5?view=source'))).toBe(true))
   it('raw query overrides Accept and source view', () =>
-    expect(wantsHtml(new Request('https://x/a?raw=1&view=source', { headers: { accept: 'text/html' } }))).toBe(
-      false,
-    ))
+    expect(
+      wantsHtml(new Request('https://x/a?raw=1&view=source', { headers: { accept: 'text/html' } })),
+    ).toBe(false))
   it('recognizes browser document navigation', () =>
     expect(
       wantsHtml(
