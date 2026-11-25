@@ -26,7 +26,16 @@ async function previewApp(req: Request, assets: Fetcher) {
   assetUrl.pathname = '/'
   const response = await assets.fetch(new Request(assetUrl, req))
   const headers = new Headers(response.headers)
-  headers.set('vary', 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest')
+  const vary = new Set(
+    (headers.get('vary') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )
+  for (const value of ['Accept', 'Sec-Fetch-Mode', 'Sec-Fetch-Dest']) {
+    if (![...vary].some((item) => item.toLowerCase() === value.toLowerCase())) vary.add(value)
+  }
+  headers.set('vary', [...vary].join(', '))
   headers.set('cache-control', 'no-store')
   Object.entries(htmlPreviewSecurityHeaders).forEach(([name, value]) => headers.set(name, value))
   return new Response(response.body, {
