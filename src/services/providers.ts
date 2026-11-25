@@ -291,8 +291,7 @@ const githubAdapter: ProviderAdapter = {
         `https://api.github.com/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}/logs`,
         { headers },
       )
-      if (!jobResponse.ok)
-        throw Error(`GitHub Job 日志读取失败：HTTP ${jobResponse.status}`)
+      if (!jobResponse.ok) throw Error(`GitHub Job 日志读取失败：HTTP ${jobResponse.status}`)
       const jobLog = await readBoundedLog(jobResponse)
       return ['GitHub 暂未提供该 Step 的独立日志，以下为完整 Job 日志。', '', jobLog].join('\n')
     }
