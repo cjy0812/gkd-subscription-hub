@@ -226,7 +226,12 @@ try {
       })
     })
     await publicPage.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
-    await publicPage.getByRole('heading', { name: '托管订阅源' }).waitFor()
+    await publicPage.getByRole('heading', { name: '发现、浏览与订阅 GKD 规则' }).waitFor()
+    assert.equal(
+      await publicPage.getByRole('link', { name: '浏览文件目录' }).getAttribute('href'),
+      '/233/',
+      'public directory links must use the canonical URL',
+    )
     await publicPage.getByRole('button', { name: '任务与日志' }).click()
     await publicPage.getByText('Build', { exact: true }).waitFor()
     const logButton = publicPage.getByRole('button', { name: '查看日志' })
