@@ -162,6 +162,7 @@ describe('top-level routing', () => {
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('vary')).toContain('Accept')
     expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('content-security-policy')).toBeNull()
     expect(await response.text()).toBe('/')
   })
 

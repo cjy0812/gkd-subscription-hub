@@ -37,7 +37,9 @@ async function previewApp(req: Request, assets: Fetcher) {
   }
   headers.set('vary', [...vary].join(', '))
   headers.set('cache-control', 'no-store')
-  Object.entries(htmlPreviewSecurityHeaders).forEach(([name, value]) => headers.set(name, value))
+  headers.set('x-content-type-options', 'nosniff')
+  headers.set('referrer-policy', 'no-referrer')
+  headers.set('x-frame-options', 'DENY')
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
