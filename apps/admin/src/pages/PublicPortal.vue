@@ -185,7 +185,7 @@ onMounted(() => { void load() })
               <div class="portal-card-top"><span class="portal-id">#{{ item.id }}</span><n-tag size="small" :bordered="false">{{ item.group }}</n-tag></div>
               <h3>{{ item.owner }}/{{ item.repo }}</h3>
               <p class="portal-meta">{{ item.provider }} · {{ item.branch }} · {{ item.fileCount }} 个文件</p>
-              <n-space align="center" justify="space-between"><a :href="`/${item.id}/dist/`">浏览文件目录</a><n-button size="small" secondary :disabled="!item.hasSubscription || !item.subscriptionPath" @click="copyUrl(item)">复制订阅地址</n-button></n-space>
+              <n-space align="center" justify="space-between"><a :href="`/${item.id}/`">浏览文件目录</a><n-button size="small" secondary :disabled="!item.hasSubscription || !item.subscriptionPath" @click="copyUrl(item)">复制订阅地址</n-button></n-space>
               <n-collapse v-if="item.lastRuns?.length" class="public-runs" :default-expanded-names="[]">
                 <n-collapse-item name="runs">
                   <template #header>最近运行 · {{ item.lastRuns.length }}</template>
