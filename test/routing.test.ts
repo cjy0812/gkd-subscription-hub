@@ -139,18 +139,6 @@ describe('top-level routing', () => {
     expect(await response.text()).toBe('{"enabled":true}')
   })
 
-  it('serves the GKD preview SPA for its deep link', async () => {
-    const env = environment()
-    const response = await worker.fetch(
-      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
-      env,
-      context,
-    )
-    expect(response.status).toBe(200)
-    expect(await response.text()).toBe('/')
-    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
-  })
-
   it('serves the admin SPA from the assets root', async () => {
     const env = environment()
     const response = await worker.fetch(new Request('https://gkd.example.com/admin/'), env, context)
@@ -216,7 +204,7 @@ describe('top-level routing', () => {
       vi.fn(async () => new Response('{id:233,version:1}')),
     )
     const response = await worker.fetch(
-      new Request('https://gkd.example.com/233/dist/gkd.json5?raw=1', {
+      new Request('https://gkd.example.com/233/gkd.json5?raw=1', {
         headers: {
           accept: 'text/html',
           'sec-fetch-mode': 'navigate',
@@ -242,7 +230,7 @@ describe('top-level routing', () => {
       } as unknown as KVNamespace,
     })
     const response = await worker.fetch(
-      new Request('https://gkd.example.com/233/dist/%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5', {
+      new Request('https://gkd.example.com/233/%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5', {
         headers: {
           accept: 'text/html',
           'sec-fetch-mode': 'navigate',
@@ -255,18 +243,6 @@ describe('top-level routing', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(await response.text()).toBe('/')
-  })
-
-  it('keeps the preview deep-link routed to Static Assets', async () => {
-    const env = environment()
-    const response = await worker.fetch(
-      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
-      env,
-      context,
-    )
-    expect(response.status).toBe(200)
-    expect(await response.text()).toBe('/')
-    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
   })
 
   it('serves canonical non-HTML JSON5 requests as the original file bytes', async () => {
