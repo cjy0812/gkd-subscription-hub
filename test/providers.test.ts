@@ -246,7 +246,7 @@ describe('repository provider adapters', () => {
   it('paginates GitHub workflow jobs beyond the first 100', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.includes('page=1')) {
+      if (/[?&]page=1(?:&|$)/.test(url)) {
         const jobs = Array.from({ length: 100 }, (_, i) => ({
           id: i + 1,
           name: 'Job ' + (i + 1),
