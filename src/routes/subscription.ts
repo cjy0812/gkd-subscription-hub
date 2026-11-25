@@ -24,7 +24,16 @@ const app = new Hono<{ Bindings: Env }>()
 async function previewApp(req: Request, assets: Fetcher) {
   const assetUrl = new URL(req.url)
   assetUrl.pathname = '/'
-  return assets.fetch(new Request(assetUrl, req))
+  const response = await assets.fetch(new Request(assetUrl, req))
+  const headers = new Headers(response.headers)
+  headers.set('vary', 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest')
+  headers.set('cache-control', 'no-store')
+  Object.entries(htmlPreviewSecurityHeaders).forEach(([name, value]) => headers.set(name, value))
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
 }
 
 function directory(project: Project, versions: Awaited<ReturnType<typeof listVersionSnapshots>>) {
