@@ -282,6 +282,7 @@ describe('top-level routing', () => {
       provider: 'github',
       owner: 'owner',
       repo: 'repo',
+      repoUrl: 'https://github.com/owner/repo',
       branch: 'main',
       lastRuns: [{ runId: 123 }],
       distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
@@ -297,6 +298,17 @@ describe('top-level routing', () => {
     })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url === 'https://api.github.com/repos/owner/repo') {
+        return new Response(JSON.stringify({
+          id: 1,
+          full_name: 'owner/repo',
+          html_url: 'https://github.com/owner/repo',
+          default_branch: 'main',
+          private: false,
+          archived: false,
+          fork: false,
+        }))
+      }
       if (url.includes('/actions/runs/123/jobs')) {
         return new Response(
           JSON.stringify({
