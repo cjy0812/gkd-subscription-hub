@@ -204,6 +204,16 @@ describe('top-level routing', () => {
     expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
   })
 
+  it('serves canonical non-HTML JSON5 requests as the original file bytes', async () => {
+    const project = { id: 233, provider: 'github', owner: 'owner', repo: 'repo', branch: 'main', commitSha: 'commit-sha', distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }] }
+    const env = environment({ STATE: { get: vi.fn(async (key: string) => key === 'project:233' ? project : null) } as unknown as KVNamespace })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:1}')))
+    const response = await worker.fetch(new Request('https://gkd.example.com/233/gkd.json5', { headers: { accept: 'application/json5, */*' } }), env, context)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/json5')
+    expect(await response.text()).toBe('{id:233,version:1}')
+  })
+
   it('returns 404 for unknown paths', async () => {
     const response = await worker.fetch(
       new Request('https://gkd.example.com/unknown'),

@@ -419,6 +419,10 @@ async function loadSubscription(allowLarge = false) {
     meta.value = parsed.meta
     stats.value = parsed.stats
     await loadApps(1)
+    if (route.query.view === 'source') {
+      activeTab.value = 'raw'
+      await loadRawSource()
+    }
   } catch (cause) {
     if (!controller.signal.aborted) {
       if (cause instanceof PreviewFileTooLargeError) {
