@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { explorerCatalog } from '../services/explorer'
 import { all } from '../storage/projects'
+import { getProviderAdapter } from '../services/providers'
 import type { Env } from '../types'
 import { json } from '../utils/http'
 
@@ -31,12 +32,16 @@ app.get('/subscriptions', async (c) => {
 app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
   const id = Number(c.req.param('id'))
   const runId = Number(c.req.param('runId'))
-  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0) return json({ ok: false, error: '项目或运行记录不存在' }, 404)
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0)
+    return json({ ok: false, error: '项目或运行记录不存在' }, 404)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project || !project.lastRuns.some((run) => run.runId === runId)) return json({ ok: false, error: '运行记录不在当前公开快照中' }, 404)
+  if (!project || !project.lastRuns.some((run) => run.runId === runId))
+    return json({ ok: false, error: '运行记录不在当前公开快照中' }, 404)
   try {
-    const { getProviderAdapter } = await import('../services/providers')
-    return json({ ok: true, jobs: await getProviderAdapter(project.provider).listRunJobs(c.env, project, runId) })
+    return json({
+      ok: true,
+      jobs: await getProviderAdapter(project.provider).listRunJobs(c.env, project, runId),
+    })
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : '读取 Job 失败' }, 502)
   }
@@ -44,12 +49,21 @@ app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
 app.get('/subscriptions/:id/jobs/:jobId/logs', async (c) => {
   const id = Number(c.req.param('id'))
   const jobId = Number(c.req.param('jobId'))
-  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(jobId) || jobId <= 0) return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(jobId) || jobId <= 0)
+    return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
   const project = (await all(c.env)).find((item) => item.id === id)
   if (!project) return json({ ok: false, error: '项目不存在' }, 404)
   try {
-    const { getProviderAdapter } = await import('../services/providers')
-    const log = await getProviderAdapter(project.provider).getJobLog(c.env, project, jobId, c.req.query('step') == null ? undefined : Number(c.req.query('step')))
+    const stepParam = c.req.query('step')
+    const stepNumber = stepParam == null ? undefined : Number(stepParam)
+    if (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
+      return json({ ok: false, error: 'Step 参数无效' }, 400)
+    const log = await getProviderAdapter(project.provider).getJobLog(
+      c.env,
+      project,
+      jobId,
+      stepNumber,
+    )
     return json({ ok: true, log })
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : '读取日志失败' }, 502)

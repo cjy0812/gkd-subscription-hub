@@ -1,4 +1,11 @@
-import type { DistFile, Env, ProjectProvider, WorkflowInfo, WorkflowJob, WorkflowRun } from '../types'
+import type {
+  DistFile,
+  Env,
+  ProjectProvider,
+  WorkflowInfo,
+  WorkflowJob,
+  WorkflowRun,
+} from '../types'
 import { decode, gh } from './github'
 
 export interface RepositoryLocator {
@@ -211,16 +218,43 @@ const githubAdapter: ProviderAdapter = {
   },
   async listRunJobs(env, project, runId) {
     const base = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs?per_page=100`
-    const data = await gh<{ jobs: Array<{ id: number; name: string; status: string; conclusion: string | null; steps?: Array<{ number: number; name: string; status: string; conclusion: string | null }> }> }>(env, base)
-    return data.jobs.map((job) => ({ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion, steps: (job.steps || []).map((step) => ({ number: step.number, name: step.name, status: step.status, conclusion: step.conclusion })) }))
+    const data = await gh<{
+      jobs: Array<{
+        id: number
+        name: string
+        status: string
+        conclusion: string | null
+        steps?: Array<{ number: number; name: string; status: string; conclusion: string | null }>
+      }>
+    }>(env, base)
+    return data.jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: job.conclusion,
+      steps: (job.steps || []).map((step) => ({
+        number: step.number,
+        name: step.name,
+        status: step.status,
+        conclusion: step.conclusion,
+      })),
+    }))
   },
   async getJobLog(env, project, jobId, stepNumber) {
     const suffix = stepNumber == null ? '' : `/steps/${stepNumber}`
     const path = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}${suffix}/logs`
-    const response = await fetch(`https://api.github.com${path}`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'gkd-subscription-hub', 'X-GitHub-Api-Version': '2022-11-28', ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}) } })
+    const response = await fetch(`https://api.github.com${path}`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'gkd-subscription-hub',
+        'X-GitHub-Api-Version': '2022-11-28',
+        ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+      },
+    })
     if (!response.ok) throw Error(`GitHub 日志读取失败：HTTP ${response.status}`)
     const log = await response.text()
-    if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+    if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024)
+      throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
     return log
   },
   rawFileUrl(project, file) {
@@ -231,12 +265,14 @@ const githubAdapter: ProviderAdapter = {
 
 async function readProviderLog(url: string, provider: string): Promise<string> {
   const response = await fetch(url, { headers: { Accept: 'text/plain, */*' } })
-  if (response.status === 403 || response.status === 429) throw Error(`${provider} 日志 API 触发限流（HTTP ${response.status}）`)
+  if (response.status === 403 || response.status === 429)
+    throw Error(`${provider} 日志 API 触发限流（HTTP ${response.status}）`)
   if (!response.ok) throw Error(`${provider} 日志读取失败：HTTP ${response.status}`)
   const declaredLength = Number(response.headers.get('content-length') || 0)
   if (declaredLength > 2 * 1024 * 1024) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
   const log = await response.text()
-  if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+  if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024)
+    throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
   return log
 }
 
@@ -454,13 +490,33 @@ const gitlabAdapter: ProviderAdapter = {
     })
   },
   async listRunJobs(_env, project, runId) {
-    const projectId = encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)
-    const jobs = await providerJson<Array<{ id: number; name: string; status: string }>>(`https://gitlab.com/api/v4/projects/${projectId}/pipelines/${runId}/jobs?per_page=100`, 'GitLab')
-    return jobs.map((job) => ({ id: job.id, name: job.name, status: job.status, conclusion: ['success','failed','canceled','skipped'].includes(job.status) ? job.status === 'success' ? 'success' : job.status : null, steps: [{ number: 0, name: 'Job 日志', status: job.status, conclusion: null }] }))
+    const projectId = encodeURIComponent(
+      project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`,
+    )
+    const jobs = await providerJson<Array<{ id: number; name: string; status: string }>>(
+      `https://gitlab.com/api/v4/projects/${projectId}/pipelines/${runId}/jobs?per_page=100`,
+      'GitLab',
+    )
+    return jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: ['success', 'failed', 'canceled', 'skipped'].includes(job.status)
+        ? job.status === 'success'
+          ? 'success'
+          : job.status
+        : null,
+      steps: [{ number: 0, name: 'Job 日志', status: job.status, conclusion: null }],
+    }))
   },
   async getJobLog(_env, project, jobId) {
-    const projectId = encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)
-    return readProviderLog(`https://gitlab.com/api/v4/projects/${projectId}/jobs/${jobId}/trace`, 'GitLab')
+    const projectId = encodeURIComponent(
+      project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`,
+    )
+    return readProviderLog(
+      `https://gitlab.com/api/v4/projects/${projectId}/jobs/${jobId}/trace`,
+      'GitLab',
+    )
   },
   rawFileUrl(project, file) {
     return `https://gitlab.com/api/v4/projects/${encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)}/repository/blobs/${file.sha}/raw`
@@ -612,8 +668,27 @@ const giteaAdapter: ProviderAdapter = {
   },
   async listRunJobs(_env, project, runId) {
     const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs?limit=100&page=1`
-    const data = await providerJson<{ jobs: Array<{ id: number; name: string; status: string; conclusion?: string | null; steps?: Array<{ number?: number; name: string; status: string; conclusion?: string | null }> }> }>(base, 'Gitea')
-    return (data.jobs || []).map((job) => ({ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion || null, steps: (job.steps || [{ name: 'Job 日志', status: job.status }]).map((step, index) => ({ number: step.number ?? index, name: step.name, status: step.status, conclusion: step.conclusion || null })) }))
+    const data = await providerJson<{
+      jobs: Array<{
+        id: number
+        name: string
+        status: string
+        conclusion?: string | null
+        steps?: Array<{ number?: number; name: string; status: string; conclusion?: string | null }>
+      }>
+    }>(base, 'Gitea')
+    return (data.jobs || []).map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      conclusion: job.conclusion || null,
+      steps: (job.steps || [{ name: 'Job 日志', status: job.status }]).map((step, index) => ({
+        number: step.number ?? index,
+        name: step.name,
+        status: step.status,
+        conclusion: step.conclusion || null,
+      })),
+    }))
   },
   async getJobLog(_env, project, jobId) {
     const url = `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}/logs`

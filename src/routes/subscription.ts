@@ -191,7 +191,8 @@ app.all('*', async (c) => {
 
   const file = project.distFiles.find((item) => item.path === path)
   if (!file) return bad('File not found', 404)
-  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && /\.json5?$/i.test(path)) return previewApp(req, c.env.ASSETS)
+  if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && /\.json5?$/i.test(path))
+    return previewApp(req, c.env.ASSETS)
 
   const response = await fetchProjectFile(c.env, project, file, {
     method: req.method,
