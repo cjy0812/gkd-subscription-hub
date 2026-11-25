@@ -7,11 +7,18 @@ const packageDirectory = process.env.PLAYWRIGHT_PACKAGE_DIR
 if (!packageDirectory) throw new Error('PLAYWRIGHT_PACKAGE_DIR is required')
 const { chromium } = await import(pathToFileURL(join(packageDirectory, 'index.mjs')).href)
 
-const owner = 'a-very-long-owner-name-that-must-wrap-without-overflowing-the-mobile-layout-' + 'x'.repeat(28)
+const owner =
+  'a-very-long-owner-name-that-must-wrap-without-overflowing-the-mobile-layout-' + 'x'.repeat(28)
 const repo = 'a-very-long-subscription-repository-name-that-must-wrap-cleanly-' + 'y'.repeat(24)
-const workflowName = 'Build and publish the subscription distribution artifacts for multiple runtime targets'
-const workflowPath = '.github/workflows/' + 'subscription-distribution-validation-and-release-'.repeat(2) + 'workflow.yml'
-const longError = 'Upstream repository scan failed: ' + 'network timeout while resolving the provider API response; '.repeat(5)
+const workflowName =
+  'Build and publish the subscription distribution artifacts for multiple runtime targets'
+const workflowPath =
+  '.github/workflows/' +
+  'subscription-distribution-validation-and-release-'.repeat(2) +
+  'workflow.yml'
+const longError =
+  'Upstream repository scan failed: ' +
+  'network timeout while resolving the provider API response; '.repeat(5)
 const runUrl = 'https://github.com/owner/repo/actions/runs/123456789'
 const project = {
   id: 233,
@@ -42,7 +49,12 @@ const project = {
       head_sha: 'a'.repeat(40),
     },
   ],
-  prediction: { intervalHours: 6, predictedAt: null, nextCheckAt: '2026-11-25T06:00:00.000Z', successfulRuns: 3 },
+  prediction: {
+    intervalHours: 6,
+    predictedAt: null,
+    nextCheckAt: '2026-11-25T06:00:00.000Z',
+    successfulRuns: 3,
+  },
   lastError: longError,
 }
 const widths = [320, 640, 641, 768, 1024, 1440]
@@ -75,20 +87,28 @@ try {
     await runLink.waitFor({ state: 'visible' })
     assert.equal(await runLink.getAttribute('href'), runUrl)
     assert.equal(await runLink.getAttribute('target'), '_blank')
-    assert.match(await runLink.getAttribute('rel') || '', /noopener/)
+    assert.match((await runLink.getAttribute('rel')) || '', /noopener/)
 
     const refreshButton = page.getByRole('button', { name: '重新读取' })
     await refreshButton.focus()
     await page.keyboard.press('Tab')
-    const focusVisible = await page.evaluate(() =>
-      document.activeElement?.matches(':focus-visible') ?? false,
+    const focusVisible = await page.evaluate(
+      () => document.activeElement?.matches(':focus-visible') ?? false,
     )
     assert.equal(focusVisible, true, `keyboard focus indicator missing at ${width}px`)
 
     const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth)
-    assert.ok(documentWidth <= width + 1, `horizontal page overflow at ${width}px: ${documentWidth}px`)
-    await page.screenshot({ path: `artifacts/browser-acceptance/monitoring-${width}.png`, fullPage: true })
-    console.log(`PASS MonitoringPage viewport ${width}px (desktop=${desktopRuns}, mobile=${mobileRuns}, no horizontal overflow, keyboard focus, Run link)`)
+    assert.ok(
+      documentWidth <= width + 1,
+      `horizontal page overflow at ${width}px: ${documentWidth}px`,
+    )
+    await page.screenshot({
+      path: `artifacts/browser-acceptance/monitoring-${width}.png`,
+      fullPage: true,
+    })
+    console.log(
+      `PASS MonitoringPage viewport ${width}px (desktop=${desktopRuns}, mobile=${mobileRuns}, no horizontal overflow, keyboard focus, Run link)`,
+    )
     await page.close()
   }
 } finally {
