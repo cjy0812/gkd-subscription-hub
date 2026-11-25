@@ -237,11 +237,11 @@ try {
       }
       return route.continue()
     })
-    const sourceRequest = previewPage.waitForRequest(
-      (request) => new URL(request.url()).searchParams.get('raw') === '1',
+    const sourceResponse = previewPage.waitForResponse(
+      (response) => new URL(response.url()).searchParams.get('raw') === '1',
     )
     await previewPage.goto('http://127.0.0.1:4173' + routePath, { waitUntil: 'domcontentloaded' })
-    await sourceRequest
+    await sourceResponse
     assert.equal(requestedPath, expectedPath, `canonical preview source mismatch for ${routePath}`)
     console.log(`PASS canonical preview selector ${routePath} → ${requestedPath}`)
     await previewPage.close()
