@@ -30,7 +30,13 @@ const project = {
   distHash: 'fixture',
   workflows: [
     { id: 101, name: workflowName, path: workflowPath, cron: [], relevant: true },
-    { id: 102, name: 'A workflow with no recent runs', path: '.github/workflows/idle.yml', cron: [], relevant: true },
+    {
+      id: 102,
+      name: 'A workflow with no recent runs',
+      path: '.github/workflows/idle.yml',
+      cron: [],
+      relevant: true,
+    },
   ],
   registeredAt: '2026-01-01T00:00:00.000Z',
   lastCheckedAt: '2026-11-25T00:00:00.000Z',
