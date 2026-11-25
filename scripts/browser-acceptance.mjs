@@ -309,11 +309,10 @@ try {
     return route.continue()
   })
   await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
-  console.log('PROJECT PAGE BODY', (await projectsPage.locator('body').innerText()).slice(0, 1000))
   await projectsPage.getByText('ID 233', { exact: true }).waitFor()
   const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
   await projectCheckbox.waitFor({ state: 'visible' })
-  assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes('owner/'))
+  assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
   console.log('PASS mobile project checkbox has an accessible project-specific name')
   await projectsPage.screenshot({
     path: 'artifacts/browser-acceptance/projects-320.png',
