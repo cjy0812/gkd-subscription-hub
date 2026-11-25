@@ -81,13 +81,13 @@ async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
     publicJobs.value = [{ id: -1, name: cause instanceof Error ? cause.message : '读取 Job 失败', status: 'error', conclusion: null, steps: [] }]
   } finally { publicJobsLoading.value = false }
 }
-async function loadPublicLog(item: PublicSubscription, job: PublicJob, stepNumber?: number) {
+async function loadPublicLog(item: PublicSubscription, run: PublicRun, job: PublicJob, stepNumber?: number) {
   const key = `${job.id}:${stepNumber ?? 'all'}`
   if (publicJobLogs.value[key] !== undefined || publicLogLoading.value.has(key)) return
   publicLogLoading.value = new Set(publicLogLoading.value).add(key)
   try {
     const suffix = stepNumber == null ? '' : `?step=${stepNumber}`
-    const response = await fetch(`/api/public/subscriptions/${item.id}/jobs/${job.id}/logs${suffix}`, { headers: { accept: 'application/json' } })
+    const response = await fetch(`/api/public/subscriptions/${item.id}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, { headers: { accept: 'application/json' } })
     const result = await response.json() as { log?: string; error?: string }
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
     publicJobLogs.value = { ...publicJobLogs.value, [key]: result.log || '' }
@@ -170,12 +170,12 @@ onMounted(() => { void load() })
                           <template v-if="job.steps.length">
                             <div v-for="step in job.steps" :key="step.number" class="public-step">
                               <span>{{ step.name }}</span>
-                              <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:${step.number}`)" @click="loadPublicLog(item, job, step.number)">查看日志</n-button>
+                              <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:${step.number}`)" @click="loadPublicLog(item, run, job, step.number)">查看日志</n-button>
                               <pre v-if="publicJobLogs[`${job.id}:${step.number}`] !== undefined">{{ publicJobLogs[`${job.id}:${step.number}`] }}</pre>
                             </div>
                           </template>
                           <template v-else>
-                            <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:all`)" @click="loadPublicLog(item, job)">查看日志</n-button>
+                            <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:all`)" @click="loadPublicLog(item, run, job)">查看日志</n-button>
                             <pre v-if="publicJobLogs[`${job.id}:all`] !== undefined">{{ publicJobLogs[`${job.id}:all`] }}</pre>
                           </template>
                         </div>

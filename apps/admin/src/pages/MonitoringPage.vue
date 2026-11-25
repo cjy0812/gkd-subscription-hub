@@ -68,7 +68,7 @@ async function loadJobLog(job: WorkflowJob, stepNumber?: number) {
   logLoading.value = new Set(logLoading.value).add(key)
   try {
     const suffix = stepNumber == null ? '' : `?step=${stepNumber}`
-    const result = await api<{ log: string }>(`/api/projects/${run.projectId}/jobs/${job.id}/logs${suffix}`, getAdminToken())
+    const result = await api<{ log: string }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, getAdminToken())
     jobLogs.value = { ...jobLogs.value, [key]: result.log }
   } catch (cause) {
     jobLogs.value = { ...jobLogs.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }

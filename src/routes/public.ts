@@ -54,24 +54,25 @@ app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
     return json({ ok: false, error: error instanceof Error ? error.message : '读取 Job 失败' }, 502)
   }
 })
-app.get('/subscriptions/:id/jobs/:jobId/logs', async (c) => {
+app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   const id = Number(c.req.param('id'))
+  const runId = Number(c.req.param('runId'))
   const jobId = Number(c.req.param('jobId'))
-  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(jobId) || jobId <= 0)
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0 || !Number.isSafeInteger(jobId) || jobId <= 0)
     return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project) return json({ ok: false, error: '项目不存在' }, 404)
+  if (!project || !project.lastRuns.some((run) => run.runId === runId))
+    return json({ ok: false, error: '运行记录不存在' }, 404)
   try {
     const stepParam = c.req.query('step')
     const stepNumber = stepParam == null ? undefined : Number(stepParam)
     if (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
       return json({ ok: false, error: 'Step 参数无效' }, 400)
-    const log = await getProviderAdapter(project.provider).getJobLog(
-      c.env,
-      project,
-      jobId,
-      stepNumber,
-    )
+    const adapter = getProviderAdapter(project.provider)
+    const jobs = await adapter.listRunJobs(c.env, project, runId)
+    if (!jobs.some((job) => job.id === jobId))
+      return json({ ok: false, error: 'Job 不属于指定的 Run' }, 404)
+    const log = await adapter.getJobLog(c.env, project, jobId, stepNumber)
     return json({ ok: true, log })
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : '读取日志失败' }, 502)

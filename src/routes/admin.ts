@@ -90,26 +90,28 @@ app.get('/api/projects/:id/runs/:runId/jobs', async (c) => {
     return bad(error instanceof Error ? error.message : '读取 Job 失败', 502)
   }
 })
-app.get('/api/projects/:id/jobs/:jobId/logs', async (c) => {
+app.get('/api/projects/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   const id = Number(c.req.param('id'))
+  const runId = Number(c.req.param('runId'))
   const jobId = Number(c.req.param('jobId'))
   const stepParam = c.req.query('step')
   const stepNumber = stepParam == null ? undefined : Number(stepParam)
   const project = await get(c.env, id)
   if (
     !project ||
+    !Number.isSafeInteger(runId) ||
+    runId <= 0 ||
+    !project.lastRuns.some((run) => run.runId === runId) ||
     !Number.isSafeInteger(jobId) ||
     jobId <= 0 ||
     (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
   )
     return bad('项目、Job 或 Step 参数无效', 400)
   try {
-    const log = await getProviderAdapter(project.provider).getJobLog(
-      c.env,
-      project,
-      jobId,
-      stepNumber,
-    )
+    const adapter = getProviderAdapter(project.provider)
+    const jobs = await adapter.listRunJobs(c.env, project, runId)
+    if (!jobs.some((job) => job.id === jobId)) return bad('Job 不属于指定的 Run', 404)
+    const log = await adapter.getJobLog(c.env, project, jobId, stepNumber)
     return new Response(JSON.stringify({ ok: true, log }), {
       headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
     })
