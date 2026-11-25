@@ -79,7 +79,7 @@ app.get('/api/projects/:id/runs/:runId/jobs', async (c) => {
   const project = await get(c.env, id)
   if (!project || !Number.isSafeInteger(runId) || runId <= 0)
     return bad('项目或运行记录不存在', 404)
-  if (!project.lastRuns.some((run) => run.runId === runId))
+  if (!project.lastRuns?.some((run) => run.runId === runId))
     return bad('运行记录不在当前公开快照中', 404)
   try {
     return json({

@@ -77,6 +77,38 @@ describe('top-level routing', () => {
     })
   })
 
+  it('returns an empty run list for older project snapshots without lastRuns', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      registeredAt: '2026-01-01T00:00:00.000Z',
+      fileCount: 1,
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => {
+          if (key === 'projects:index') return [233]
+          if (key === 'project:233') return project
+          return null
+        }),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/api/public/subscriptions'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      subscriptions: [{ id: 233, lastRuns: [] }],
+    })
+  })
+
   it('serves the GKD preview SPA for its deep link', async () => {
     const env = environment()
     const response = await worker.fetch(

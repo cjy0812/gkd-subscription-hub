@@ -24,7 +24,7 @@ app.get('/subscriptions', async (c) => {
     subscriptionPath:
       project.distFiles.find((file) => file.path.toLowerCase() === 'gkd.json5')?.path || null,
     hasSubscription: project.distFiles.some((file) => file.path.toLowerCase() === 'gkd.json5'),
-    lastRuns: project.lastRuns.slice(0, 5).map((run) => ({
+    lastRuns: (project.lastRuns || []).slice(0, 5).map((run) => ({
       runId: run.runId,
       workflowName: run.workflowName,
       event: run.event,
@@ -43,7 +43,7 @@ app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
   if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0)
     return json({ ok: false, error: '项目或运行记录不存在' }, 404)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project?.lastRuns.some((run) => run.runId === runId))
+  if (!project?.lastRuns?.some((run) => run.runId === runId))
     return json({ ok: false, error: '运行记录不在当前公开快照中' }, 404)
   try {
     return json({
@@ -68,7 +68,7 @@ app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   )
     return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project || !project.lastRuns.some((run) => run.runId === runId))
+  if (!project || !project.lastRuns?.some((run) => run.runId === runId))
     return json({ ok: false, error: '运行记录不存在' }, 404)
   try {
     const stepParam = c.req.query('step')
