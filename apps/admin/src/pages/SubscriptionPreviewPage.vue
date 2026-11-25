@@ -43,6 +43,7 @@ const rawSource = ref<string | null>(null)
 const rawLoading = ref(false)
 const meta = ref<SubscriptionMeta>()
 const stats = ref<SubscriptionStats>()
+const sourceOnlyMode = ref(false)
 const loading = ref(false)
 const actionLoading = ref(false)
 let pendingActionRequests = 0
@@ -366,7 +367,8 @@ async function loadSubscription(allowLarge = false) {
   rulesRequestId += 1
   detailRequestId += 1
   categoriesRequestId += 1
-  activeTab.value = 'apps'
+  sourceOnlyMode.value = route.query.view === 'source'
+  activeTab.value = sourceOnlyMode.value ? 'raw' : 'apps'
   groupScope.value = 'app'
   appQuery.value = ''
   groupQuery.value = ''
@@ -401,6 +403,11 @@ async function loadSubscription(allowLarge = false) {
   client.value = instance
 
   try {
+    if (sourceOnlyMode.value) {
+      loading.value = false
+      await loadRawSource()
+      return
+    }
     const bytes = await instance.loadSourceBytes(sourceUrl.value, controller.signal, allowLarge)
     if (controller.signal.aborted) return
     const parsed = await instance.request<{
@@ -419,10 +426,6 @@ async function loadSubscription(allowLarge = false) {
     meta.value = parsed.meta
     stats.value = parsed.stats
     await loadApps(1)
-    if (route.query.view === 'source') {
-      activeTab.value = 'raw'
-      await loadRawSource()
-    }
   } catch (cause) {
     if (!controller.signal.aborted) {
       if (cause instanceof PreviewFileTooLargeError) {
@@ -545,13 +548,13 @@ onBeforeUnmount(() => {
       </div>
     </n-alert>
 
-    <n-spin :show="loading" description="在独立 Worker 中解析 GKD 订阅…">
-      <template v-if="meta && stats">
-        <n-alert v-if="isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
+    <n-spin :show="loading" :description="sourceOnlyMode ? '正在读取原始文件…' : '在独立 Worker 中解析 GKD 订阅…'">
+      <template v-if="(meta && stats) || sourceOnlyMode">
+        <n-alert v-if="!sourceOnlyMode && isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
           订阅 ID 不匹配：URL 中的 ID 是 {{ subscriptionId }}，文件内部 ID 是 {{ meta.id }}。请检查订阅来源。
         </n-alert>
 
-        <section class="subscription-overview">
+        <section v-if="meta && stats" class="subscription-overview">
           <n-card :bordered="false" class="meta-card">
             <div class="meta-topline">
               <n-tag :bordered="false" type="success">GKD 订阅</n-tag>
@@ -577,7 +580,7 @@ onBeforeUnmount(() => {
 
         <n-card :bordered="false" class="preview-content">
           <n-tabs v-model:value="activeTab" type="line" animated>
-            <n-tab-pane name="apps" tab="应用规则">
+            <n-tab-pane v-if="!sourceOnlyMode" name="apps" tab="应用规则">
               <div class="tab-toolbar">
                 <div><h2>应用列表</h2><p>按应用分页浏览，每页 50 项；选择应用后才加载它的规则组。</p></div>
                 <div class="search-field"><span id="app-search-label">应用搜索</span><n-input v-model:value="appQuery" clearable size="small" aria-labelledby="app-search-label" placeholder="输入包名或应用名称" class="search-input" /></div>
@@ -659,7 +662,7 @@ onBeforeUnmount(() => {
               </section>
             </n-tab-pane>
 
-            <n-tab-pane name="global" tab="全局规则">
+            <n-tab-pane v-if="!sourceOnlyMode" name="global" tab="全局规则">
               <div class="tab-toolbar">
                 <div><h2>全局规则组</h2><p>只在打开此标签时加载全局规则组；规则详情按需读取。</p></div>
                 <div class="search-field"><span id="global-group-search-label">全局规则组搜索</span><n-input v-model:value="groupQuery" clearable size="small" aria-labelledby="global-group-search-label" placeholder="输入规则组名称" class="search-input" /></div>
@@ -707,7 +710,7 @@ onBeforeUnmount(() => {
               </div>
             </n-tab-pane>
 
-            <n-tab-pane name="categories" tab="分类">
+            <n-tab-pane v-if="!sourceOnlyMode" name="categories" tab="分类">
               <div class="tab-toolbar">
                 <div><h2>订阅分类</h2><p>分类默认状态决定捕获的应用规则组是否启用。</p></div>
                 <div class="search-field"><span id="category-search-label">分类搜索</span><n-input v-model:value="categoryQuery" clearable size="small" aria-labelledby="category-search-label" placeholder="输入分类名称或 Key" class="search-input" /></div>
