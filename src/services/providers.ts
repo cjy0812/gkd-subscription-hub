@@ -63,6 +63,40 @@ export interface ProjectSource {
 const MAX_PAGES = 10
 const PAGE_SIZE = 100
 
+const MAX_JOB_LOG_BYTES = 2 * 1024 * 1024
+
+async function readBoundedLog(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length') || 0)
+  if (declaredLength > MAX_JOB_LOG_BYTES)
+    throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+  if (!response.body) return ''
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_JOB_LOG_BYTES) {
+        await reader.cancel()
+        throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
+}
+
+
 function parsePath(host: string, segments: string[], provider: ProjectProvider, minimum: number) {
   if (
     host !==
@@ -252,10 +286,7 @@ const githubAdapter: ProviderAdapter = {
       },
     })
     if (!response.ok) throw Error(`GitHub 日志读取失败：HTTP ${response.status}`)
-    const log = await response.text()
-    if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024)
-      throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
-    return log
+    return readBoundedLog(response)
   },
   rawFileUrl(project, file) {
     const ref = project.commitSha || encodeURIComponent(project.branch)
@@ -268,12 +299,7 @@ async function readProviderLog(url: string, provider: string): Promise<string> {
   if (response.status === 403 || response.status === 429)
     throw Error(`${provider} 日志 API 触发限流（HTTP ${response.status}）`)
   if (!response.ok) throw Error(`${provider} 日志读取失败：HTTP ${response.status}`)
-  const declaredLength = Number(response.headers.get('content-length') || 0)
-  if (declaredLength > 2 * 1024 * 1024) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
-  const log = await response.text()
-  if (new TextEncoder().encode(log).byteLength > 2 * 1024 * 1024)
-    throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
-  return log
+  return readBoundedLog(response)
 }
 
 async function providerJson<T>(url: string, provider: string): Promise<T> {
