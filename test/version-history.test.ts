@@ -216,7 +216,7 @@ function makeBucket() {
           ? {
               size: item.bytes.byteLength,
               customMetadata: item.customMetadata,
-              body: new Response(item.bytes).body,
+              body: new Response(item.bytes.slice().buffer as ArrayBuffer).body,
             }
           : null
       },
