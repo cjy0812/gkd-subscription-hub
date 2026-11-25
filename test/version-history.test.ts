@@ -4,7 +4,11 @@ import {
   recordSubscriptionVersion,
   readVersionContent,
 } from '../src/services/version-history'
-import { getVersionSnapshot, getVersionSnapshotById, type VersionSnapshot } from '../src/storage/versions'
+import {
+  getVersionSnapshot,
+  getVersionSnapshotById,
+  type VersionSnapshot,
+} from '../src/storage/versions'
 import type { Env, Project } from '../src/types'
 
 type Row = Record<string, unknown>
@@ -141,7 +145,7 @@ function makeDatabase(limit = 512 * 1024 * 1024) {
                     ...row,
                     repository_key:
                       typeof selector === 'number'
-                        ? k.slice(`${id}:`.length, -(`:${selector}`.length))
+                        ? k.slice(`${id}:`.length, -`:${selector}`.length)
                         : selector,
                   })) as T[]
                 return { results: rows, success: true, meta: {} }

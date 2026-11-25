@@ -3,7 +3,11 @@ import { fetchProjectFile } from '../services/providers'
 import { archiveHistoricalSnapshot, readVersionContent } from '../services/version-history'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
-import { getVersionSnapshot, getVersionSnapshotById, listVersionSnapshots } from '../storage/versions'
+import {
+  getVersionSnapshot,
+  getVersionSnapshotById,
+  listVersionSnapshots,
+} from '../storage/versions'
 import { renderMarkdown } from '../utils/markdown'
 import {
   bad,
@@ -91,7 +95,10 @@ app.all('*', async (c) => {
     } else {
       const lookup = await getVersionSnapshotById(c.env, numericId, version)
       if (lookup.ambiguous) {
-        return bad('This subscription ID has multiple repository histories; register the original repository to disambiguate', 409)
+        return bad(
+          'This subscription ID has multiple repository histories; register the original repository to disambiguate',
+          409,
+        )
       }
       snapshot = lookup.snapshot
     }
