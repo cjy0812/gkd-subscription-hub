@@ -246,35 +246,76 @@ describe('repository provider adapters', () => {
   it('paginates GitHub workflow jobs beyond the first 100', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.includes('page=1')) return new Response(JSON.stringify({ jobs: Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `Job ${i + 1}`, status: 'completed', conclusion: 'success' })) }))
-      return new Response(JSON.stringify({ jobs: [{ id: 101, name: 'Job 101', status: 'completed', conclusion: 'success' }] }))
+      if (url.includes('page=1')) {
+        const jobs = Array.from({ length: 100 }, (_, i) => ({
+          id: i + 1,
+          name: 'Job ' + (i + 1),
+          status: 'completed',
+          conclusion: 'success',
+        }))
+        return new Response(JSON.stringify({ jobs }))
+      }
+      return new Response(JSON.stringify({
+        jobs: [{ id: 101, name: 'Job 101', status: 'completed', conclusion: 'success' }],
+      }))
     })
     vi.stubGlobal('fetch', fetchMock)
-    const jobs = await getProviderAdapter('github').listRunJobs({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 99)
+    const jobs = await getProviderAdapter('github').listRunJobs(
+      {} as Env,
+      { owner: 'owner', repo: 'repo', branch: 'main' },
+      99,
+    )
     expect(jobs).toHaveLength(101)
     expect(jobs.at(-1)?.id).toBe(101)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('paginates GitLab pipeline jobs using the next link', async () => {
-    const nextUrl = 'https://gitlab.com/api/v4/projects/123/pipelines/88/jobs?pagination=keyset&page_token=next'
+    const nextUrl =
+      'https://gitlab.com/api/v4/projects/123/pipelines/88/jobs?pagination=keyset&page_token=next'
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      if (String(input).includes('page_token=next')) return new Response(JSON.stringify([{ id: 101, name: 'next', status: 'success' }]))
-      return new Response(JSON.stringify(Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `job-${i + 1}`, status: 'success' }))), { headers: { link: `<${nextUrl}>; rel="next"` } })
+      if (String(input).includes('page_token=next')) {
+        return new Response(JSON.stringify([{ id: 101, name: 'next', status: 'success' }]))
+      }
+      const jobs = Array.from({ length: 100 }, (_, i) => ({
+        id: i + 1,
+        name: 'job-' + (i + 1),
+        status: 'success',
+      }))
+      return new Response(JSON.stringify(jobs), {
+        headers: { link: '<' + nextUrl + '>; rel="next"' },
+      })
     })
     vi.stubGlobal('fetch', fetchMock)
-    const jobs = await getProviderAdapter('gitlab').listRunJobs({} as Env, { provider: 'gitlab', providerId: '123', owner: 'group', repo: 'repo', branch: 'main' }, 88)
+    const jobs = await getProviderAdapter('gitlab').listRunJobs(
+      {} as Env,
+      { provider: 'gitlab', providerId: '123', owner: 'group', repo: 'repo', branch: 'main' },
+      88,
+    )
     expect(jobs).toHaveLength(101)
     expect(jobs.at(-1)?.id).toBe(101)
   })
 
   it('paginates Gitea workflow jobs beyond the first page', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      if (String(input).includes('page=1')) return new Response(JSON.stringify({ jobs: Array.from({ length: 50 }, (_, i) => ({ id: i + 1, name: `Job ${i + 1}`, status: 'success' })) }))
-      return new Response(JSON.stringify({ jobs: [{ id: 51, name: 'Job 51', status: 'success' }] }))
+      if (String(input).includes('page=1')) {
+        const jobs = Array.from({ length: 50 }, (_, i) => ({
+          id: i + 1,
+          name: 'Job ' + (i + 1),
+          status: 'success',
+        }))
+        return new Response(JSON.stringify({ jobs }))
+      }
+      return new Response(JSON.stringify({
+        jobs: [{ id: 51, name: 'Job 51', status: 'success' }],
+      }))
     })
     vi.stubGlobal('fetch', fetchMock)
-    const jobs = await getProviderAdapter('gitea').listRunJobs({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 77)
+    const jobs = await getProviderAdapter('gitea').listRunJobs(
+      {} as Env,
+      { owner: 'owner', repo: 'repo', branch: 'main' },
+      77,
+    )
     expect(jobs).toHaveLength(51)
     expect(jobs.at(-1)?.id).toBe(51)
   })
