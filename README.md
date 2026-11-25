@@ -52,7 +52,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 - 文件管理：`https://gkd.example.com/admin/files`
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
-- 项目目录：`https://gkd.example.com/<id>/`（`/<id>/` 仍作为兼容目录入口）
+- 项目目录：`https://gkd.example.com/<id>/`
 - JSON5 预览：`https://gkd.example.com/<id>/gkd.json5`（浏览器预览；GKD 客户端按非 HTML 请求获取原始 JSON5）
 - 历史订阅：`https://gkd.example.com/<id>/v<version>/gkd.json5`（版本号来自 `gkd.version.json5`，不代表每日 commit）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
