@@ -212,7 +212,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
 
-历史版本使用 `/<id>/v<version>/gkd.json5`。首次登记时从 Provider 固定 Commit 读取原始字节，计算 SHA-256，使用 Gzip 压缩后写入 Cloudflare R2；D1 以订阅 ID + 仓库身份 + 版本号建立唯一索引，并按内容 SHA-256 对象去重。后续历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。旧 KV Git-only 快照会在首次访问时尝试迁移到 R2；迁移完成后源仓库不再是历史读取依赖。
+历史版本使用 `/<id>/v<version>/gkd.json5`。首次登记时从 Provider 固定 Commit 读取原始字节，计算 SHA-256，使用 Gzip 压缩后写入 Cloudflare R2；D1 以订阅 ID + 仓库身份 + 版本号建立唯一索引，并按内容 SHA-256 对象去重。后续历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。生产归档压缩对象上限默认 512 MiB，Preview 上限 64 MiB；每个环境每天最多预留 200 个新对象、执行 200 次 R2 PUT 和 20,000 次 R2 GET。配额耗尽时拒绝新增归档/读取，不自动升级计划。旧 KV Git-only 快照会在首次访问时尝试迁移到 R2；迁移完成后源仓库不再是历史读取依赖。
 
 ## GKD Rules Explorer
 

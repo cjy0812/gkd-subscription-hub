@@ -27,7 +27,7 @@ WHEN NOT EXISTS (
 AND (
   (SELECT COALESCE(SUM(compressed_size), 0) FROM archive_objects) + NEW.compressed_size
     > (SELECT max_bytes FROM archive_limits WHERE id = 1)
-  OR (SELECT COUNT(*) FROM archive_objects WHERE date(created_at) = date('now')) >= 500
+  OR (SELECT COUNT(*) FROM archive_objects WHERE date(created_at) = date('now')) >= 200
 )
 BEGIN
   SELECT RAISE(ABORT, 'R2_ARCHIVE_QUOTA_EXCEEDED');

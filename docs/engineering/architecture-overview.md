@@ -115,7 +115,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - 首次登记时，从上游 Provider 固定 Commit 读取 `gkd.json5` 原始字节；历史版本写入后，读取链路不再依赖 GitHub/GitLab/Gitea。
 - D1 的唯一键为 subscription ID + repository identity + version，解决 KV 最终一致性导致的同版本并发写入覆盖，也避免删除后用不同仓库重注册时串用旧历史。
 - 原始字节先计算 SHA-256，再使用 Gzip 压缩；R2 对象键由 SHA-256 决定，相同内容跨版本/订阅共用对象。
-- D1 保存对象原始大小、压缩大小、状态和 R2 key；归档容量由 D1 trigger 原子限制，默认 512 MiB。每日最多预留 500 个新对象、最多执行 500 次 R2 PUT、最多执行 50,000 次 R2 GET；预算耗尽时拒绝新增读写，不通过自动升级计划解决。
+- D1 保存对象原始大小、压缩大小、状态和 R2 key；归档容量由 D1 trigger 原子限制，默认 512 MiB。每日最多预留 200 个新对象、最多执行 200 次 R2 PUT、最多执行 20,000 次 R2 GET；预算耗尽时拒绝新增读写，不通过自动升级计划解决。
 - Worker 读取 R2 后解压，检查原始长度和 SHA-256，再返回原始 JSON5 字节；支持 ETag/304 和 Workers Cache。Cache 丢失后从 R2 恢复。
 - R2 Bucket 不开放公开访问、不配置生命周期删除规则；D1/R2 均使用独立 Preview 资源，避免 Preview 写入生产归档。
 - 旧 KV Git-only 快照在首次访问时尝试迁移；迁移前仍依赖旧 Provider。迁移失败会明确标记不可用，不会回退到最新版冒充历史内容。

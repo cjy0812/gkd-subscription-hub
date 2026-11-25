@@ -292,7 +292,7 @@ export async function getArchiveObject(env: Env, hash: string): Promise<ArchiveO
 export async function consumeArchiveReadBudget(env: Env): Promise<void> {
   const row = await statement(
     env,
-    "INSERT INTO archive_daily_usage (day, r2_reads, r2_writes) VALUES (date('now'), 1, 0) ON CONFLICT(day) DO UPDATE SET r2_reads = r2_reads + 1 WHERE r2_reads < 50000 RETURNING r2_reads",
+    "INSERT INTO archive_daily_usage (day, r2_reads, r2_writes) VALUES (date('now'), 1, 0) ON CONFLICT(day) DO UPDATE SET r2_reads = r2_reads + 1 WHERE r2_reads < 20000 RETURNING r2_reads",
   ).first<{ r2_reads: number }>()
   if (!row) throw new Error('R2 每日读取预算已达到安全上限，请稍后重试')
 }
@@ -300,7 +300,7 @@ export async function consumeArchiveReadBudget(env: Env): Promise<void> {
 export async function consumeArchiveWriteBudget(env: Env): Promise<void> {
   const row = await statement(
     env,
-    "INSERT INTO archive_daily_usage (day, r2_reads, r2_writes) VALUES (date('now'), 0, 1) ON CONFLICT(day) DO UPDATE SET r2_writes = r2_writes + 1 WHERE r2_writes < 500 RETURNING r2_writes",
+    "INSERT INTO archive_daily_usage (day, r2_reads, r2_writes) VALUES (date('now'), 0, 1) ON CONFLICT(day) DO UPDATE SET r2_writes = r2_writes + 1 WHERE r2_writes < 200 RETURNING r2_writes",
   ).first<{ r2_writes: number }>()
   if (!row) throw new Error('R2 每日写入预算已达到安全上限，已拒绝新增归档')
 }
