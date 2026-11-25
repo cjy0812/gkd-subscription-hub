@@ -550,7 +550,7 @@ onBeforeUnmount(() => {
 
     <n-spin :show="loading" :description="sourceOnlyMode ? '正在读取原始文件…' : '在独立 Worker 中解析 GKD 订阅…'">
       <template v-if="(meta && stats) || sourceOnlyMode">
-        <n-alert v-if="!sourceOnlyMode && isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
+        <n-alert v-if="meta && !sourceOnlyMode && isVersionMismatch" type="warning" :show-icon="true" class="preview-alert">
           订阅 ID 不匹配：URL 中的 ID 是 {{ subscriptionId }}，文件内部 ID 是 {{ meta.id }}。请检查订阅来源。
         </n-alert>
 

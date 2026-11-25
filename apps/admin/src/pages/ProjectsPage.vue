@@ -271,7 +271,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: row.provider === 'github' ? 'github' : 'git-branch', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: 'git-branch', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
