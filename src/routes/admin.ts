@@ -101,7 +101,7 @@ app.get('/api/projects/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
     !project ||
     !Number.isSafeInteger(runId) ||
     runId <= 0 ||
-    !project.lastRuns.some((run) => run.runId === runId) ||
+    !project.lastRuns?.some((run) => run.runId === runId) ||
     !Number.isSafeInteger(jobId) ||
     jobId <= 0 ||
     (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
