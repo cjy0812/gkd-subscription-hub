@@ -17,6 +17,7 @@ const showRunDrawer = ref(false)
 const selectedRun = ref<MonitoringRun>()
 const selectedJobs = ref<WorkflowJob[]>([])
 const jobsLoading = ref(false)
+const jobsError = ref('')
 const jobLogs = ref<Record<string, string>>({})
 const logLoading = ref(new Set<string>())
 const columns: DataTableColumns<MonitoringRun> = [
@@ -47,6 +48,7 @@ const columns: DataTableColumns<MonitoringRun> = [
 async function openRun(run: MonitoringRun) {
   selectedRun.value = run
   selectedJobs.value = []
+  jobsError.value = ''
   jobLogs.value = {}
   showRunDrawer.value = true
   if (!run.runId) return
@@ -55,7 +57,7 @@ async function openRun(run: MonitoringRun) {
     const result = await api<{ jobs: WorkflowJob[] }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs`, getAdminToken())
     if (selectedRun.value?.key === run.key) selectedJobs.value = result.jobs
   } catch (cause) {
-    loadError.value = cause instanceof Error ? cause.message : '读取 Job 列表失败'
+    jobsError.value = cause instanceof Error ? cause.message : '读取 Job 列表失败'
   } finally {
     jobsLoading.value = false
   }
@@ -202,7 +204,8 @@ onMounted(() => { void load() })
     <n-drawer v-model:show="showRunDrawer" width="min(720px, 94vw)">
       <n-drawer-content :title="selectedRun ? `Run · ${selectedRun.workflowName}` : 'Run 详情'" closable>
         <n-spin :show="jobsLoading">
-          <n-empty v-if="!jobsLoading && !selectedJobs.length" description="暂无 Job 详情，或此 Provider 暂不支持读取" />
+          <n-text v-if="jobsError" type="error">{{ jobsError }}</n-text>
+          <n-empty v-else-if="!jobsLoading && !selectedJobs.length" description="暂无 Job 详情，或此 Provider 暂不支持读取" />
           <n-collapse v-else accordion>
             <n-collapse-item v-for="job in selectedJobs" :key="job.id" :name="String(job.id)">
               <template #header>

@@ -58,7 +58,14 @@ app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   const id = Number(c.req.param('id'))
   const runId = Number(c.req.param('runId'))
   const jobId = Number(c.req.param('jobId'))
-  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0 || !Number.isSafeInteger(jobId) || jobId <= 0)
+  if (
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !Number.isSafeInteger(runId) ||
+    runId <= 0 ||
+    !Number.isSafeInteger(jobId) ||
+    jobId <= 0
+  )
     return json({ ok: false, error: '项目或 Job 参数无效' }, 400)
   const project = (await all(c.env)).find((item) => item.id === id)
   if (!project || !project.lastRuns.some((run) => run.runId === runId))

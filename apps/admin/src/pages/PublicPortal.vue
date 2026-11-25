@@ -25,6 +25,7 @@ const copyMessage = ref('')
 const expandedRun = ref<string | null>(null)
 const publicJobs = ref<PublicJob[]>([])
 const publicJobsLoading = ref(false)
+const publicJobsError = ref('')
 const publicJobLogs = ref<Record<string, string>>({})
 const publicLogLoading = ref(new Set<string>())
 const visibleSubscriptions = computed(() => subscriptions.value.filter((item) => `${item.id} ${item.owner}/${item.repo} ${item.group}`.toLowerCase().includes(query.value.trim().toLowerCase())))
@@ -70,6 +71,7 @@ async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
   if (!run.runId) return
   expandedRun.value = key
   publicJobs.value = []
+  publicJobsError.value = ''
   publicJobLogs.value = {}
   publicJobsLoading.value = true
   try {
@@ -78,7 +80,7 @@ async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
     if (expandedRun.value === key) publicJobs.value = result.jobs || []
   } catch (cause) {
-    publicJobs.value = [{ id: -1, name: cause instanceof Error ? cause.message : '读取 Job 失败', status: 'error', conclusion: null, steps: [] }]
+    publicJobsError.value = cause instanceof Error ? cause.message : '读取 Job 失败'
   } finally { publicJobsLoading.value = false }
 }
 async function loadPublicLog(item: PublicSubscription, run: PublicRun, job: PublicJob, stepNumber?: number) {
@@ -165,6 +167,8 @@ onMounted(() => { void load() })
                     </div>
                     <div v-if="expandedRun === `${item.id}:${run.runId}`" class="public-job-panel">
                       <n-spin :show="publicJobsLoading">
+                        <n-text v-if="publicJobsError" type="error">{{ publicJobsError }}</n-text>
+                        <n-empty v-else-if="!publicJobsLoading && !publicJobs.length" description="没有可读取的 Job" />
                         <div v-for="job in publicJobs" :key="job.id" class="public-job">
                           <strong>{{ job.name }}</strong><span>{{ job.status }} · {{ job.conclusion || '未结束' }}</span>
                           <template v-if="job.steps.length">
