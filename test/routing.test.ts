@@ -160,6 +160,8 @@ describe('top-level routing', () => {
     )
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('vary')).toContain('Accept')
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(await response.text()).toBe('/')
   })
 
