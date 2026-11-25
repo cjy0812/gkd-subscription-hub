@@ -100,7 +100,7 @@ const filePath = computed(() => {
   const queryFile = isLegacyPreviewRoute.value ? route.query.file : undefined
   if (typeof queryFile === 'string' && queryFile.trim()) return queryFile
   const path = routeFilePath.value
-  if (path && !historyPathVersion.value) return path.replace(/^dist\//, '')
+  if (path && !historyPathVersion.value) return path
   return 'gkd.json5'
 })
 const invalidFilePath = computed(() => {
