@@ -88,7 +88,7 @@ const routeFilePath = computed(() => {
   const value = route.params.pathMatch
   return Array.isArray(value) ? value.join('/') : typeof value === 'string' ? value : ''
 })
-const historyPathVersion = computed(() => routeFilePath.value.match(/^v([1-9]\\d*)\\/gkd\\.json5$/i)?.[1])
+const historyPathVersion = computed(() => routeFilePath.value.match(/^v([1-9]\d*)\/gkd\.json5$/i)?.[1])
 const version = computed(() => {
   const value = route.query.version ?? historyPathVersion.value
   const parsed = Number(value)
@@ -98,7 +98,7 @@ const filePath = computed(() => {
   const queryFile = route.query.file
   if (typeof queryFile === 'string' && queryFile.trim()) return queryFile
   const path = routeFilePath.value
-  if (path && !historyPathVersion.value) return path.replace(/^dist\\//, '')
+  if (path && !historyPathVersion.value) return path.replace(/^dist\//, '')
   return 'gkd.json5'
 })
 const invalidFilePath = computed(() => {
