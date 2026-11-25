@@ -97,8 +97,8 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - Worker 运行于 workerd；请求状态应通过函数参数传递，不放入跨请求可变全局变量。
 - 各 Provider 有独立认证、速率限制、分页和搜索能力；GitHub Token 只影响 GitHub API 配额，不可套用到其他平台。
 - 搜索和 Tree 结果可能不完整；Explorer 目录不保证覆盖全部公开仓库。
-- Cron 与 Webhook 可能同时刷新同一项目；当前 KV 结构没有跨请求互斥锁，需要在并发测试中验证是否出现旧数据覆盖。
-- Preview URL 可能公开；Preview KV 与生产 KV 应隔离，Preview Secret 不得复用生产值。
+- Cron 与 Webhook 可能同时刷新同一项目；D1 复合唯一键保证版本索引只绑定一个胜出 Commit，但 KV 项目元数据仍没有跨请求互斥锁，需单独验证旧项目数据是否可能覆盖新数据。
+- Preview URL 可能公开；Preview KV/D1/R2 与生产资源必须隔离，Preview Secret 不得复用生产值。
 
 ## 后续架构演进
 

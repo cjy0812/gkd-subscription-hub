@@ -5,7 +5,7 @@
 ## 项目概览
 
 - 这是 GKD 订阅索引与分发服务，运行于 Cloudflare Workers。
-- Worker 使用 Hono；状态与项目元数据保存在 Cloudflare KV。
+- Worker 使用 Hono；项目元数据和扫描状态保存在 Cloudflare KV，历史版本索引与配额保存在 Cloudflare D1，压缩历史文件保存在私有 Cloudflare R2。
 - 管理端位于 `apps/admin`，使用 Vue 3、TypeScript、Vite、Naive UI 和 Vue Router；当前不引入 Pinia，跨页面共享状态由明确的模块边界和 Vue 原生响应式能力承担。
 - 包管理器固定为 Bun，版本以根目录 `package.json` 的 `packageManager` 和 CI 配置为准。
 - 上游 GitHub 仓库是数据源；本项目只扫描和分发，不应擅自向上游仓库写入内容。
@@ -48,7 +48,9 @@
 ### Worker
 
 - 遵循 Cloudflare Workers / workerd 运行环境；不要依赖 Node.js 专属运行时 API。
-- KV 不提供跨键事务或强一致锁。涉及并发写入时，不能假定读改写是原子操作。
+- KV 不提供跨键事务或强一致锁。涉及 KV 并发写入时，不能假定读改写是原子操作；历史版本登记必须通过 D1 复合唯一键和冲突处理保证同版本只绑定一个固定 Commit。
+- 历史归档使用私有 R2 + D1：原始 JSON5 先校验固定 Git Blob SHA，再计算 SHA-256、Gzip 压缩并按内容哈希去重；历史读取从 R2 解压后再次校验原始大小和 SHA-256，不得回退到 latest。
+- R2 Bucket 不得开放公共访问或生命周期自动删除；保留应用层容量/每日读写预算，超限时 fail closed。历史文件已归档后，读取链路不得再请求 GitHub/GitLab/Gitea；Provider 仅用于首次采集和旧 KV 快照迁移。
 - GitHub API 调用应控制频率，处理失败和不完整响应；不要无边界增加并发或扫描次数。
 - 订阅文件只允许从登记项目的索引中分发；路径校验和现有安全边界不得削弱。
 - 不要把 GitHub commit 变化等同于 dist 内容变化；按项目现有摘要逻辑判断文件树变化。
