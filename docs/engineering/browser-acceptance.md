@@ -35,7 +35,6 @@
 
 这是自动化驱动的实际 Chromium 浏览器验收，不是 DOM 单元测试或仅凭 CI build 结果推断。测试使用 fixture API 数据，重点验证布局和交互行为；尚未覆盖实体 Android/iOS 设备、Firefox、Safari，也不代表对生产数据执行了人工操作。
 
-
 ## PR #39 新增交互验收范围
 
 - 公共订阅页：Run → Job → Step → Log 展开、收起、按需加载与失败重试。
