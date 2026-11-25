@@ -543,11 +543,11 @@ const gitlabAdapter: ProviderAdapter = {
     let pages = 0
     while (url && pages < MAX_PAGES) {
       if (new URL(url).hostname !== 'gitlab.com') throw Error('GitLab 分页链接主机无效')
-      const page = await gitlabPage<Array<{ id: number; name: string; status: string }>>(url)
-      jobs.push(...page.data)
-      url = page.next
+      const pageResult = await gitlabPage<Array<{ id: number; name: string; status: string }>>(url)
+      jobs.push(...pageResult.data)
+      url = pageResult.next
       pages += 1
-      if (!url && page.data.length === PAGE_SIZE && pages < MAX_PAGES)
+      if (!url && pageResult.data.length === PAGE_SIZE && pages < MAX_PAGES)
         throw Error('GitLab Job 列表返回满页但缺少下一页链接，无法确认完整性')
     }
     if (url) throw Error(`GitLab Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
