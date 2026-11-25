@@ -165,6 +165,25 @@ describe('repository provider adapters', () => {
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/actions/jobs/7/steps/1/logs')
   })
 
+  it('falls back to complete GitHub job logs when step logs are unavailable', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/steps/1/logs')) return new Response(null, { status: 404 })
+      return new Response('full job log')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const adapter = getProviderAdapter('github')
+    const log = await adapter.getJobLog(
+      {} as Env,
+      { owner: 'owner', repo: 'repo', branch: 'main' },
+      7,
+      1,
+    )
+    expect(log).toContain('暂未提供该 Step 的独立日志')
+    expect(log).toContain('full job log')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/actions/jobs/7/logs')
+  })
+
   it('loads GitLab pipeline jobs and job traces', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

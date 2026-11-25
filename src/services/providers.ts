@@ -279,14 +279,23 @@ const githubAdapter: ProviderAdapter = {
   async getJobLog(env, project, jobId, stepNumber) {
     const suffix = stepNumber == null ? '' : `/steps/${stepNumber}`
     const path = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}${suffix}/logs`
-    const response = await fetch(`https://api.github.com${path}`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'gkd-subscription-hub',
-        'X-GitHub-Api-Version': '2022-11-28',
-        ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
-      },
-    })
+    const headers = {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'gkd-subscription-hub',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+    }
+    const response = await fetch(`https://api.github.com${path}`, { headers })
+    if (response.status === 404 && stepNumber != null) {
+      const jobResponse = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/jobs/${jobId}/logs`,
+        { headers },
+      )
+      if (!jobResponse.ok)
+        throw Error(`GitHub Job 日志读取失败：HTTP ${jobResponse.status}`)
+      const jobLog = await readBoundedLog(jobResponse)
+      return `GitHub 暂未提供该 Step 的独立日志，以下为完整 Job 日志。\\n\\n${jobLog}`
+    }
     if (!response.ok) throw Error(`GitHub 日志读取失败：HTTP ${response.status}`)
     return readBoundedLog(response)
   },

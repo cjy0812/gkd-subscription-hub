@@ -24,7 +24,7 @@
 
 ## 展示粒度
 
-- GitHub API 同时提供 Job 与 Step 元数据，展示 Run → Job → Step → Log。
+- GitHub API 同时提供 Job 与 Step 元数据，展示 Run → Job → Step → Log；若独立 Step 日志端点返回 404，则明确提示并回退到完整 Job 日志。
 - GitLab 的 Job Trace API 返回 Job 级完整 trace，不提供与 GitHub 等价的独立 Step 日志端点；因此将 Job Trace 作为单个“Job 日志”入口，不伪造 Step。
 - Gitea Jobs API 可提供 Step 元数据；若某实例未返回步骤，则回退为 Job 日志入口。
 
