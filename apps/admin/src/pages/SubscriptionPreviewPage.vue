@@ -90,26 +90,17 @@ const routeFilePath = computed(() => {
   return Array.isArray(value) ? value.join('/') : typeof value === 'string' ? value : ''
 })
 const historyPathVersion = computed(() => routeFilePath.value.match(/^v([1-9]\d*)\/gkd\.json5$/i)?.[1])
-const isLegacyPreviewRoute = computed(() => route.name === 'subscription-preview-legacy')
 const version = computed(() => {
-  const value = isLegacyPreviewRoute.value ? route.query.version : historyPathVersion.value
-  const parsed = Number(value)
+  const parsed = Number(historyPathVersion.value)
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
-const filePath = computed(() => {
-  const queryFile = isLegacyPreviewRoute.value ? route.query.file : undefined
-  if (typeof queryFile === 'string' && queryFile.trim()) return queryFile
-  const path = routeFilePath.value
-  if (path && !historyPathVersion.value) return path
-  return 'gkd.json5'
-})
+const filePath = computed(() => routeFilePath.value || 'gkd.json5')
 const invalidFilePath = computed(() => {
-  const value = (isLegacyPreviewRoute.value ? route.query.file : undefined) ?? (routeFilePath.value && !historyPathVersion.value ? routeFilePath.value : undefined)
-  if (value == null) return false
-  if (typeof value !== 'string' || !value.trim()) return true
+  const value = routeFilePath.value
+  if (!value) return false
   return value.startsWith('/') || value.includes(String.fromCharCode(92)) || value.includes(String.fromCharCode(0)) || value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
 })
-const invalidVersion = computed(() => ((isLegacyPreviewRoute.value && route.query.version != null) || historyPathVersion.value != null) && version.value === null)
+const invalidVersion = computed(() => historyPathVersion.value != null && version.value === null)
 const pageTitle = computed(() => meta.value?.name || 'GKD 订阅预览')
 const sourceUrl = computed(() => {
   if (version.value) return `/${subscriptionId.value}/v${version.value}/gkd.json5?raw=1`
@@ -471,7 +462,7 @@ function openRawFile() {
 }
 
 watch(
-  () => [route.params.id, route.params.pathMatch, route.query.file, route.query.version, route.query.view],
+  () => [route.params.id, route.params.pathMatch, route.query.view],
   () => {
     void loadSubscription()
   },
