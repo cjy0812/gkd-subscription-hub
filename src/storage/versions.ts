@@ -137,8 +137,7 @@ export async function getVersionSnapshot(
     (item) => repositoryKey(item) === repositoryKey(project),
   )
   const match = candidates.reduce<VersionSnapshot | null>(
-    (current, candidate) =>
-      current ? preferLegacySnapshot(current, candidate) : candidate,
+    (current, candidate) => (current ? preferLegacySnapshot(current, candidate) : candidate),
     null,
   )
   return match ? { ...match, archiveStatus: match.archiveStatus || 'git-only' } : null
