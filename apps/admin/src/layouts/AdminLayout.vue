@@ -15,8 +15,9 @@ let edgeTouchStart: { x: number; y: number } | null = null
 
 function onTouchStart(event: TouchEvent) {
   const touch = event.changedTouches[0]
-  const edgeWidth = Math.min(48, Math.max(24, window.innerWidth * 0.08))
-  edgeTouchStart = touch && touch.clientX <= edgeWidth ? { x: touch.clientX, y: touch.clientY } : null
+  // Keep the gesture start zone narrow so horizontal content scrollers do not
+  // accidentally trigger the navigation drawer.
+  edgeTouchStart = touch && touch.clientX <= 24 ? { x: touch.clientX, y: touch.clientY } : null
 }
 function onTouchEnd(event: TouchEvent) {
   if (!edgeTouchStart) return
