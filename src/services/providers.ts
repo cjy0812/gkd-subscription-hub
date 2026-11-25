@@ -79,7 +79,11 @@ async function readBoundedLog(response: Response): Promise<string> {
       if (done) break
       total += value.byteLength
       if (total > MAX_JOB_LOG_BYTES) {
-        await reader.cancel()
+        try {
+          await reader.cancel()
+        } catch {
+          // Preserve the size-limit error if the upstream stream cannot be canceled.
+        }
         throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
       }
       chunks.push(value)

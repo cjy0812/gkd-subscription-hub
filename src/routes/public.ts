@@ -43,7 +43,7 @@ app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
   if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0)
     return json({ ok: false, error: '项目或运行记录不存在' }, 404)
   const project = (await all(c.env)).find((item) => item.id === id)
-  if (!project || !project.lastRuns.some((run) => run.runId === runId))
+  if (!project?.lastRuns.some((run) => run.runId === runId))
     return json({ ok: false, error: '运行记录不在当前公开快照中' }, 404)
   try {
     return json({

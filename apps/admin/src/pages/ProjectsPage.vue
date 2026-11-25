@@ -648,7 +648,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link">{{ project.owner }}/{{ project.repo }}</a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><AppIcon :name="project.provider === 'gitlab' ? 'gitlab' : project.provider === 'gitea' ? 'git-branch' : 'github'" :size="15" /><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="12" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
