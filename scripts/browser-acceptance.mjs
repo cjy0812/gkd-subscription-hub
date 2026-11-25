@@ -85,13 +85,15 @@ try {
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          jobs: [{
-            id: 7,
-            name: 'Build',
-            status: 'completed',
-            conclusion: 'success',
-            steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
-          }],
+          jobs: [
+            {
+              id: 7,
+              name: 'Build',
+              status: 'completed',
+              conclusion: 'success',
+              steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
+            },
+          ],
         }),
       }),
     )
