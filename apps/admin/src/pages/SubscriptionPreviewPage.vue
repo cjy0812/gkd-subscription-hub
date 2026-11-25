@@ -550,7 +550,7 @@ onBeforeUnmount(() => {
             <p v-if="meta.author" class="meta-author">作者：{{ meta.author }}</p>
             <div class="meta-links">
               <a v-if="safeUpdateUrl" :href="safeUpdateUrl" target="_blank" rel="noopener noreferrer">更新地址 <icon name="external-link" /></a>
-              <a v-if="safeSupportUrl" class="issues-link" :href="safeSupportUrl" target="_blank" rel="noopener noreferrer" aria-label="打开反馈 Issues"><AppIcon name="github" :size="17" /></a>
+              <a v-if="safeSupportUrl" class="issues-link" :href="safeSupportUrl" target="_blank" rel="noopener noreferrer" aria-label="打开反馈 Issues"><AppIcon name="message-square" :size="17" /></a>
             </div>
           </n-card>
           <n-grid cols="2 s:3 l:6" :x-gap="12" :y-gap="12" responsive="screen" class="stats-grid">
