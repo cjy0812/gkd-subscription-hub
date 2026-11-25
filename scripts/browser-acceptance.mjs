@@ -225,7 +225,6 @@ try {
         ),
       })
     })
-    publicPage.on('pageerror', (error) => console.error('PUBLIC PAGE ERROR', error))
     await publicPage.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
     console.log(
       'PUBLIC PORTAL DEBUG',
