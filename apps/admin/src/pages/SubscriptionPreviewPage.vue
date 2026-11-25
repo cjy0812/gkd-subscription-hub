@@ -110,12 +110,6 @@ const sourceUrl = computed(() => {
 const metadataLinkBase = computed(() => sourceUrl.value)
 const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
 const safeSupportUrl = computed(() => safeHttpUrl(meta.value?.supportUri, metadataLinkBase.value))
-const safeCheckUrl = computed(() =>
-  safeHttpUrl(
-    meta.value?.checkUpdateUrl,
-    safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value) || metadataLinkBase.value,
-  ),
-)
 const isVersionMismatch = computed(() => Boolean(meta.value && meta.value.id !== subscriptionId.value))
 
 function safeHttpUrl(value?: string, baseUrl = sourceUrl.value): string | undefined {
@@ -454,7 +448,7 @@ async function loadRawSource() {
 }
 
 function backToDirectory() {
-  window.location.assign(`/${subscriptionId.value}/dist/`)
+  window.location.assign(`/${subscriptionId.value}/`)
 }
 
 function openRawFile() {
@@ -522,7 +516,7 @@ onBeforeUnmount(() => {
       <n-space>
         <n-button secondary @click="openRawFile">
           <template #icon><AppIcon name="file-text" /></template>
-          原始文件
+          订阅文件
         </n-button>
       </n-space>
     </header>
@@ -556,8 +550,7 @@ onBeforeUnmount(() => {
             <p v-if="meta.author" class="meta-author">作者：{{ meta.author }}</p>
             <div class="meta-links">
               <a v-if="safeUpdateUrl" :href="safeUpdateUrl" target="_blank" rel="noopener noreferrer">更新地址 <icon name="external-link" /></a>
-              <a v-if="safeCheckUrl" :href="safeCheckUrl" target="_blank" rel="noopener noreferrer">版本检查 <icon name="external-link" /></a>
-              <a v-if="safeSupportUrl" :href="safeSupportUrl" target="_blank" rel="noopener noreferrer">反馈地址 <icon name="external-link" /></a>
+              <a v-if="safeSupportUrl" class="issues-link" :href="safeSupportUrl" target="_blank" rel="noopener noreferrer" aria-label="打开反馈 Issues"><AppIcon name="github" :size="17" /></a>
             </div>
           </n-card>
           <n-grid cols="2 s:3 l:6" :x-gap="12" :y-gap="12" responsive="screen" class="stats-grid">
@@ -755,11 +748,12 @@ onBeforeUnmount(() => {
 .error-content{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .subscription-overview{display:grid;grid-template-columns:minmax(230px,1.1fr) minmax(0,2fr);gap:12px;margin-bottom:18px}
 .meta-card,.stat-card,.preview-content{border:1px solid var(--color-border);border-radius:var(--radius-container);box-shadow:var(--shadow-card)}
+.preview-content{max-height:calc(100vh - 190px);overflow-y:auto;overscroll-behavior:contain}
 .meta-topline{display:flex;align-items:center;justify-content:space-between;color:var(--color-text-secondary);font-size:12px}
 .meta-card h2{font-size:22px;line-height:1.3;overflow-wrap:anywhere;margin:18px 0 6px}
 .meta-author{font-size:13px;color:var(--color-text-secondary);margin:0}
 .meta-links{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px}
-.meta-links a{display:inline-flex;align-items:center;gap:4px;color:var(--color-accent);font-size:12px;text-decoration:none}
+.meta-links a{display:inline-flex;align-items:center;gap:4px;color:var(--color-accent);font-size:12px;text-decoration:none}.meta-links .issues-link{width:28px;height:28px;justify-content:center;border:1px solid var(--color-border);border-radius:7px}.issues-link:hover{background:var(--color-surface-secondary)}
 .stats-grid{align-content:stretch}
 .stat-card{height:100%}
 .tab-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 16px}
@@ -797,5 +791,5 @@ onBeforeUnmount(() => {
 .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;color:var(--color-text-secondary);font-size:12px}
 .raw-source{display:block;width:100%;height:min(70vh,900px);padding:14px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-secondary);color:var(--color-text);font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;resize:vertical;white-space:pre;tab-size:2}
 @media(max-width:880px){.subscription-overview{grid-template-columns:1fr}.preview-page{padding:18px 18px 36px}}
-@media(max-width:600px){.preview-page{padding:14px 12px 28px}.preview-header{gap:10px}.preview-brand{gap:10px}.back-link span{display:none}.preview-title h1{font-size:22px}.preview-header :deep(.n-button){padding-inline:8px}.tab-toolbar{align-items:flex-start;flex-direction:column}.search-input{width:100%}.search-field{width:100%}.app-counts{display:none}.app-row{gap:8px;padding:10px}.pager{align-items:flex-start;flex-direction:column}.category-row{gap:8px}}
+@media(max-width:600px){.preview-content{max-height:calc(100dvh - 150px)}.preview-page{padding:14px 12px 28px}.preview-header{gap:10px}.preview-brand{gap:10px}.back-link span{display:none}.preview-title h1{font-size:22px}.preview-header :deep(.n-button){padding-inline:8px}.tab-toolbar{align-items:flex-start;flex-direction:column}.search-input{width:100%}.search-field{width:100%}.app-counts{display:none}.app-row{gap:8px;padding:10px}.pager{align-items:flex-start;flex-direction:column}.category-row{gap:8px}}
 </style>
