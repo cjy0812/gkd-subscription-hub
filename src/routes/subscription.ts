@@ -180,7 +180,7 @@ app.all('*', async (c) => {
     return response
   }
 
-  if (!path || path === 'dist' || path === 'dist/') {
+  if (!path) {
     const project = await get(c.env, Number(id))
     if (!project) return bad('Subscription not registered', 404)
     const versions = await listVersionSnapshots(c.env, Number(id), project)
@@ -198,7 +198,6 @@ app.all('*', async (c) => {
   }
   const project = await get(c.env, Number(id))
   if (!project) return bad('Subscription not registered', 404)
-  if (path.startsWith('dist/')) path = path.slice(5)
   if (!path) return bad('Not found', 404)
   if (
     path
