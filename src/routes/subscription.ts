@@ -7,6 +7,7 @@ import {
   getVersionSnapshot,
   getVersionSnapshotById,
   listVersionSnapshots,
+  type VersionSnapshot,
 } from '../storage/versions'
 import { renderMarkdown } from '../utils/markdown'
 import {
@@ -89,7 +90,7 @@ app.all('*', async (c) => {
       return bad('Invalid version', 400)
     }
     const project = await get(c.env, numericId)
-    let snapshot
+    let snapshot: VersionSnapshot | null
     if (project) {
       snapshot = await getVersionSnapshot(c.env, numericId, version, project)
     } else {
