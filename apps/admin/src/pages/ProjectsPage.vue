@@ -32,6 +32,15 @@ import AppIcon from '../components/AppIcon.vue'
 const message = useMessage()
 const token = ref(getAdminToken())
 const projects = ref<Project[]>([])
+function providerLabel(provider: string | undefined) {
+  switch (provider) {
+    case 'github': return 'GH'
+    case 'gitlab': return 'GL'
+    case 'gitea': return 'GT'
+    default: return 'Git'
+  }
+}
+
 const repositoryUrl = ref('')
 const branchName = ref<string | null>(null)
 const branchOptions = ref<Array<{ label: string; value: string }>>([])
@@ -271,7 +280,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: 'git-branch', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('span', { class: ['provider-mark', `provider-${row.provider || 'unknown'}`], 'aria-label': `托管平台：${row.provider || '未知'}` }, providerLabel(row.provider)), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -649,7 +658,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><AppIcon :name="'git-branch'" :size="15" /><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="12" /></a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><span class="provider-mark" :class="`provider-${project.provider || 'unknown'}`" :aria-label="`托管平台：${project.provider || '未知'}`">{{ providerLabel(project.provider) }}</span><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -825,6 +834,7 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
+.provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
 .repo-title-link { color: var(--color-text); text-decoration: none; }
 .repo-title-link:hover { color: var(--color-accent); text-decoration: underline; }
 .repo-source-link {
