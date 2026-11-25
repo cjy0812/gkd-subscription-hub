@@ -226,16 +226,6 @@ try {
       })
     })
     await publicPage.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
-    console.log(
-      'PUBLIC PORTAL DEBUG',
-      publicPage.url(),
-      await publicPage.title(),
-      (await publicPage.locator('body').innerText()).slice(0, 800),
-    )
-    await publicPage.screenshot({
-      path: 'artifacts/browser-acceptance/public-debug.png',
-      fullPage: true,
-    })
     await publicPage.getByRole('heading', { name: '发现、浏览与订阅 GKD 规则' }).waitFor()
     assert.equal(
       await publicPage.getByRole('link', { name: '浏览文件目录' }).getAttribute('href'),
@@ -299,17 +289,20 @@ try {
   await projectsPage.addInitScript(() =>
     sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
   )
-  projectsPage.on('request', (request) => {
-    if (request.url().includes('/api/projects')) console.log('PROJECT API REQUEST', request.url())
-  })
   await projectsPage.route('**/*', (route) => {
     const requestUrl = new URL(route.request().url())
-    if (requestUrl.pathname.includes('/api/projects')) {
-      console.log('PROJECT API FIXTURE HIT', requestUrl.href)
+    if (requestUrl.pathname.endsWith('/admin/api/projects')) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ ok: true, projects: [project] }),
+      })
+    }
+    if (requestUrl.pathname.endsWith('/admin/api/config')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, subscriptionDomain: 'example.test' }),
       })
     }
     return route.continue()
