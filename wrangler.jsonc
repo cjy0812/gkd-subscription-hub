@@ -44,44 +44,34 @@
       "enabled": true
     }
   },
-  "env": {
-    "preview": {
-      "name": "gkd-subscription-hub-preview",
-      "assets": {
-        "directory": "./apps/admin/dist",
-        "binding": "ASSETS",
-        "run_worker_first": true,
-        "not_found_handling": "single-page-application"
-      },
-      "vars": {
-        "SUBSCRIPTION_DOMAIN": "preview.invalid"
-      },
-      "kv_namespaces": [
-        {
-          "binding": "STATE",
-          "id": "fc091077968342c1b73b22a310412947"
-        }
-      ],
-      "d1_databases": [
-        {
-          "binding": "VERSIONS",
-          "database_name": "gkd-subscription-hub-preview",
-          "database_id": "dd56af66-7ae9-4080-9492-0c0eec966b70",
-          "migrations_dir": "migrations"
-        }
-      ],
-      "r2_buckets": [
-        {
-          "binding": "ARCHIVE",
-          "bucket_name": "gkd-subscription-archive-preview"
-        }
-      ],
-      "observability": {
-        "enabled": true
+  "previews": {
+    "vars": {
+      "SUBSCRIPTION_DOMAIN": "preview.invalid"
+    },
+    "kv_namespaces": [
+      {
+        "binding": "STATE",
+        "id": "fc091077968342c1b73b22a310412947"
       }
+    ],
+    "d1_databases": [
+      {
+        "binding": "VERSIONS",
+        "database_name": "gkd-subscription-hub-preview",
+        "database_id": "dd56af66-7ae9-4080-9492-0c0eec966b70",
+        "migrations_dir": "migrations"
+      }
+    ],
+    "r2_buckets": [
+      {
+        "binding": "ARCHIVE",
+        "bucket_name": "gkd-subscription-archive-preview"
+      }
+    ],
+    "observability": {
+      "enabled": true
     }
   },
-  "account_id": "084099361afdf1265c20c09fb3834a6f",
   "secrets": {
     "required": ["ADMIN_PASSWORD"]
   }
