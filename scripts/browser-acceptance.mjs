@@ -299,9 +299,13 @@ try {
   await projectsPage.addInitScript(() =>
     sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
   )
+  projectsPage.on('request', (request) => {
+    if (request.url().includes('/api/projects')) console.log('PROJECT API REQUEST', request.url())
+  })
   await projectsPage.route('**/*', (route) => {
     const requestUrl = new URL(route.request().url())
-    if (requestUrl.pathname.endsWith('/api/projects')) {
+    if (requestUrl.pathname.includes('/api/projects')) {
+      console.log('PROJECT API FIXTURE HIT', requestUrl.href)
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -311,6 +315,7 @@ try {
     return route.continue()
   })
   await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
+  console.log('PROJECT PAGE BODY', (await projectsPage.locator('body').innerText()).slice(0, 1000))
   await projectsPage.getByText('ID 233', { exact: true }).waitFor()
   const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
   await projectCheckbox.waitFor({ state: 'visible' })
