@@ -42,7 +42,7 @@ async function getCachedPublicJobs(
   return jobs
 }
 
-function allowPublicLogRequest(ip: string) {
+function allowPublicRunRequest(ip: string) {
   const now = Date.now()
   if (!logRequestWindows.has(ip) && logRequestWindows.size >= 2_000) {
     const oldest = logRequestWindows.keys().next().value
@@ -93,6 +93,9 @@ app.get('/subscriptions/:id/runs/:runId/jobs', async (c) => {
   const runId = Number(c.req.param('runId'))
   if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(runId) || runId <= 0)
     return json({ ok: false, error: '项目或运行记录不存在' }, 404)
+  const ip = c.req.header('cf-connecting-ip') || 'unknown'
+  if (!allowPublicRunRequest(ip))
+    return json({ ok: false, error: '运行记录请求过于频繁，请稍后重试' }, 429)
   try {
     const project = await getPublicRunProject(c.env, id, runId)
     if (!project) return json({ ok: false, error: '运行记录不在当前公开快照中' }, 404)
@@ -119,7 +122,7 @@ app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
   if (stepNumber != null && (!Number.isSafeInteger(stepNumber) || stepNumber < 0))
     return json({ ok: false, error: 'Step 参数无效' }, 400)
   const ip = c.req.header('cf-connecting-ip') || 'unknown'
-  if (!allowPublicLogRequest(ip))
+  if (!allowPublicRunRequest(ip))
     return json({ ok: false, error: '日志请求过于频繁，请稍后重试' }, 429)
   try {
     const project = await getPublicRunProject(c.env, id, runId)
