@@ -25,7 +25,7 @@ Worker 入口位于 src/index.ts：
 - 其他 /admin/*：交给 Worker Static Assets，Vue Router 处理受保护管理页面。
 - POST /hooks/notify：验证 NOTIFY_TOKEN、校验仓库格式、确认仓库已登记、检查 KV 冷却键，再用 waitUntil 异步刷新。
 - `/api/public/*`：只读公共 API，仅注册 GET 路由。
-- `/{numeric-id}/*`：订阅分发 Router；`/<id>/dist/` 展示目录，`/<id>/dist/<file>` 访问文件。
+- `/{numeric-id}/*`：订阅分发 Router；`/<id>/` 展示目录，`/<id>/<file>` 访问文件。
 - 其他路径：404。
 - Cron：每 6 小时触发一次，按项目预测时间检查是否需要刷新。
 
@@ -68,7 +68,7 @@ Worker 入口位于 src/index.ts：
 ### 分发
 
 1. 请求 /{id}/...，从 KV 读取 project:{id}。
-2. `/<id>/` 和 `/<id>/dist/` 展示当前已索引的 dist 文件目录；新文件链接使用 `/<id>/<dist-path>`，旧 `/<id>/dist/<dist-path>` 保持兼容。
+2. `/<id>/` 展示当前已索引的 dist 文件目录；文件链接统一使用 `/<id>/<dist-path>`，不维护旧 `/dist/` URL 兼容层。
 3. 文件路径必须通过路径校验，并且存在于项目 distFiles 索引中。
 4. 新登记项目的上游文件 URL 由 Provider Adapter 生成：GitHub 按 commit SHA、GitLab 按 blob SHA、Gitea Media API 按 commit SHA；不在分发路由硬编码 GitHub Raw。
 5. 非浏览器请求获取原始内容；浏览器可将 Markdown 渲染为 HTML，或预览 JSON5。
@@ -123,7 +123,7 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 
 ## GKD JSON5 预览器
 
-- 浏览器对订阅 JSON5 的 HTML 导航直接使用 `/<id>/<dist-path>`；历史版本使用 `/<id>/v<version>/gkd.json5`。旧 `/preview/<id>?file=...` 地址继续兼容。GKD 客户端访问 `/<id>/gkd.json5` 与历史 URL 时仍获得原始 JSON5 字节，不改变订阅 URL 兼容性。
+- 浏览器对订阅 JSON5 的 HTML 导航直接使用 `/<id>/<dist-path>`；历史版本使用 `/<id>/v<version>/gkd.json5`。不再提供旧 `/preview/<id>?file=...` 路由。GKD 客户端访问 `/<id>/gkd.json5` 与历史 URL 时仍获得原始 JSON5 字节，不改变订阅 URL 兼容性。
 - Preview SPA 在同源读取 JSON5，使用 `ReadableStream` 逐块累计响应体字节，并在超限时取消读取，不依赖 `Content-Length`。默认结构化预览上限 10 MB；10–50 MB 需要用户主动选择继续，超过 50 MB 提供原始文件入口。历史版本在 Worker 端另有 20 MB 流式读取上限和强制 SHA-256 校验。
 - 主线程将 ArrayBuffer 转移给独立 Web Worker；Worker 内使用 JSON5 和官方 `@gkd-kit/api` 的订阅结构完成解析及数据摘要。应用、规则组、规则分页每页 50 项，规则详情按需请求。
 - 原始 JSON5 文本只在用户打开原始 Tab 后重新请求；页面切换/卸载时取消网络请求并终止 Worker。`?raw=1` 对当前版与历史版均强制返回原始文件字节；浏览器可用 `?view=source` 在同一文件 URL 打开源码视图。
