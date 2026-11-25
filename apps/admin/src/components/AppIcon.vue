@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder, GitBranch, Github,
-  LayoutDashboard, LogOut, Menu, MessageSquare, Plus, RefreshCw, Search, Trash2,
+  LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Trash2,
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
@@ -16,7 +16,6 @@ type IconName =
   | 'folder'
   | 'git-branch'
   | 'github'
-  | 'message-square'
   | 'layout-dashboard'
   | 'log-out'
   | 'menu'
@@ -40,7 +39,6 @@ const icons: Record<IconName, Component> = {
   folder: Folder,
   'git-branch': GitBranch,
   github: Github,
-  'message-square': MessageSquare,
   'layout-dashboard': LayoutDashboard,
   'log-out': LogOut,
   menu: Menu,
