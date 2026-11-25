@@ -42,3 +42,34 @@
 - 文件预览：canonical 路径与历史版本路径不受冲突的 legacy query 参数覆盖。
 - 视口：320、640、641、768、1024、1440 px；检查页面横向溢出与键盘焦点。
 - 执行结果：以本 PR 最新提交的 Playwright Chromium acceptance workflow 及其截图 artifact 为准；该记录不把 fixture 浏览器测试描述成真实生产数据验收。
+
+
+## PR #39 验收结果（最新）
+
+- 日期：2026-11-26（GitHub Actions 时间：2026-11-25 16:51 UTC）
+- 验收提交：`71bf8e697b124ef28ba9b2398ddebc9b4018e7ac`
+- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45658383489>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45658383489/artifacts/15043227953>
+- 结果：全部通过（Format、Lint、TypeScript、Tests、Admin Build、Chromium Browser Acceptance）
+
+### 实际浏览器覆盖
+
+| Viewport | MonitoringPage | PublicPortal | 横向溢出 |
+| -------: | -------------- | ------------ | -------- |
+| 320 px | PASS | PASS | 无 |
+| 640 px | PASS | PASS | 无 |
+| 641 px | PASS | PASS | 无 |
+| 768 px | PASS | PASS | 无 |
+| 1024 px | PASS | PASS | 无 |
+| 1440 px | PASS | PASS | 无 |
+
+额外检查：
+- 管理端 Run 抽屉、Job/Step 展开及日志读取。
+- 公共端 Run → Job → Step → Log、失败重试。
+- Run 外链目标、`target="_blank"`、`rel="noopener"`。
+- 键盘焦点可见性及移动端项目 checkbox 的项目级可访问名称。
+- canonical 历史版本路径不受冲突 query 参数覆盖。
+- 嵌套 `dist/` 路径保持完整，不会被预览页剥离。
+- 每个视口检查页面级横向溢出并生成截图。
+
+本次验收使用固定 API fixture 与真实 Chromium 浏览器进程；不访问生产项目数据。它验证浏览器交互与布局，不替代真实 GKD App 请求头的设备侧验证，也未覆盖 Firefox、Safari 或实体 Android/iOS 设备。
