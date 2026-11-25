@@ -368,6 +368,37 @@ describe('top-level routing', () => {
     expect(missingJobResponse.status).toBe(404)
   })
 
+  it('rejects public workflow log access after a repository becomes private', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      lastRuns: [{ runId: 123 }],
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => key === 'project:233' ? project : key === 'projects:index' ? [233] : null),
+      } as unknown as KVNamespace,
+    })
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      id: 1, full_name: 'owner/repo', html_url: 'https://github.com/owner/repo',
+      default_branch: 'main', private: true, archived: false, fork: false,
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(502)
+    expect(await response.json()).toMatchObject({ ok: false, error: '仓库已不再是未归档公开仓库' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('returns 404 for unknown paths', async () => {
     const response = await worker.fetch(
       new Request('https://gkd.example.com/unknown'),
