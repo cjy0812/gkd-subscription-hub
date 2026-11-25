@@ -71,7 +71,7 @@
 - [ ] 颜色/间距/字体遵循 Design Tokens。
 - [ ] 大列表/大文件有性能保护。
 - [ ] 减少动态效果并尊重 prefers-reduced-motion。
-- [ ] CI 通过；真实浏览器验收另行记录，不能以 CI 代替。
+- [ ] CI 通过；真实 Chromium 浏览器验收单独记录在 `docs/engineering/browser-acceptance.md`，单元测试/build 通过不能替代浏览器交互验收。
 
 ## CSS 与图标依赖的 ROI 决策
 
