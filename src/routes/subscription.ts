@@ -67,7 +67,7 @@ app.all('*', async (c) => {
   const req = c.req.raw
   if (req.method !== 'GET' && req.method !== 'HEAD') return bad('Method not allowed', 405)
   const url = new URL(req.url)
-  const match = url.pathname.match(/^\\/(\\d+)(?:\\/(.*))?$/)
+  const match = url.pathname.match(/^\/(\d+)(?:\/(.*))?$/)
   if (!match) return bad('Not found', 404)
   const id = match[1]
   let path: string
@@ -77,10 +77,10 @@ app.all('*', async (c) => {
     return bad('Bad path', 400)
   }
 
-  if (/^v[^/]+\\/gkd\\.json5$/i.test(path) && !/^v[1-9]\\d*\\/gkd\\.json5$/i.test(path)) {
+  if (/^v[^/]+\/gkd\.json5$/i.test(path) && !/^v[1-9]\d*\/gkd\.json5$/i.test(path)) {
     return bad('Invalid version path', 400)
   }
-  const versionMatch = path.match(/^v([1-9]\\d*)\\/gkd\\.json5$/i)
+  const versionMatch = path.match(/^v([1-9]\d*)\/gkd\.json5$/i)
   if (versionMatch) {
     const version = Number(versionMatch[1])
     const numericId = Number(id)

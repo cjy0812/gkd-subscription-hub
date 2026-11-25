@@ -198,7 +198,9 @@ describe('Cloudflare R2 subscription version archive', () => {
     const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(source)])
     vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
 
-    const firstProject = makeProject()\n    firstProject.distFiles[0].size = bytes.byteLength\n    const first = await recordSubscriptionVersion(env, firstProject)
+    const firstProject = makeProject()
+    firstProject.distFiles[0].size = bytes.byteLength
+    const first = await recordSubscriptionVersion(env, firstProject)
     expect(first?.archiveStatus).toBe('r2')
     expect(first?.contentSha256).toMatch(/^[a-f0-9]{64}$/)
     expect(bucket.puts).toBe(1)
