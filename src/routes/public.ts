@@ -40,6 +40,10 @@ async function getCachedPublicJobs(env: Env, project: NonNullable<Awaited<Return
 
 function allowPublicLogRequest(ip: string) {
   const now = Date.now()
+  if (!logRequestWindows.has(ip) && logRequestWindows.size >= 2_000) {
+    const oldest = logRequestWindows.keys().next().value
+    if (oldest) logRequestWindows.delete(oldest)
+  }
   const current = logRequestWindows.get(ip)
   if (!current || now - current.startedAt >= LOG_WINDOW_MS) {
     logRequestWindows.set(ip, { startedAt: now, count: 1 })

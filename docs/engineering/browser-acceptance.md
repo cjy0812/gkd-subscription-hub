@@ -34,3 +34,12 @@
 ## 验收范围说明
 
 这是自动化驱动的实际 Chromium 浏览器验收，不是 DOM 单元测试或仅凭 CI build 结果推断。测试使用 fixture API 数据，重点验证布局和交互行为；尚未覆盖实体 Android/iOS 设备、Firefox、Safari，也不代表对生产数据执行了人工操作。
+
+
+## PR #39 新增交互验收范围
+
+- 公共订阅页：Run → Job → Step → Log 展开、收起、按需加载与失败重试。
+- 管理端：Run 详情抽屉、日志失败重试、移动端项目选择 checkbox 可访问名称。
+- 文件预览：canonical 路径与历史版本路径不受冲突的 legacy query 参数覆盖。
+- 视口：320、640、641、768、1024、1440 px；检查页面横向溢出与键盘焦点。
+- 执行结果：以本 PR 最新提交的 Playwright Chromium acceptance workflow 及其截图 artifact 为准；该记录不把 fixture 浏览器测试描述成真实生产数据验收。

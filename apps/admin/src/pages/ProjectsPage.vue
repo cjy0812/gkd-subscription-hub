@@ -635,6 +635,7 @@ onMounted(() => {
                 <div class="mobile-project-title">
                   <n-checkbox
                     :checked="selectedIds.includes(project.id)"
+                    :aria-label="`选择项目 ${project.id}（${project.owner}/${project.repo}）`"
                     :disabled="batchBusy"
                     @update:checked="(checked) => toggleProjectSelection(project.id, checked)"
                   />

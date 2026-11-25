@@ -28,6 +28,7 @@ const publicJobsLoading = ref(false)
 const publicRunRequestId = ref(0)
 const publicJobsError = ref('')
 const publicJobLogs = ref<Record<string, string>>({})
+const publicJobLogErrors = ref<Record<string, string>>({})
 const publicLogLoading = ref(new Set<string>())
 const visibleSubscriptions = computed(() => subscriptions.value.filter((item) => `${item.id} ${item.owner}/${item.repo} ${item.group}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 const visibleExplorer = computed(() => explorer.value.filter((entry) => `${entry.repository.full_name || ''} ${entry.subscriptions.map((sub) => sub.name).join(' ')}`.toLowerCase().includes(query.value.trim().toLowerCase())))
@@ -79,6 +80,7 @@ async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
   publicJobs.value = []
   publicJobsError.value = ''
   publicJobLogs.value = {}
+  publicJobLogErrors.value = {}
   publicLogLoading.value = new Set()
   publicJobsLoading.value = true
   try {
@@ -109,14 +111,13 @@ async function loadPublicLog(item: PublicSubscription, run: PublicRun, job: Publ
     const response = await fetch(`/api/public/subscriptions/${item.id}/runs/${run.runId}/jobs/${job.id}/logs${suffix}`, { headers: { accept: 'application/json' } })
     const result = await response.json() as { log?: string; error?: string }
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
-    if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey)
+    if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey) {
       publicJobLogs.value = { ...publicJobLogs.value, [key]: result.log || '' }
+      const errors = { ...publicJobLogErrors.value }; delete errors[key]; publicJobLogErrors.value = errors
+    }
   } catch (cause) {
     if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey)
-      publicJobLogs.value = {
-        ...publicJobLogs.value,
-        [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败',
-      }
+      publicJobLogErrors.value = { ...publicJobLogErrors.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }
   } finally {
     if (requestId === publicRunRequestId.value && expandedRun.value === expandedKey) {
       const next = new Set(publicLogLoading.value)
@@ -203,11 +204,13 @@ onMounted(() => { void load() })
                             <div v-for="step in job.steps" :key="step.number" class="public-step">
                               <span>{{ step.name }}</span>
                               <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job, step.number))" @click="loadPublicLog(item, run, job, step.number)">查看日志</n-button>
+                              <n-text v-if="publicJobLogErrors[publicLogKey(item, run, job, step.number)]" type="error">{{ publicJobLogErrors[publicLogKey(item, run, job, step.number)] }}</n-text>
                               <pre v-if="publicJobLogs[publicLogKey(item, run, job, step.number)] !== undefined">{{ publicJobLogs[publicLogKey(item, run, job, step.number)] }}</pre>
                             </div>
                           </template>
                           <template v-else>
                             <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job))" @click="loadPublicLog(item, run, job)">查看日志</n-button>
+                            <n-text v-if="publicJobLogErrors[publicLogKey(item, run, job)]" type="error">{{ publicJobLogErrors[publicLogKey(item, run, job)] }}</n-text>
                             <pre v-if="publicJobLogs[publicLogKey(item, run, job)] !== undefined">{{ publicJobLogs[publicLogKey(item, run, job)] }}</pre>
                           </template>
                         </div>
