@@ -45,6 +45,7 @@ const project = {
   lastRuns: [
     {
       workflowId: 101,
+      runId: 123,
       workflowName,
       event: 'push',
       status: 'completed',
@@ -78,6 +79,29 @@ try {
         body: JSON.stringify({ ok: true, projects: [project] }),
       }),
     )
+    await page.route('**/api/projects/233/runs/123/jobs', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          jobs: [{
+            id: 7,
+            name: 'Build',
+            status: 'completed',
+            conclusion: 'success',
+            steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
+          }],
+        }),
+      }),
+    )
+    await page.route('**/api/projects/233/runs/123/jobs/7/logs*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, log: 'admin step log output' }),
+      }),
+    )
     await page.goto('http://127.0.0.1:4173/admin/monitoring', { waitUntil: 'networkidle' })
     await page.getByRole('heading', { name: '运行监控' }).waitFor()
     await page.getByText(longError, { exact: true }).waitFor()
@@ -104,6 +128,11 @@ try {
       () => document.activeElement?.matches(':focus-visible') ?? false,
     )
     assert.equal(focusVisible, true, `keyboard focus indicator missing at ${width}px`)
+
+    await page.getByRole('button', { name: '展开任务' }).first().click()
+    await page.getByText('Build', { exact: true }).waitFor()
+    await page.getByRole('button', { name: '加载日志' }).click()
+    await page.getByText('admin step log output', { exact: true }).waitFor()
 
     const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
