@@ -327,29 +327,6 @@ export async function markVersionUnavailable(env: Env, snapshot: VersionSnapshot
   ).run()
 }
 
-export async function getArchiveObject(env: Env, hash: string): Promise<ArchiveObject | null> {
-  const row = await statement(
-    env,
-    'SELECT content_sha256, object_key, original_size, compressed_size, status FROM archive_objects WHERE content_sha256 = ?',
-    hash,
-  ).first<{
-    content_sha256: string
-    object_key: string
-    original_size: number
-    compressed_size: number
-    status: 'pending' | 'ready'
-  }>()
-  return row
-    ? {
-        contentSha256: row.content_sha256,
-        objectKey: row.object_key,
-        originalSize: row.original_size,
-        compressedSize: row.compressed_size,
-        status: row.status,
-      }
-    : null
-}
-
 export async function consumeArchiveReadBudget(env: Env): Promise<void> {
   const row = await statement(
     env,

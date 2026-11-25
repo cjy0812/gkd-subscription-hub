@@ -180,7 +180,7 @@ function makeProject(version = 643, repo = 'repo'): Project {
     distFiles: [
       {
         path: 'gkd.json5',
-        sha: `blob-${version}`,
+        sha: '245f02de62013b365bfaba65ed1b531b58e227eb',
         size: new TextEncoder().encode('{id:233,version:643}').byteLength,
       },
     ],
@@ -263,6 +263,7 @@ describe('Cloudflare R2 subscription version archive', () => {
 
     const firstProject = makeProject()
     firstProject.distFiles[0].size = bytes.byteLength
+    firstProject.distFiles[0].sha = '553d6ce72010f9a74bb7a26eb55da24a09e92bcb'
     const first = await recordSubscriptionVersion(env, firstProject)
     expect(first?.archiveStatus).toBe('r2')
     expect(first?.contentSha256).toMatch(/^[a-f0-9]{64}$/)
@@ -272,7 +273,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const secondProject = makeProject(644)
     secondProject.distFiles[0] = {
       path: 'gkd.json5',
-      sha: 'different-blob',
+      sha: '245f02de62013b365bfaba65ed1b531b58e227eb',
       size: bytes.byteLength,
     }
     const second = await recordSubscriptionVersion(env, secondProject)
@@ -311,6 +312,20 @@ describe('Cloudflare R2 subscription version archive', () => {
     expect(lookup.snapshot).toBeNull()
   })
 
+  it('rejects a source file that does not match the pinned Git Blob SHA', async () => {
+    const { env, bucket } = makeEnv()
+    const wrongBytes = new TextEncoder().encode('{id:233,version:644}')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(wrongBytes.slice().buffer as ArrayBuffer)),
+    )
+
+    const record = await recordSubscriptionVersion(env, makeProject())
+    expect(record?.archiveStatus).toBe('unavailable')
+    expect(record?.archiveError).toContain('Git Blob SHA')
+    expect(bucket.puts).toBe(0)
+  })
+
   it('rejects new objects when the configured compressed-storage budget is exhausted', async () => {
     const { env, bucket } = makeEnv(0)
     vi.stubGlobal(
@@ -333,7 +348,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const firstProject = makeProject()
     const competingProject = makeProject()
     competingProject.commitSha = 'competing-commit'
-    competingProject.distFiles[0].sha = 'competing-blob'
+    competingProject.distFiles[0].sha = '245f02de62013b365bfaba65ed1b531b58e227eb'
 
     const [first, second] = await Promise.all([
       recordSubscriptionVersion(env, firstProject),

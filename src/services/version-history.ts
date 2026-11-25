@@ -96,6 +96,21 @@ export async function readSubscriptionVersionAtRef(
   }
 }
 
+async function gitBlobSha(bytes: Uint8Array, expectedSha: string): Promise<string> {
+  const algorithm = expectedSha.length === 64 ? 'SHA-256' : 'SHA-1'
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(expectedSha)) {
+    throw new Error('历史 Git Blob SHA 格式无效')
+  }
+  const header = new TextEncoder().encode(`blob ${bytes.byteLength}\0`)
+  const payload = new Uint8Array(header.byteLength + bytes.byteLength)
+  payload.set(header)
+  payload.set(bytes, header.byteLength)
+  const digest = await crypto.subtle.digest(algorithm, payload.buffer as ArrayBuffer)
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 async function readSourceSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
   if (!Number.isSafeInteger(snapshot.fileSize) || snapshot.fileSize < 0)
     throw new Error('历史订阅文件大小元数据无效')
@@ -117,6 +132,10 @@ async function readSourceSnapshot(env: Env, snapshot: VersionSnapshot): Promise<
   const bytes = await readBoundedSnapshotResponse(response)
   if (bytes.byteLength !== snapshot.fileSize)
     throw new Error('历史订阅文件大小与固定版本元数据不一致')
+  const actualBlobSha = await gitBlobSha(bytes, snapshot.fileSha)
+  if (actualBlobSha.toLowerCase() !== snapshot.fileSha.toLowerCase()) {
+    throw new Error('历史订阅文件 Git Blob SHA 与固定 Commit 元数据不一致')
+  }
   return bytes
 }
 
@@ -181,7 +200,13 @@ export async function archiveHistoricalSnapshot(
   legacySnapshot: VersionSnapshot,
 ): Promise<VersionSnapshot> {
   const expectedLegacyHash = legacySnapshot.contentSha256
-  const snapshot = await saveVersionSnapshot(env, legacySnapshot)
+  let snapshot: VersionSnapshot
+  try {
+    snapshot = await saveVersionSnapshot(env, legacySnapshot)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '历史版本索引保存失败'
+    return { ...legacySnapshot, archiveStatus: 'unavailable', archiveError: message }
+  }
   if (snapshot.archiveStatus === 'r2' && snapshot.objectKey) return snapshot
   try {
     const bytes = await readSourceSnapshot(env, snapshot)
@@ -245,7 +270,13 @@ export async function readVersionContent(env: Env, snapshot: VersionSnapshot): P
   const object = await env.ARCHIVE.get(snapshot.objectKey)
   if (!object) throw new Error('R2 历史归档对象不存在')
   if (object.size > MAX_COMPRESSED_SNAPSHOT_BYTES) throw new Error('R2 压缩对象超过安全读取上限')
-  if (object.customMetadata?.sha256 !== snapshot.contentSha256) {
+  if (snapshot.compressedSize !== undefined && object.size !== snapshot.compressedSize) {
+    throw new Error('R2 压缩对象大小与 D1 元数据不一致')
+  }
+  if (
+    object.customMetadata?.sha256 !== snapshot.contentSha256 ||
+    object.customMetadata?.originalSize !== String(snapshot.fileSize)
+  ) {
     throw new Error('R2 对象元数据校验失败')
   }
   const compressed = await readBoundedSnapshotResponse(
