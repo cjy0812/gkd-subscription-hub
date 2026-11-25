@@ -1,20 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { buildMonitoringOverview, type MonitoringProject } from './monitoring'
+import { buildMonitoringOverview } from './monitoring'
+import type { Project } from './types'
 
 function project(
   id: number,
-  lastRuns: MonitoringProject['lastRuns'] = [],
+  workflows: Project['workflows'],
+  lastRuns: Project['lastRuns'] = [],
   lastError: string | null = null,
-): MonitoringProject {
+): Project {
   return {
     id,
     owner: 'owner',
     repo: `repo-${id}`,
-    lastError,
+    branch: 'main',
+    repoUrl: 'https://github.com/owner/repo',
+    distFiles: [],
+    distHash: '',
+    workflows,
+    registeredAt: '2026-01-01T00:00:00Z',
+    lastCheckedAt: null,
+    lastDistHash: null,
+    lastDistChangedAt: null,
     lastRuns,
+    prediction: { intervalHours: null, predictedAt: null, nextCheckAt: '', successfulRuns: 0 },
+    lastError,
   }
 }
-
 function run(
   workflowId: number,
   updatedAt: string,
@@ -36,61 +47,65 @@ function run(
 }
 
 describe('buildMonitoringOverview', () => {
-  it('aggregates runs across projects and counts non-success and unfinished runs', () => {
-    const projects = [
+  it('groups runs by project and workflow YAML file while retaining aggregate counts', () => {
+    const result = buildMonitoringOverview([
       project(
         1,
+        [
+          { id: 1, name: 'Build', path: '.github/workflows/build.yml', cron: [], relevant: true },
+          {
+            id: 2,
+            name: 'Release',
+            path: '.github/workflows/release.yml',
+            cron: [],
+            relevant: true,
+          },
+        ],
         [
           run(1, '2026-01-01T00:00:00Z', 'completed', 'success'),
           run(2, '2026-01-02T00:00:00Z', 'completed', 'failure'),
         ],
         'Index refresh failed',
       ),
-      project(2, [
-        run(3, '2026-01-03T00:00:00Z', 'in_progress', null),
-        run(4, '2026-01-04T00:00:00Z', 'completed', 'cancelled'),
-      ]),
-      project(3),
-    ]
-
-    const result = buildMonitoringOverview(projects)
-
+      project(2, [], [run(3, '2026-01-03T00:00:00Z', 'in_progress', null)]),
+    ])
     expect(result.monitoredProjects).toBe(2)
-    expect(result.runCount).toBe(4)
-    expect(result.nonSuccessfulCount).toBe(2)
+    expect(result.runCount).toBe(3)
+    expect(result.nonSuccessfulCount).toBe(1)
     expect(result.inProgressCount).toBe(1)
+    expect(result.projectWorkflows[0].workflows.map((workflow) => workflow.path)).toEqual([
+      '.github/workflows/build.yml',
+      '.github/workflows/release.yml',
+    ])
+    expect(result.projectWorkflows[1].workflows[0]).toMatchObject({
+      name: 'Workflow 3',
+      path: '工作流文件路径未记录（非 GitHub Workflow）',
+    })
     expect(result.projectErrors.map((item) => item.id)).toEqual([1])
-    expect(result.recentRuns.map((item) => item.workflowId)).toEqual([4, 3, 2, 1])
-    expect(result.recentRuns[0]).toMatchObject({ projectId: 2, owner: 'owner', repo: 'repo-2' })
   })
 
-  it('uses the unique workflow run URL for keys when timestamps and commits match', () => {
-    const projects = [
-      project(1, [
-        run(7, '2026-01-01T00:00:00Z', 'completed', 'success', 7001),
-        run(7, '2026-01-01T00:00:00Z', 'completed', 'failure', 7002),
-      ]),
-    ]
-    const result = buildMonitoringOverview(projects)
-    expect(result.recentRuns).toHaveLength(2)
-    expect(new Set(result.recentRuns.map((item) => item.key)).size).toBe(2)
-  })
-
-  it('limits the recent run list and handles empty projects', () => {
-    const projects = [
-      project(1, [
-        run(1, '2026-01-01T00:00:00Z', 'completed', 'success'),
-        run(2, '2026-01-02T00:00:00Z', 'completed', 'success'),
-      ]),
-    ]
-
-    expect(buildMonitoringOverview(projects, 1).recentRuns).toHaveLength(1)
-    expect(buildMonitoringOverview([], 0)).toMatchObject({
+  it('applies a limit to recent runs and handles empty projects', () => {
+    const overview = buildMonitoringOverview(
+      [
+        project(
+          1,
+          [],
+          [
+            run(1, '2026-01-01T00:00:00Z', 'completed', 'success', 1),
+            run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 2),
+          ],
+        ),
+      ],
+      1,
+    )
+    expect(overview.recentRuns).toHaveLength(1)
+    expect(buildMonitoringOverview([])).toMatchObject({
       monitoredProjects: 0,
       runCount: 0,
       nonSuccessfulCount: 0,
       inProgressCount: 0,
       recentRuns: [],
+      projectWorkflows: [],
       projectErrors: [],
     })
   })

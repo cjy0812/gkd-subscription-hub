@@ -42,6 +42,7 @@ export interface Project {
   branch: string
   group?: string
   commitSha?: string
+  subscriptionVersion?: number | null
   repoUrl: string
   distFiles: DistFile[]
   distHash: string

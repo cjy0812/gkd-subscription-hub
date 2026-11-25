@@ -48,6 +48,11 @@ const batchDeleting = ref(false)
 const batchProgress = ref({ completed: 0, total: 0 })
 const batchBusy = computed(() => batchRefreshing.value || batchDeleting.value)
 const groupName = ref('默认分组')
+const groupOptions = computed(() => {
+  const names = new Set(projects.value.map((project) => project.group?.trim()).filter((name): name is string => Boolean(name)))
+  names.add('默认分组')
+  return [...names].sort((a, b) => a === '默认分组' ? -1 : b === '默认分组' ? 1 : a.localeCompare(b, 'zh-CN')).map((name) => ({ label: name, value: name }))
+})
 watch(repositoryUrl, () => {
   branchName.value = null
   branchOptions.value = []
@@ -244,16 +249,18 @@ async function batchDelete() {
 }
 
 function openSubscription(id: number) {
-  const project = projects.value.find((item) => item.id === id)
-  const file = project?.distFiles.find(
-    (item) => item.path.toLowerCase().split('/').at(-1) === 'gkd.json5',
-  )
-  if (!file || !subscriptionDomain.value) {
-    message.error('该项目没有找到 gkd.json5 订阅文件')
-    return
+  if (!projects.value.some((item) => item.id === id) || !subscriptionDomain.value) return
+  window.open(`https://${subscriptionDomain.value}/${id}/dist/`, '_blank', 'noopener,noreferrer')
+}
+
+async function copySubscriptionUrl(id: number) {
+  if (!projects.value.some((item) => item.id === id) || !subscriptionDomain.value) return
+  try {
+    await navigator.clipboard.writeText(`https://${subscriptionDomain.value}/${id}/gkd.json5`)
+    message.success('已复制主订阅地址')
+  } catch {
+    message.error('复制失败，请检查浏览器剪贴板权限')
   }
-  const path = file.path.split('/').map(encodeURIComponent).join('/')
-  window.open(`https://${subscriptionDomain.value}/${id}/${path}`, '_blank', 'noopener,noreferrer')
 }
 
 const columns: DataTableColumns<Project> = [
@@ -264,7 +271,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('strong', `${row.owner}/${row.repo}`),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('strong', `${row.owner}/${row.repo}`)]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -323,27 +330,30 @@ const columns: DataTableColumns<Project> = [
   {
     title: '操作',
     key: 'actions',
-    width: 310,
+    width: 190,
     render: (row) =>
       h(
         NSpace,
         { size: 8 },
         {
           default: () => [
+
             h(
-              'a',
+              NButton,
               {
-                href: row.repoUrl,
-                target: '_blank',
-                rel: 'noopener noreferrer',
-                class: 'repo-source-link',
+                size: 'small',
+                tertiary: true,
+                disabled: batchBusy.value,
+                title: '打开 dist 文件目录',
+                'aria-label': '打开 dist 文件目录',
+                onClick: () => openSubscription(row.id),
               },
-              [h(AppIcon, { name: 'external-link', size: 14 }), h('span', '源码')],
+              { icon: () => h(AppIcon, { name: 'file-text' }) },
             ),
             h(
               NButton,
-              { size: 'small', tertiary: true, disabled: batchBusy.value, onClick: () => openSubscription(row.id) },
-              { icon: () => h(AppIcon, { name: 'file-text' }), default: () => '打开订阅' },
+              { size: 'small', quaternary: true, disabled: batchBusy.value, title: '复制主订阅 JSON5 地址', 'aria-label': '复制主订阅 JSON5 地址', onClick: () => copySubscriptionUrl(row.id) },
+              { icon: () => h(AppIcon, { name: 'copy' }) },
             ),
             h(
               NButton,
@@ -352,9 +362,11 @@ const columns: DataTableColumns<Project> = [
                 secondary: true,
                 loading: refreshingIds.value.has(row.id),
                 disabled: batchBusy.value,
+                title: '刷新订阅源',
+                'aria-label': '刷新订阅源',
                 onClick: () => refreshProject(row.id),
               },
-              { icon: () => h(AppIcon, { name: 'refresh-cw' }), default: () => '刷新' },
+              { icon: () => h(AppIcon, { name: 'refresh-cw' }) },
             ),
             h(
               NButton,
@@ -363,9 +375,11 @@ const columns: DataTableColumns<Project> = [
                 tertiary: true,
                 type: 'error',
                 disabled: batchBusy.value,
+                title: '删除订阅源',
+                'aria-label': '删除订阅源',
                 onClick: () => removeProject(row.id),
               },
-              { icon: () => h(AppIcon, { name: 'trash-2' }), default: () => '删除' },
+              { icon: () => h(AppIcon, { name: 'trash-2' }) },
             ),
           ],
         },
@@ -636,16 +650,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p>{{ project.owner }}/{{ project.repo }}</p>
-                <a
-                  :href="project.repoUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="repo-source-link"
-                >
-                  <AppIcon name="external-link" :size="14" />
-                  源码
-                </a>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link">{{ project.owner }}/{{ project.repo }}</a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -666,20 +671,36 @@ onMounted(() => {
                     secondary
                     :loading="refreshingIds.has(project.id)"
                     :disabled="batchBusy"
+                    title="刷新订阅源"
+                    aria-label="刷新订阅源"
                     @click="refreshProject(project.id)"
-                    >立即刷新</n-button
                   >
-                  <n-button size="small" :disabled="batchBusy" @click="openSubscription(project.id)"
-                    >打开订阅</n-button
+                    <template #icon><AppIcon name="refresh-cw" /></template>
+                  </n-button>
+                  <n-button size="small" quaternary title="复制主订阅 JSON5 地址" aria-label="复制主订阅 JSON5 地址" @click="copySubscriptionUrl(project.id)">
+                    <template #icon><AppIcon name="copy" /></template>
+                  </n-button>
+                  <n-button
+                    size="small"
+                    quaternary
+                    :disabled="batchBusy"
+                    title="打开 dist 文件目录"
+                    aria-label="打开 dist 文件目录"
+                    @click="openSubscription(project.id)"
                   >
+                    <template #icon><AppIcon name="file-text" /></template>
+                  </n-button>
                   <n-button
                     size="small"
                     tertiary
                     type="error"
                     :disabled="batchBusy"
+                    title="删除订阅源"
+                    aria-label="删除订阅源"
                     @click="removeProject(project.id)"
-                    >删除</n-button
                   >
+                    <template #icon><AppIcon name="trash-2" /></template>
+                  </n-button>
                 </n-space>
               </article>
               </div>
@@ -726,11 +747,7 @@ onMounted(() => {
         </n-text>
       </n-form-item>
       <n-form-item label="所属分组">
-        <n-input
-          v-model:value="groupName"
-          placeholder="例如：常用订阅、测试订阅"
-          maxlength="40"
-        />
+        <n-select v-model:value="groupName" :options="groupOptions" filterable tag placeholder="选择已有分组，或输入新分组名称" />
       </n-form-item>
       <p class="muted form-hint">仅支持公开、未归档且包含 dist/ 的 GitHub 仓库。</p>
       <n-space justify="end">
@@ -809,6 +826,8 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
+.repo-title-link { color: var(--color-text); text-decoration: none; }
+.repo-title-link:hover { color: var(--color-accent); text-decoration: underline; }
 .repo-source-link {
   display: inline-flex;
   align-items: center;

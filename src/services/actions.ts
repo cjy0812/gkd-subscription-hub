@@ -1,6 +1,7 @@
 import { save } from '../storage/projects'
 import type { Env, Prediction, Project, WorkflowRun } from '../types'
 import { scan } from './scanner'
+import { readSubscriptionVersionAtRef, recordSubscriptionVersion } from './version-history'
 import { getProviderAdapter, parseRepositoryUrl } from './providers'
 export async function runs(e: Env, p: Project): Promise<WorkflowRun[]> {
   try {
@@ -38,6 +39,13 @@ export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
   }
 }
 export async function refresh(e: Env, p: Project) {
+  const previousVersion =
+    p.subscriptionVersion ??
+    (p.commitSha ? await readSubscriptionVersionAtRef(e, p.repoUrl, p.commitSha, p.id) : null)
+  const previousSnapshot =
+    previousVersion !== null
+      ? await recordSubscriptionVersion(e, { ...p, subscriptionVersion: previousVersion })
+      : null
   const fresh = await scan(e, parseRepositoryUrl(p.repoUrl), p.branch)
   const lastRuns = await runs(e, fresh)
   const now = Date.now()
@@ -52,6 +60,9 @@ export async function refresh(e: Env, p: Project) {
     lastCheckedAt: new Date(now).toISOString(),
     prediction: predict(lastRuns, now),
     lastError: null,
+  }
+  if (!previousSnapshot || next.subscriptionVersion !== previousVersion) {
+    await recordSubscriptionVersion(e, next)
   }
   await save(e, next)
   return next

@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it'
+import sanitizeHtml from 'sanitize-html'
 import hljs from 'highlight.js/lib/core'
 import bash from 'highlight.js/lib/languages/bash'
 import css from 'highlight.js/lib/languages/css'
@@ -49,7 +50,7 @@ for (const [name, grammar] of Object.entries(languages)) {
 }
 
 const md = new MarkdownIt({
-  html: false,
+  html: true,
   linkify: false,
   typographer: false,
   highlight(code, language) {
@@ -148,16 +149,108 @@ md.renderer.rules.fence = (tokens, index, options, _env, _self) => {
   )
 }
 
+const markdownHtmlPolicy = {
+  allowedTags: [
+    'a',
+    'blockquote',
+    'br',
+    'code',
+    'del',
+    'div',
+    'em',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'hr',
+    'img',
+    'kbd',
+    'li',
+    'nav',
+    'ol',
+    'p',
+    'pre',
+    's',
+    'small',
+    'span',
+    'strong',
+    'sub',
+    'sup',
+    'table',
+    'tbody',
+    'td',
+    'th',
+    'thead',
+    'tr',
+    'ul',
+    'button',
+  ],
+  allowedAttributes: {
+    '*': ['class'],
+    a: ['href', 'name', 'target', 'rel', 'title'],
+    button: ['type'],
+    h1: ['id'],
+    h2: ['id'],
+    h3: ['id'],
+    h4: ['id'],
+    h5: ['id'],
+    h6: ['id'],
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+    nav: ['aria-label'],
+    td: ['align'],
+    th: ['align'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+  allowedSchemesByTag: { img: ['https'] },
+  allowProtocolRelative: false,
+  disallowedTagsMode: 'discard' as const,
+  nonTextTags: [
+    'script',
+    'style',
+    'textarea',
+    'option',
+    'noscript',
+    'iframe',
+    'noembed',
+    'noframes',
+    'template',
+    'svg',
+    'math',
+    'object',
+    'embed',
+  ],
+  transformTags: {
+    a: (tagName: string, attributes: Record<string, string>) => {
+      const isExternal = /^https?:\/\//i.test(attributes.href || '')
+      const opensNewTab = attributes.target === '_blank'
+      if (isExternal || opensNewTab) {
+        return {
+          tagName,
+          attribs: { ...attributes, target: '_blank', rel: 'noopener noreferrer' },
+        }
+      }
+      return { tagName, attribs: attributes }
+    },
+  },
+}
+function sanitizeMarkdownHtml(html: string): string {
+  return sanitizeHtml(html, markdownHtmlPolicy)
+}
+
 export function renderMarkdown(source: string): string {
   const tokens = md.parse(source, {})
   const headings = addHeadingIds(tokens)
   const content = md.renderer.render(tokens, md.options, {})
-  if (!headings.length) return content
+  if (!headings.length) return sanitizeMarkdownHtml(content)
 
   const items = headings
     .map(
       ({ id, label, level }) => `<li class="toc-level-${level}"><a href="#${id}">${label}</a></li>`,
     )
     .join('')
-  return `<nav class="markdown-toc" aria-label="文章目录"><strong>目录</strong><ol>${items}</ol></nav>${content}`
+  return sanitizeMarkdownHtml(
+    `<nav class="markdown-toc" aria-label="文章目录"><strong>目录</strong><ol>${items}</ol></nav>${content}`,
+  )
 }

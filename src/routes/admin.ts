@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { auth } from '../middleware/auth'
 import { predict, refresh, runs } from '../services/actions'
+import { listProjectVersions, recordSubscriptionVersion } from '../services/version-history'
 import { listBranches, parseRepo, scan } from '../services/scanner'
 import { all, get, remove, save } from '../storage/projects'
 import type { Env } from '../types'
@@ -45,6 +46,7 @@ app.post('/api/projects', async (c) => {
     project.lastDistHash = project.distHash
     project.lastDistChangedAt = project.lastCheckedAt
     project.prediction = predict(project.lastRuns)
+    await recordSubscriptionVersion(c.env, project)
     await save(c.env, project)
     return json({ ok: true, project }, 201)
   } catch (error) {
@@ -69,6 +71,12 @@ app.post('/api/projects/:id/refresh', async (c) => {
     })
     return bad(message, 502)
   }
+})
+app.get('/api/projects/:id/versions', async (c) => {
+  const id = Number(c.req.param('id'))
+  const project = await get(c.env, id)
+  if (!project) return bad('项目不存在', 404)
+  return json({ ok: true, versions: await listProjectVersions(c.env, id, project) })
 })
 app.delete('/api/projects/:id', async (c) => {
   const id = Number(c.req.param('id'))

@@ -1,6 +1,7 @@
 {
   "name": "gkd-subscription-hub",
   "version": "0.2.0",
+  "description": "GKD Subscription Hub",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -18,20 +19,24 @@
     "lint": "biome lint .",
     "format": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false --write .",
     "test": "vitest run",
+    "db:migrate:preview": "wrangler d1 migrations apply gkd-subscription-hub --remote --preview",
+    "db:migrate:remote": "wrangler d1 migrations apply gkd-subscription-hub --remote",
     "deploy": "bun run build:admin && bun run typegen && wrangler deploy --secrets-file .secrets.json",
     "format:check": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false ."
   },
   "dependencies": {
     "hono": "^4.10.6",
     "markdown-it": "^14.1.0",
-    "highlight.js": "^11.12.0"
+    "highlight.js": "^11.12.0",
+    "sanitize-html": "^2.18.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
     "@types/markdown-it": "^14.1.2",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
-    "wrangler": "^4.48.0"
+    "wrangler": "^4.48.0",
+    "@types/sanitize-html": "^2.16.2"
   },
   "packageManager": "bun@1.4.5"
 }

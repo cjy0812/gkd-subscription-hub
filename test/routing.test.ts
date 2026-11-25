@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import worker from '../src/index'
 import type { Env } from '../src/types'
 
@@ -21,14 +21,72 @@ function environment(overrides: Partial<Env> = {}) {
 const context = { waitUntil: vi.fn() } as unknown as ExecutionContext
 
 describe('top-level routing', () => {
-  it('redirects the root to the admin application', async () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('serves the public portal at the root without redirecting to Admin', async () => {
+    const env = environment()
+    const response = await worker.fetch(new Request('https://gkd.example.com/'), env, context)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('/')
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
+  })
+
+  it('exposes public subscription data without requiring Admin auth', async () => {
     const response = await worker.fetch(
-      new Request('https://gkd.example.com/'),
+      new Request('https://gkd.example.com/api/public/subscriptions'),
       environment(),
       context,
     )
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://gkd.example.com/admin/')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ ok: true, subscriptions: [] })
+  })
+
+  it('returns the exact indexed subscription filename for public copy links', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      distFiles: [{ path: 'GKD.JSON5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => {
+          if (key === 'projects:index') return [233]
+          if (key === 'project:233') return project
+          return null
+        }),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/api/public/subscriptions'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      subscriptions: [
+        {
+          id: 233,
+          hasSubscription: true,
+          subscriptionPath: 'GKD.JSON5',
+        },
+      ],
+    })
+  })
+
+  it('serves the GKD preview SPA for its deep link', async () => {
+    const env = environment()
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('/')
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
   })
 
   it('serves the admin SPA from the assets root', async () => {
@@ -45,6 +103,107 @@ describe('top-level routing', () => {
       context,
     )
     expect(response.status).toBe(401)
+  })
+
+  it('rewrites browser HTML navigation to JSON5 into the GKD preview SPA', async () => {
+    const project = {
+      id: 233,
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/gkd.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe(
+      'https://gkd.example.com/preview/233?file=gkd.json5',
+    )
+  })
+
+  it('serves raw JSON5 when the browser explicitly requests raw=1', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      commitSha: 'commit-sha',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{id:233,version:1}')),
+    )
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/gkd.json5?raw=1', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/json5')
+    expect(await response.text()).toBe('{id:233,version:1}')
+  })
+
+  it('accepts Unicode JSON5 filenames in indexed dist paths', async () => {
+    const project = {
+      id: 233,
+      distFiles: [{ path: '规则说明.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe(
+      'https://gkd.example.com/preview/233?file=%E8%A7%84%E5%88%99%E8%AF%B4%E6%98%8E.json5',
+    )
+  })
+
+  it('keeps the preview deep-link routed to Static Assets', async () => {
+    const env = environment()
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('/')
+    expect(env.ASSETS.fetch).toHaveBeenCalledOnce()
   })
 
   it('returns 404 for unknown paths', async () => {

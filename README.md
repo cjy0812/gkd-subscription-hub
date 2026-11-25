@@ -1,13 +1,13 @@
 # GKD Subscription Hub
 
-Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter 扫描 GitHub、GitLab.com、Gitea.com 公开仓库的 `dist/`，按订阅 ID 分配统一路径，提供管理 API、目录页、原始文件分发和浏览器预览。
+Cloudflare Workers 驱动的 GKD 订阅与规则发现门户：通过 Provider Adapter 扫描 GitHub、GitLab.com、Gitea.com 公开仓库的 `dist/`，按订阅 ID 提供统一分发路径；根路径为公共只读目录，管理后台独立位于 `/admin/`。
 
 ## 功能
 
 - 从 `src/subscription.ts` 提取 `defineGkdSubscription({ id })`。
-- 自动索引 `dist/` 的递归文件树；根路径显示目录。
+- 自动索引 `dist/` 的递归文件树；公共门户 `/` 展示已托管订阅源和 GKD 规则发现，`/<id>/dist/` 展示订阅文件目录。
 - GKD、curl、脚本等非 HTML 请求获得原始文件，不包装内容。
-- 浏览器访问 Markdown 时使用 markdown-it + highlight.js 渲染；访问 JSON5 时提供只读树形预览和原始文件入口。
+- Markdown 使用 markdown-it + highlight.js 渲染，常见 HTML 经过严格 allowlist 清理。JSON5 浏览器预览采用 GKD 专用页面，复用官方 `@gkd-kit/api` 类型，在 Web Worker 中解析；应用、规则组和规则每页 50 项，逐层按需加载，规则详情点击后读取，原始文本仅在主动打开标签时加载。响应体按块读取，超过 10 MB 会先取消读取并询问，用户可选择继续结构化解析（最高 50 MB）；超过 50 MB 立即取消，需使用原始文件入口。历史版本由 Worker 再施加 20 MB 服务端流式读取限制，且无 SHA-256 校验值的记录拒绝返回。
 - `?raw=1` 强制原始内容。
 - GitHub 项目读取 Actions workflow 与运行记录；GitLab 项目读取 Pipelines；Gitea 项目读取 Actions runs。三者归一为统一运行记录，再按成功运行间隔中位数预测下一次检查时间。
 - Worker Cron 每 6 小时运行；根据预测时间决定是否刷新项目索引。
@@ -23,13 +23,13 @@ Cloudflare Workers 驱动的 GKD 订阅分发服务：通过 Provider Adapter �
 - 管理员密码登录与退出；登录页独立于业务页面，认证信息保存在当前浏览器会话的 `sessionStorage`。
 - 订阅管理、仪表盘和 Explorer 共用 AdminLayout；桌面端采用左侧图标导航，悬停显示菜单名称，移动端使用抽屉导航；未登录访问受保护路由会跳转登录页，API 返回 401 时统一清除失效凭据。
 - 仪表盘展示项目数、索引文件数、检查异常、尚未检查数量、最近检查记录和异常项目。
-- 运行监控页聚合 GitHub 项目最近一次刷新时保存的 Actions 运行记录，展示状态、触发方式、更新时间和项目索引错误；GitLab/Gitea 暂无 CI 运行记录；页面读取 KV 快照，不会自动轮询上游。
-- 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；支持打开 JSON5/Markdown 浏览器预览或原始文件，不提供在线编辑。
+- 运行监控按项目 → Workflow YAML 文件 → Run 分层展示 GitHub Actions 缓存记录，显示 workflow 文件路径、触发方式、状态与更新时间；Job/Step 留在 GitHub 单次运行详情中。GitLab/Gitea 暂无等价 YAML Workflow 文件索引；页面读取缓存快照，不会自动轮询上游。
+- 文件管理页按订阅项目浏览 `dist/` 文件索引、文件大小和 Git Blob SHA；JSON5 打开 GKD 专用预览，Markdown 使用安全阅读器，其他文件提供原始文件入口，不提供在线编辑。
 - 项目按分组展示并可折叠；支持批量选择、批量刷新和批量删除，删除仅移除本系统项目元数据。
 - 按订阅 ID、仓库名、分支和分组搜索，并按检查状态筛选。
 - 新增订阅源支持 GitHub、GitLab.com、Gitea.com 公开仓库；可读取对应平台分支列表并通过下拉框选择，默认分支置顶。
 - 手动刷新单个订阅源，并查看最近检查错误。
-- 打开项目目录中的 `gkd.json5` 订阅文件，或删除项目元数据。
+- 打开项目 `dist/` 文件目录、复制主订阅 JSON5 地址，或删除项目元数据。
 
 状态标签是根据当前项目记录中的最近检查时间和错误字段推导的，不代表 Worker 正在执行任务，也不代表上游仓库实时可用。自动检查仍由 Worker Cron 负责。
 
@@ -47,19 +47,22 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 所有服务共用一个主机名，通过路径分流，不再使用项目数字子域名：
 
+- 公共门户：`https://gkd.example.com/`（只读订阅源与规则发现目录）
 - 管理端：`https://gkd.example.com/admin/`
 - 文件管理：`https://gkd.example.com/admin/files`
 - 运行监控：`https://gkd.example.com/admin/monitoring`
 - 管理 API：`https://gkd.example.com/admin/api/*`
-- 项目目录：`https://gkd.example.com/<id>/`
+- 项目目录：`https://gkd.example.com/<id>/dist/`（`/<id>/` 仍作为兼容目录入口）
+- JSON5 预览：`https://gkd.example.com/preview/<id>?file=gkd.json5`（浏览器 UI；GKD 客户端仍使用原始订阅 URL）
+- 历史订阅：`https://gkd.example.com/<id>/v<version>/gkd.json5`（版本号来自 `gkd.version.json5`，不代表每日 commit）
 - 订阅文件：`https://gkd.example.com/<id>/<dist-path>`，例如 `https://gkd.example.com/233/gkd.json5`
 - 通知入口：`POST https://gkd.example.com/hooks/notify`
-- 根路径 `/` 重定向到 `/admin/`；未知路径返回 404。
+- 公共只读 API：`https://gkd.example.com/api/public/*`；未知路径返回 404。
 
 ### 仅使用 workers.dev 时
 
 - 管理端：`https://<worker-name>.<account-subdomain>.workers.dev/admin/`
-- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/`
+- 项目目录：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/dist/`
 - GKD 订阅：`https://<worker-name>.<account-subdomain>.workers.dev/<id>/gkd.json5`
 
 其中 `<worker-name>.<account-subdomain>.workers.dev` 替换为实际部署后 Cloudflare 分配的 Worker 域名，`<id>` 替换为订阅 ID。
@@ -75,10 +78,10 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 ## 技术栈
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
-- **前端**：Vue 3、Vite、Naive UI、Vue Router。当前业务状态由页面级 Composition API 与共享模块管理，不引入未实际使用的 Pinia。
-- **后端**：Cloudflare Workers、Hono、KV。
+- **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。业务状态继续使用 Composition API，不额外引入 Pinia。
+- **后端**：Cloudflare Workers、Hono、KV、D1、R2；KV 保存项目索引，D1 保存版本/对象元数据与配额计数，R2 保存 Gzip 压缩后的不可变历史文件。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
-- **内容处理**：markdown-it（安全 Markdown 渲染）+ highlight.js（按需语言子集代码高亮）。
+- **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js；GKD JSON5 使用 `@gkd-kit/api` 与 `json5`，并在专用 Web Worker 中解析。
 
 Vue SFC 使用 Biome 2.6.8 的实验性 HTML super-language 进行 Lint，并由 vue-tsc 负责模板/脚本类型检查；CI 已观察到 `noUnusedImports` 对模板中实际使用的组件产生误报，因此仅对 Vue SFC 关闭该规则。由于格式化器仍属实验性且可能造成较大模板格式变动，当前明确关闭 Vue SFC 格式化。仓库不再使用 Prettier 或 ESLint，以避免重复工具链；若后续发现可复现的质量缺口，再单独评估补充工具。
 
@@ -91,6 +94,8 @@ apps/
       layouts/           # 管理端共享布局
       pages/             # Vue 页面
       styles/            # Design Tokens 与全局样式
+      subscription/      # GKD 订阅预览模型与 Worker 通信
+      workers/           # 浏览器端 JSON5 解析 Worker
     index.html
     vite.config.ts
 src/
@@ -128,7 +133,7 @@ bun install --frozen-lockfile
 
 ### 2. Cloudflare 资源
 
-为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
+为 Worker 配置独立 KV namespace、D1 数据库和私有 R2 Bucket，并将资源 ID/名称配置到 `wrangler.jsonc`。D1 migration 位于 `migrations/`；先对 Preview 数据库执行 `bun run db:migrate:preview`，验收后再执行 `bun run db:migrate:remote` 对生产数据库应用迁移。R2 不启用公开 Bucket 域名，只通过 Worker binding 访问。Workers Preview 使用独立的 `gkd-subscription-hub-preview` Worker 环境、Preview KV/D1/R2，不能连接生产归档。
 
 ### 3. 配置 Worker Secrets
 
@@ -174,13 +179,13 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 6. 注册订阅
 
-访问管理站 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
+访问公共门户 `https://<worker-name>.<account-subdomain>.workers.dev/` 浏览目录；管理员访问 `https://<worker-name>.<account-subdomain>.workers.dev/admin/`，输入管理员密码，添加公开仓库 URL，例如：
 
 - GitHub：`https://github.com/<owner>/<repository>`
 - GitLab：`https://gitlab.com/<group>/<subgroup>/<project>`
 - Gitea：`https://gitea.com/<owner>/<repository>`
 
-服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的 `gkd.json5` 文件链接：`https://gkd.example.com/<id>/gkd.json5`。不要使用目录页 URL。
+服务将识别 Provider，提取订阅 ID、读取分支和固定 Commit，检查 `dist/` 文件树。相同订阅 ID 不允许重复注册。GKD App 应使用对应项目的主订阅链接：`https://gkd.example.com/<id>/gkd.json5`。`/<id>/dist/` 是浏览目录，不是 GKD 订阅地址。
 
 ## 管理 API
 
@@ -191,6 +196,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - `POST /admin/api/projects`：注册项目，JSON：`{"url":"https://gitlab.com/group/project"}`。
 - `POST /admin/api/projects/:id/refresh`：立即刷新。
 - `DELETE /admin/api/projects/:id`：删除项目元数据。
+- `GET /admin/api/projects/:id/versions`：历史版本索引。
 
 ### Explorer API
 
@@ -199,6 +205,14 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 - `GET /admin/api/explorer/quota`：Worker GitHub Token 的 Core、Search、Code Search 配额。
 - `POST /admin/api/explorer/discover`：开始或重置发现任务。
 - `POST /admin/api/explorer/discover/step`：推进一批发现与验证任务。
+
+## 公共目录与版本历史
+
+根路径 `/` 仅提供公开只读门户，使用 `GET /api/public/subscriptions` 和 `GET /api/public/explorer`；该 API 不注册写入、扫描或刷新路由。管理员仍通过 `/admin/` 登录。
+
+项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
+
+历史版本使用 `/<id>/v<version>/gkd.json5`。首次登记时从 Provider 固定 Commit 读取原始字节，计算 SHA-256，使用 Gzip 压缩后写入 Cloudflare R2；D1 以订阅 ID + 仓库身份 + 版本号建立唯一索引，并按内容 SHA-256 对象去重。后续历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。生产归档压缩对象上限默认 512 MiB，Preview 上限 64 MiB；每个环境每天最多预留 200 个新对象、执行 200 次 R2 PUT 和 20,000 次 R2 GET。配额耗尽时拒绝新增归档/读取，不自动升级计划。旧 KV Git-only 快照会在首次访问时尝试迁移到 R2；迁移完成后源仓库不再是历史读取依赖。
 
 ## GKD Rules Explorer
 
@@ -216,7 +230,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 安全与数据
 
-KV 保存项目索引和元数据；订阅文件按 Provider 固定版本读取，当前支持 GitHub、GitLab.com、Gitea.com 公开仓库。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；当前通知入口仍仅识别已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。GitLab/Gitea Webhook 接入尚未实现。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
+KV 保存项目索引和元数据；新版本采集仍从 Provider 固定 Commit 读取一次，随后历史文件持久化在 Cloudflare R2，历史读取不再依赖 GitHub/GitLab/Gitea。D1 保存版本索引、内容去重映射和配额计数。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；当前通知入口仍仅识别已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。GitLab/Gitea Webhook 接入尚未实现。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
 
 ## 工程与贡献
 

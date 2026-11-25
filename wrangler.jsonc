@@ -19,6 +19,22 @@
       "id": "215fd3c9c2c74481bc521feadedd83e8"
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "VERSIONS",
+      "database_name": "gkd-subscription-hub",
+      "database_id": "3f164f55-7e16-4bac-8abe-7527dd1f5753",
+      "preview_database_id": "dd56af66-7ae9-4080-9492-0c0eec966b70",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARCHIVE",
+      "bucket_name": "gkd-subscription-archive",
+      "preview_bucket_name": "gkd-subscription-archive-preview"
+    }
+  ],
   "triggers": {
     "crons": ["0 */6 * * *"]
   },
@@ -38,11 +54,24 @@
         "id": "fc091077968342c1b73b22a310412947"
       }
     ],
+    "d1_databases": [
+      {
+        "binding": "VERSIONS",
+        "database_name": "gkd-subscription-hub-preview",
+        "database_id": "dd56af66-7ae9-4080-9492-0c0eec966b70",
+        "migrations_dir": "migrations"
+      }
+    ],
+    "r2_buckets": [
+      {
+        "binding": "ARCHIVE",
+        "bucket_name": "gkd-subscription-archive-preview"
+      }
+    ],
     "observability": {
       "enabled": true
     }
   },
-  "account_id": "084099361afdf1265c20c09fb3834a6f",
   "secrets": {
     "required": ["ADMIN_PASSWORD"]
   }

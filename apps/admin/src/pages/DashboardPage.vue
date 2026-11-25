@@ -81,7 +81,7 @@ onMounted(() => {
       </div>
       <n-space>
         <n-button secondary :loading="loading" @click="load">刷新数据</n-button>
-        <n-button type="primary" @click="router.push('/projects')"> 管理订阅源 </n-button>
+        <n-button type="primary" @click="router.push('/admin/projects')"> 管理订阅源 </n-button>
       </n-space>
     </header>
 
@@ -157,7 +157,7 @@ onMounted(() => {
               <span class="muted">分支：{{ project.branch }}</span>
               <n-text type="error">{{ project.lastError }}</n-text>
             </div>
-            <n-button size="small" secondary @click="router.push('/projects')"> 查看项目 </n-button>
+            <n-button size="small" secondary @click="router.push('/admin/projects')"> 查看项目 </n-button>
           </article>
         </div>
         <n-empty v-else description="当前没有记录为异常的项目" />
@@ -165,7 +165,7 @@ onMounted(() => {
 
       <n-empty v-if="!projects.length && !loading && !loadError" description="还没有登记订阅源">
         <template #extra>
-          <n-button type="primary" @click="router.push('/projects')"> 添加第一个订阅源 </n-button>
+          <n-button type="primary" @click="router.push('/admin/projects')"> 添加第一个订阅源 </n-button>
         </template>
       </n-empty>
     </n-spin>

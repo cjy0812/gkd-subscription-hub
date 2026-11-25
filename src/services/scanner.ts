@@ -1,6 +1,7 @@
 import type { DistFile, Env, Project, WorkflowInfo } from '../types'
 import { decode, gh } from './github'
 import { getProviderAdapter, parseRepositoryUrl, type RepositoryLocator } from './providers'
+import { readSubscriptionVersionAtRef } from './version-history'
 
 export function parseRepo(input: string): RepositoryLocator {
   return parseRepositoryUrl(input)
@@ -85,6 +86,15 @@ export async function scan(
   const id = extractId(subscriptionSource)
   const distFiles = await adapter.listDistFiles(env, locator, commitSha)
   if (!distFiles.length) throw Error('dist/ 不存在或为空')
+  let subscriptionVersion: number | null = null
+  if (distFiles.some((file) => file.path.toLowerCase() === 'gkd.version.json5')) {
+    subscriptionVersion = await readSubscriptionVersionAtRef(
+      env,
+      `https://${locator.host}/${locator.fullPath}`,
+      commitSha,
+      id,
+    )
+  }
 
   const workflows =
     locator.provider === 'github' ? await githubWorkflows(env, locator, commitSha) : []
@@ -99,6 +109,7 @@ export async function scan(
     repo: metadata.repo,
     branch: ref,
     commitSha,
+    subscriptionVersion,
     repoUrl: metadata.htmlUrl,
     distFiles,
     distHash: await digest(distFiles),

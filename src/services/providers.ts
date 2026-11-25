@@ -627,6 +627,16 @@ export function getProviderAdapter(provider: ProjectProvider | undefined): Provi
   return adapters[provider || 'github']
 }
 
+export async function readRepositoryFileAtRef(
+  env: Env,
+  repositoryUrl: string,
+  path: string,
+  ref: string,
+): Promise<string> {
+  const locator = parseRepositoryUrl(repositoryUrl)
+  return getProviderAdapter(locator.provider).readFile(env, locator, path, ref)
+}
+
 export async function fetchProjectFile(
   _env: Env,
   project: ProjectSource,

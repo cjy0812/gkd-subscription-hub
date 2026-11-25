@@ -54,10 +54,11 @@
 
 ## 内容阅读器
 
-- Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染，不需要 Vue 专用 Markdown VNode 渲染器）。通过 `highlight.js/lib/core` + 显式语言子集实现语法高亮，避免导入全语言包；HTML 关闭、协议危险链接由 markdown-it 默认策略拦截。渲染器增加中文标题锚点/目录、代码复制、响应式表格、暗色主题、外链 rel 安全属性和图片 lazy loading。
-- JSON5：当前预览在 Cloudflare Worker 的静态 HTML 路由，不引入 Vue 编辑器。复用 `src/services/json5.ts` 的有界、非 eval 解析器，使用原生 `<details>/<summary>` 生成只读树形视图；支持键名/值搜索、展开/折叠、类型区分和原始文件入口。限制预览输入 500 KB、解析器 2 MB、树节点 20,000、嵌套深度 64；解析失败回退转义后的原文。
-- 只读预览与上游原始文件分离；任何格式化不得改变分发给客户端的字节内容。
-- 大文件设置尺寸保护和虚拟滚动；禁止无上限展开导致页面卡死。
+- Markdown：继续使用现有 `markdown-it`（Worker 服务端渲染）。允许常见 HTML 排版标签，但最终 HTML 必须经过 `sanitize-html` 严格 allowlist 清理；脚本、事件属性、内嵌框架、对象、SVG/MathML、危险 URL 和协议相对 URL 均不得通过。外链强制 `noopener noreferrer`，图片仅允许 HTTPS/相对地址。保留 `highlight.js/lib/core` 显式语言子集、标题目录、代码复制和图片 lazy loading。
+- JSON5：浏览器端使用 GKD 专用预览页，类型直接来自官方 `@gkd-kit/api`（`RawSubscription`、`RawApp`、`RawAppGroup`、`RawGlobalGroup`、`RawCategory`），用 `json5` 在独立 Web Worker 解析。应用列表、规则组和规则列表每页 50 项；用户选择应用后才请求规则组，展开规则组后才请求规则摘要，点击单条规则后才请求完整详情。全局规则与分类各自懒加载。
+- 原始 JSON5 文本不在解析时复制到主线程；解析输入的 ArrayBuffer 转移给 Worker。原始 JSON5 标签只在用户主动打开时重新请求并显示；切换订阅或离开页面时取消 fetch、终止 Worker、清理待处理任务。Worker 历史快照读取另设 20 MB 服务端流式上限；从 R2 解压后必须匹配 D1 中的原始长度和 SHA-256 才能返回内容。
+- 大文件保护采用两阶段策略：10 MB 以内自动结构化解析；10–50 MB 显示明确警告，用户主动选择后再解析；超过 50 MB 保留原始文件入口。下载使用 `ReadableStream` 逐块累计字节，不依赖 `Content-Length`；越过自动阈值或硬上限立即取消响应流。这个硬上限是浏览器内存保护，不应描述成无限文件支持。
+- 只读预览与上游原始文件分离；格式化不得改变分发给 GKD 客户端的原始字节内容。GKD 客户端原订阅 URL 不重定向；仅浏览器 HTML 导航重定向到预览 SPA。
 
 ## 完成交付检查
 
@@ -70,17 +71,29 @@
 - [ ] 颜色/间距/字体遵循 Design Tokens。
 - [ ] 大列表/大文件有性能保护。
 - [ ] 减少动态效果并尊重 prefers-reduced-motion。
-- [ ] CI 通过；真实浏览器验收另行记录，不能以 CI 代替。
+- [ ] CI 通过；真实 Chromium 浏览器验收单独记录在 `docs/engineering/browser-acceptance.md`，单元测试/build 通过不能替代浏览器交互验收。
+
+## CSS 与图标依赖的 ROI 决策
+
+- 图标使用官方 `@lucide/vue` 包，替换组件内维护的 SVG 字符串/路径映射，统一图标来源和 stroke/size 参数。
+- 当前项目已经具备 Naive UI 和单一的 CSS Design Tokens。现阶段不叠加 Tailwind/UnoCSS，因为会增加第二套样式语法和构建约束；如后续出现大量重复 CSS 且框架能通过可量化试点减少维护代码，再重新评估。此次保留 Naive UI 与现有 Tokens。
 
 ## 阅读器依赖选型证据
 
-- `markdown-it` 是当前 Worker HTML 预览路径的合适基础：支持 CommonMark/GFM 表格与扩展、可定制 renderer/highlight hook；保留现有依赖可避免把 Vue 组件体系带入 Worker。VueMarkik 等 Vue VNode renderer 不适用于当前服务端 HTML 响应路径。
-
-- 不采用 `json-editor-vue` / `vue-json-pretty`：当前预览执行在 Worker 静态 HTML 路由，不在 Vue SPA 中；原生 details 树可以避免新增客户端框架依赖，也能复用项目已有 JSON5 parser。
-- 不引入 Shiki：当前渲染运行在 Cloudflare Worker 请求路径，使用 `highlight.js/lib/core` + 显式语言子集，避免 Shiki 主题/语法引擎带来的额外 Worker 包体积与初始化成本。
+- Markdown 保留 Worker 侧 `markdown-it` 服务端 HTML 输出，配合 `sanitize-html` allowlist 过滤；不把 Markdown 原始 HTML 直接交给浏览器执行。
+- GKD JSON5 预览直接参考 `gkd-kit/inspect` 的 `SubscriptionPreview.vue`、`SubscriptionDirectoryPreview.vue`、`directory_preview.ts` 与 `JsonPreview.vue`。采用官方 `@gkd-kit/api` 类型，不手工复制不完整的 GKD 数据结构。
+- 不使用递归渲染完整 JSON DOM 的方式处理大型订阅；将解析和数据分页放入 Worker，主线程只渲染当前分页和展开详情。保留原始 JSON5 入口供排错和兼容。
 
 ## 上游 Skill 来源
 
 - Addy Osmani, `frontend-ui-engineering`: https://github.com/addyosmani/agent-skills/tree/main/skills/frontend-ui-engineering
 - Vercel, `web-design-guidelines`: https://github.com/vercel-labs/agent-skills/tree/main/skills/web-design-guidelines
 - Vercel Web Interface Guidelines snapshot: https://github.com/vercel-labs/web-interface-guidelines/blob/434b7f91364665f2f733b310ec54809bf8f37937/command.md
+
+## 订阅历史的稳定性约束
+
+- 历史版本号以 `dist/gkd.version.json5` 中与订阅 ID 匹配的正整数版本为依据；普通提交不创建新版本。
+- 新版本首次登记时，从 Provider 固定 Commit 读取 `gkd.json5`，计算原始 SHA-256 后以 Gzip 压缩写入私有 Cloudflare R2。D1 使用 `(subscription_id, repository_key, version)` 复合主键保存索引，并以内容 SHA-256 对象键去重；同一内容跨版本/订阅只保存一份。
+- 历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。Worker 解压后核对原始大小和 SHA-256，服务端流式读取上限 20 MB，超限立即取消。Cache 仅加速读取，不承担持久化。
+- 旧 KV Git-only 快照在首次访问时使用其固定 Commit/Blob 从 Provider 迁移到 R2；若固定源文件不可恢复或校验失败，明确标记不可用，绝不使用最新版冒充历史版本。
+- 生产归档上限默认 512 MiB，Preview 64 MiB；每个环境每日最多预留 200 个新对象、200 次 R2 PUT、20,000 次 R2 GET。达到预算时 fail closed。R2 Bucket 不公开、不配置自动过期；删除项目不自动删除历史对象。

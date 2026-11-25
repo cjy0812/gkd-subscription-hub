@@ -10,7 +10,10 @@
   "dependencies": {
     "naive-ui": "^2.44.1",
     "vue": "^3.5.35",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.1.0",
+    "@lucide/vue": "^1.79.0",
+    "@gkd-kit/api": "^0.9.3",
+    "json5": "^2.2.3"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",

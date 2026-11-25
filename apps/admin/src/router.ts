@@ -7,12 +7,17 @@ import FilesPage from './pages/FilesPage.vue'
 import LoginPage from './pages/LoginPage.vue'
 import MonitoringPage from './pages/MonitoringPage.vue'
 import ProjectsPage from './pages/ProjectsPage.vue'
+import SubscriptionPreviewPage from './pages/SubscriptionPreviewPage.vue'
+import PublicPortal from './pages/PublicPortal.vue'
 
 const router = createRouter({
-  history: createWebHistory('/admin/'),
+  history: createWebHistory('/'),
   routes: [
+    { path: '/', name: 'portal', component: PublicPortal },
+    { path: '/preview/:id', name: 'subscription-preview', component: SubscriptionPreviewPage },
+    { path: '/admin', redirect: '/admin/' },
     {
-      path: '/',
+      path: '/admin/',
       component: AdminLayout,
       meta: { requiresAuth: true },
       children: [
@@ -24,8 +29,8 @@ const router = createRouter({
         { path: 'explorer', name: 'explorer', component: ExplorerPage },
       ],
     },
-    { path: '/login', name: 'login', component: LoginPage },
-    { path: '/:pathMatch(.*)*', redirect: { name: 'projects' } },
+    { path: '/admin/login', name: 'login', component: LoginPage },
+    { path: '/:pathMatch(.*)*', redirect: { name: 'portal' } },
   ],
 })
 
