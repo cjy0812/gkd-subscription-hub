@@ -389,16 +389,16 @@ describe('top-level routing', () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-        JSON.stringify({
-          id: 1,
-          full_name: 'owner/repo',
-          html_url: 'https://github.com/owner/repo',
-          default_branch: 'main',
-          private: true,
-          archived: false,
-          fork: false,
-        }),
-      ),
+          JSON.stringify({
+            id: 1,
+            full_name: 'owner/repo',
+            html_url: 'https://github.com/owner/repo',
+            default_branch: 'main',
+            private: true,
+            archived: false,
+            fork: false,
+          }),
+        ),
     )
     vi.stubGlobal('fetch', fetchMock)
     const response = await worker.fetch(
