@@ -267,6 +267,76 @@ describe('top-level routing', () => {
     expect(await response.text()).toBe('{id:233,version:1}')
   })
 
+  it('loads public workflow jobs and verifies Job ownership before reading logs', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      lastRuns: [{ runId: 123 }],
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => {
+          if (key === 'projects:index') return [233]
+          if (key === 'project:233') return project
+          return null
+        }),
+      } as unknown as KVNamespace,
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/actions/runs/123/jobs')) {
+        return new Response(
+          JSON.stringify({
+            jobs: [
+              {
+                id: 7,
+                name: 'Build',
+                status: 'completed',
+                conclusion: 'success',
+                steps: [{ number: 1, name: 'Build', status: 'completed', conclusion: 'success' }],
+              },
+            ],
+          }),
+        )
+      }
+      return new Response('step log')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const jobsResponse = await worker.fetch(
+      new Request('https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs'),
+      env,
+      context,
+    )
+    expect(jobsResponse.status).toBe(200)
+    expect(await jobsResponse.json()).toMatchObject({
+      jobs: [{ id: 7, steps: [{ number: 1, name: 'Build' }] }],
+    })
+
+    const logResponse = await worker.fetch(
+      new Request(
+        'https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs/7/logs?step=1',
+      ),
+      env,
+      context,
+    )
+    expect(logResponse.status).toBe(200)
+    expect(await logResponse.json()).toMatchObject({ log: 'step log' })
+    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('/actions/jobs/7/steps/1/logs')
+
+    const missingJobResponse = await worker.fetch(
+      new Request(
+        'https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs/999/logs',
+      ),
+      env,
+      context,
+    )
+    expect(missingJobResponse.status).toBe(404)
+  })
+
   it('returns 404 for unknown paths', async () => {
     const response = await worker.fetch(
       new Request('https://gkd.example.com/unknown'),
