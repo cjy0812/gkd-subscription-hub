@@ -118,7 +118,146 @@ try {
       `PASS MonitoringPage viewport ${width}px (desktop=${desktopRuns}, mobile=${mobileRuns}, no horizontal overflow, keyboard focus, Run link)`,
     )
     await page.close()
+
+    const publicPage = await browser.newPage({
+      viewport: { width, height: 900 },
+      deviceScaleFactor: 1,
+    })
+    let logAttempts = 0
+    const publicSubscription = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      group: '默认分组',
+      repoUrl: 'https://github.com/owner/repo',
+      registeredAt: '2026-01-01T00:00:00.000Z',
+      lastCheckedAt: '2026-11-25T00:00:00.000Z',
+      fileCount: 1,
+      hasSubscription: true,
+      subscriptionPath: 'gkd.json5',
+      lastRuns: [{
+        runId: 123,
+        workflowName: 'CI',
+        event: 'push',
+        status: 'completed',
+        conclusion: 'success',
+        created_at: '2026-11-25T00:00:00.000Z',
+        html_url: runUrl,
+      }],
+    }
+    await publicPage.route('**/api/public/subscriptions', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, subscriptions: [publicSubscription] }),
+      }),
+    )
+    await publicPage.route('**/api/public/explorer', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, entries: [] }),
+      }),
+    )
+    await publicPage.route('**/api/public/subscriptions/233/runs/123/jobs', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          jobs: [{
+            id: 7,
+            name: 'Build',
+            status: 'completed',
+            conclusion: 'success',
+            steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
+          }],
+        }),
+      }),
+    )
+    await publicPage.route('**/api/public/subscriptions/233/runs/123/jobs/7/logs*', (route) => {
+      logAttempts += 1
+      return route.fulfill({
+        status: logAttempts === 1 ? 502 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          logAttempts === 1
+            ? { ok: false, error: '临时服务错误' }
+            : { ok: true, log: 'step log output' },
+        ),
+      })
+    })
+    await publicPage.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' })
+    await publicPage.getByRole('heading', { name: '托管订阅源' }).waitFor()
+    await publicPage.getByRole('button', { name: '任务与日志' }).click()
+    await publicPage.getByText('Build', { exact: true }).waitFor()
+    const logButton = publicPage.getByRole('button', { name: '查看日志' })
+    await logButton.click()
+    await publicPage.getByText('日志读取失败：临时服务错误').waitFor()
+    await logButton.click()
+    await publicPage.getByText('step log output', { exact: true }).waitFor()
+    assert.equal(logAttempts, 2, 'failed public log requests must be retryable')
+    const publicWidth = await publicPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(publicWidth <= width + 1, `public portal horizontal overflow at ${width}px: ${publicWidth}px`)
+    await publicPage.screenshot({
+      path: `artifacts/browser-acceptance/public-portal-${width}.png`,
+      fullPage: true,
+    })
+    console.log(`PASS PublicPortal viewport ${width}px (Run → Job → Step → Log, retry, no horizontal overflow)`)
+    await publicPage.close()
   }
+
+  const previewCases = [
+    ['/233/v1/gkd.json5?version=2', '/233/v1/gkd.json5'],
+    ['/233/a.json5?file=b.json5', '/233/a.json5'],
+  ]
+  for (const [routePath, expectedPath] of previewCases) {
+    const previewPage = await browser.newPage({ viewport: { width: 1024, height: 900 } })
+    let requestedPath = ''
+    await previewPage.route('**/233/**', (route) => {
+      const requestUrl = new URL(route.request().url())
+      if (requestUrl.searchParams.get('raw') === '1') {
+        requestedPath = requestUrl.pathname
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json5',
+          body: '{id:233,version:1}',
+        })
+      }
+      return route.continue()
+    })
+    const sourceRequest = previewPage.waitForRequest(
+      (request) => new URL(request.url()).searchParams.get('raw') === '1',
+    )
+    await previewPage.goto('http://127.0.0.1:4173' + routePath, { waitUntil: 'domcontentloaded' })
+    await sourceRequest
+    assert.equal(requestedPath, expectedPath, `canonical preview source mismatch for ${routePath}`)
+    console.log(`PASS canonical preview selector ${routePath} → ${requestedPath}`)
+    await previewPage.close()
+  }
+
+  const projectsPage = await browser.newPage({ viewport: { width: 320, height: 900 } })
+  await projectsPage.addInitScript(() => sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'))
+  await projectsPage.route('**/admin/api/projects', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, projects: [project] }),
+    }),
+  )
+  await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
+  await projectsPage.getByText('ID 233', { exact: true }).waitFor()
+  const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
+  await projectCheckbox.waitFor({ state: 'visible' })
+  assert.match((await projectCheckbox.getAttribute('aria-label')) || '', /owner\\//)
+  console.log('PASS mobile project checkbox has an accessible project-specific name')
+  await projectsPage.screenshot({
+    path: 'artifacts/browser-acceptance/projects-320.png',
+    fullPage: true,
+  })
+  await projectsPage.close()
 } finally {
   await browser.close()
 }
