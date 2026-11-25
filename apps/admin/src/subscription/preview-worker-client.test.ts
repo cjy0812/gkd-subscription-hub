@@ -81,10 +81,11 @@ describe('subscription preview worker lifecycle', () => {
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response('raw source', {
-          headers: { 'content-length': String(10 * 1024 * 1024 + 1) },
-        }),
+      vi.fn(
+        async () =>
+          new Response('raw source', {
+            headers: { 'content-length': String(10 * 1024 * 1024 + 1) },
+          }),
       ),
     )
     const client = new SubscriptionPreviewWorkerClient()
