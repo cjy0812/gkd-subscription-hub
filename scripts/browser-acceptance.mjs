@@ -251,7 +251,7 @@ try {
   await projectsPage.getByText('ID 233', { exact: true }).waitFor()
   const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
   await projectCheckbox.waitFor({ state: 'visible' })
-  assert.match((await projectCheckbox.getAttribute('aria-label')) || '', /owner\\//)
+  assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes('owner/'))
   console.log('PASS mobile project checkbox has an accessible project-specific name')
   await projectsPage.screenshot({
     path: 'artifacts/browser-acceptance/projects-320.png',
