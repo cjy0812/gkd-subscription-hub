@@ -24,7 +24,11 @@ async function getPublicRunProject(env: Env, id: number, runId: number) {
   return project
 }
 
-async function getCachedPublicJobs(env: Env, project: NonNullable<Awaited<ReturnType<typeof getPublicRunProject>>>, runId: number) {
+async function getCachedPublicJobs(
+  env: Env,
+  project: NonNullable<Awaited<ReturnType<typeof getPublicRunProject>>>,
+  runId: number,
+) {
   const key = `${project.provider || 'github'}:${project.owner}/${project.repo}:${runId}`
   const cached = jobCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.jobs
@@ -123,7 +127,12 @@ app.get('/subscriptions/:id/runs/:runId/jobs/:jobId/logs', async (c) => {
     const jobs = await getCachedPublicJobs(c.env, project, runId)
     if (!jobs.some((job) => job.id === jobId))
       return json({ ok: false, error: 'Job 不属于指定的 Run' }, 404)
-    const log = await getProviderAdapter(project.provider).getJobLog(c.env, project, jobId, stepNumber)
+    const log = await getProviderAdapter(project.provider).getJobLog(
+      c.env,
+      project,
+      jobId,
+      stepNumber,
+    )
     return json({ ok: true, log })
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : '读取日志失败' }, 502)
