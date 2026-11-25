@@ -4,9 +4,9 @@
 - 页面：`/admin/monitoring`
 - 浏览器：Playwright 1.56.1 驱动的真实 Chromium 浏览器进程（headless）
 - 服务：本地 Vite Admin 页面；管理 API 使用固定 fixture 响应，不访问生产项目数据
-- 验收提交：`0efac3ad2cbd07e21d96124adf23f01da006c2b6`
-- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45532525936>
-- 截图产物：<https://api.github.com/repos/cjy0812/gkd-subscription-hub/actions/artifacts/14985493195/zip>
+- 验收提交：`857d5ed740a2ad0cb04025afb4a01f3f999d465b`
+- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45533669859>
+- 截图产物：<https://api.github.com/repos/cjy0812/gkd-subscription-hub/actions/artifacts/14986410412/zip>
 
 ## 视口结果
 
