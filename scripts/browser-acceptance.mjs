@@ -137,15 +137,17 @@ try {
       fileCount: 1,
       hasSubscription: true,
       subscriptionPath: 'gkd.json5',
-      lastRuns: [{
-        runId: 123,
-        workflowName: 'CI',
-        event: 'push',
-        status: 'completed',
-        conclusion: 'success',
-        created_at: '2026-11-25T00:00:00.000Z',
-        html_url: runUrl,
-      }],
+      lastRuns: [
+        {
+          runId: 123,
+          workflowName: 'CI',
+          event: 'push',
+          status: 'completed',
+          conclusion: 'success',
+          created_at: '2026-11-25T00:00:00.000Z',
+          html_url: runUrl,
+        },
+      ],
     }
     await publicPage.route('**/api/public/subscriptions', (route) =>
       route.fulfill({
@@ -167,13 +169,15 @@ try {
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          jobs: [{
-            id: 7,
-            name: 'Build',
-            status: 'completed',
-            conclusion: 'success',
-            steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
-          }],
+          jobs: [
+            {
+              id: 7,
+              name: 'Build',
+              status: 'completed',
+              conclusion: 'success',
+              steps: [{ number: 1, name: 'Run tests', status: 'completed', conclusion: 'success' }],
+            },
+          ],
         }),
       }),
     )
@@ -200,12 +204,17 @@ try {
     await publicPage.getByText('step log output', { exact: true }).waitFor()
     assert.equal(logAttempts, 2, 'failed public log requests must be retryable')
     const publicWidth = await publicPage.evaluate(() => document.documentElement.scrollWidth)
-    assert.ok(publicWidth <= width + 1, `public portal horizontal overflow at ${width}px: ${publicWidth}px`)
+    assert.ok(
+      publicWidth <= width + 1,
+      `public portal horizontal overflow at ${width}px: ${publicWidth}px`,
+    )
     await publicPage.screenshot({
       path: `artifacts/browser-acceptance/public-portal-${width}.png`,
       fullPage: true,
     })
-    console.log(`PASS PublicPortal viewport ${width}px (Run → Job → Step → Log, retry, no horizontal overflow)`)
+    console.log(
+      `PASS PublicPortal viewport ${width}px (Run → Job → Step → Log, retry, no horizontal overflow)`,
+    )
     await publicPage.close()
   }
 
@@ -239,7 +248,9 @@ try {
   }
 
   const projectsPage = await browser.newPage({ viewport: { width: 320, height: 900 } })
-  await projectsPage.addInitScript(() => sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'))
+  await projectsPage.addInitScript(() =>
+    sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
+  )
   await projectsPage.route('**/admin/api/projects', (route) =>
     route.fulfill({
       status: 200,
