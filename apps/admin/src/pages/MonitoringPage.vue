@@ -2,11 +2,11 @@
 import { computed, h, onMounted, ref } from 'vue'
 import {
   NButton, NCard, NCollapse, NCollapseItem, NDataTable, NEmpty, NGrid, NGridItem,
-  NStatistic, NSpace, NSpin, NTag, NText, type DataTableColumns,
+  NStatistic, NSpace, NSpin, NTag, NText, NTooltip, type DataTableColumns,
 } from 'naive-ui'
 import { api } from '../api'
 import { getAdminToken } from '../auth'
-import { buildMonitoringOverview, type MonitoringRun } from '../monitoring'
+import { buildMonitoringOverview, runEventLabel, type MonitoringRun } from '../monitoring'
 import type { ProjectsResponse } from '../types'
 
 const projects = ref<ProjectsResponse['projects']>([])
@@ -14,7 +14,7 @@ const loading = ref(false)
 const loadError = ref('')
 const overview = computed(() => buildMonitoringOverview(projects.value))
 const columns: DataTableColumns<MonitoringRun> = [
-  { title: '触发方式', key: 'event', width: 120, render: (row) => row.event || '—' },
+  { title: '触发方式', key: 'event', width: 120, render: (row) => h(NTooltip, {}, { trigger: () => h('span', { tabindex: 0 }, runEventLabel(row.event)), default: () => `原始事件：${row.event || '未知'}` }) },
   {
     title: '状态',
     key: 'status',
@@ -22,10 +22,10 @@ const columns: DataTableColumns<MonitoringRun> = [
     render: (row) => h(NTag, { size: 'small', bordered: false, type: runStatusType(row) }, { default: () => runStatusLabel(row) }),
   },
   {
-    title: '更新时间',
-    key: 'updated_at',
+    title: '触发时间',
+    key: 'created_at',
     minWidth: 180,
-    render: (row) => Number.isFinite(Date.parse(row.updated_at)) ? new Date(row.updated_at).toLocaleString() : '—',
+    render: (row) => Number.isFinite(Date.parse(row.created_at)) ? new Date(row.created_at).toLocaleString() : '—',
   },
   {
     title: '运行记录',
@@ -124,12 +124,12 @@ onMounted(() => { void load() })
                 <div v-if="workflow.runs.length" class="mobile-runs">
                   <article v-for="run in workflow.runs" :key="run.key" class="mobile-run-card">
                     <div class="mobile-run-heading">
-                      <span>{{ run.event || '未知触发方式' }}</span>
+                      <n-tooltip><template #trigger><span>{{ runEventLabel(run.event) }}</span></template>原始事件：{{ run.event || '未知' }}</n-tooltip>
                       <n-tag size="small" :bordered="false" :type="runStatusType(run)">
                         {{ runStatusLabel(run) }}
                       </n-tag>
                     </div>
-                    <time>{{ formatRunTime(run.updated_at) }}</time>
+                    <time>{{ formatRunTime(run.created_at) }}</time>
                     <a :href="run.html_url" target="_blank" rel="noopener noreferrer">查看 Run</a>
                   </article>
                 </div>

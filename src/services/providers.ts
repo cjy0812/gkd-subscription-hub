@@ -202,7 +202,7 @@ const githubAdapter: ProviderAdapter = {
     )
     return groups
       .flat()
-      .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       .slice(0, 30)
   },
   rawFileUrl(project, file) {

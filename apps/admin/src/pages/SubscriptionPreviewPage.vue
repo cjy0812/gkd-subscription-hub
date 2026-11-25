@@ -84,31 +84,35 @@ const categoryPage = ref(1)
 const categoryQuery = ref('')
 
 const subscriptionId = computed(() => Number(route.params.id))
+const routeFilePath = computed(() => {
+  const value = route.params.pathMatch
+  return Array.isArray(value) ? value.join('/') : typeof value === 'string' ? value : ''
+})
+const historyPathVersion = computed(() => routeFilePath.value.match(/^v([1-9]\\d*)\\/gkd\\.json5$/i)?.[1])
 const version = computed(() => {
-  const value = Number(route.query.version)
-  return Number.isSafeInteger(value) && value > 0 ? value : null
+  const value = route.query.version ?? historyPathVersion.value
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
 const filePath = computed(() => {
-  const value = route.query.file
-  return typeof value === 'string' && value.trim() ? value : 'gkd.json5'
+  const queryFile = route.query.file
+  if (typeof queryFile === 'string' && queryFile.trim()) return queryFile
+  const path = routeFilePath.value
+  if (path && !historyPathVersion.value) return path.replace(/^dist\\//, '')
+  return 'gkd.json5'
 })
 const invalidFilePath = computed(() => {
-  const value = route.query.file
+  const value = route.query.file ?? (routeFilePath.value && !historyPathVersion.value ? routeFilePath.value : undefined)
   if (value == null) return false
   if (typeof value !== 'string' || !value.trim()) return true
-  return (
-    value.startsWith('/') ||
-    value.includes(String.fromCharCode(92)) ||
-    value.includes(String.fromCharCode(0)) ||
-    value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
-  )
+  return value.startsWith('/') || value.includes(String.fromCharCode(92)) || value.includes(String.fromCharCode(0)) || value.split('/').some((part) => !part || part === '.' || part === '..' || part.startsWith('.'))
 })
-const invalidVersion = computed(() => route.query.version != null && version.value === null)
+const invalidVersion = computed(() => (route.query.version != null || historyPathVersion.value != null) && version.value === null)
 const pageTitle = computed(() => meta.value?.name || 'GKD 订阅预览')
 const sourceUrl = computed(() => {
   if (version.value) return `/${subscriptionId.value}/v${version.value}/gkd.json5?raw=1`
   const path = filePath.value.split('/').map(encodeURIComponent).join('/')
-  return `/${subscriptionId.value}/dist/${path}?raw=1`
+  return `/${subscriptionId.value}/${path}?raw=1`
 })
 const metadataLinkBase = computed(() => sourceUrl.value)
 const safeUpdateUrl = computed(() => safeHttpUrl(meta.value?.updateUrl, metadataLinkBase.value))
@@ -459,7 +463,7 @@ function openRawFile() {
 }
 
 watch(
-  () => [route.params.id, route.query.file, route.query.version],
+  () => [route.params.id, route.params.pathMatch, route.query.file, route.query.version, route.query.view],
   () => {
     void loadSubscription()
   },

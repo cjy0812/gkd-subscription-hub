@@ -19,7 +19,7 @@ function median(a: number[]) {
 export function predict(rs: WorkflowRun[], now = Date.now()): Prediction {
   const t = rs
       .filter((r) => r.status === 'completed' && r.conclusion === 'success')
-      .map((r) => Date.parse(r.updated_at))
+      .map((r) => Date.parse(r.created_at))
       .filter(Number.isFinite)
       .sort((a, b) => a - b)
       .slice(-6),

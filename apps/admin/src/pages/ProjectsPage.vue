@@ -271,7 +271,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('strong', `${row.owner}/${row.repo}`)]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: row.provider === 'gitlab' ? 'gitlab' : row.provider === 'gitea' ? 'git-branch' : 'github', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -637,9 +637,7 @@ onMounted(() => {
                     :checked="selectedIds.includes(project.id)"
                     :disabled="batchBusy"
                     @update:checked="(checked) => toggleProjectSelection(project.id, checked)"
-                  >
-                    选择
-                  </n-checkbox>
+                  />
                   <strong>ID {{ project.id }}</strong>
                   <n-tag
                     size="small"
