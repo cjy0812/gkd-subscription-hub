@@ -8,6 +8,19 @@ describe('HTTP helpers', () => {
   })
   it('supports the source-view query without changing the file URL', () =>
     expect(wantsHtml(new Request('https://x/a.json5?view=source'))).toBe(true))
+  it('keeps source-view query requests raw for App-style fetches', () => {
+    expect(
+      wantsHtml(
+        new Request('https://x/a.json5?view=source', {
+          headers: {
+            accept: 'application/json5, */*',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+          },
+        }),
+      ),
+    ).toBe(false)
+  })
   it('raw query overrides Accept and source view', () =>
     expect(
       wantsHtml(new Request('https://x/a?raw=1&view=source', { headers: { accept: 'text/html' } })),

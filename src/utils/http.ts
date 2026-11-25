@@ -17,12 +17,13 @@ export function escapeHtml(s: string) {
 export function wantsHtml(req: Request) {
   const url = new URL(req.url)
   if (url.searchParams.get('raw') === '1') return false
-  if (['1', 'source'].includes(url.searchParams.get('view') || '')) return true
   const mode = req.headers.get('sec-fetch-mode')?.toLowerCase(),
     dest = req.headers.get('sec-fetch-dest')?.toLowerCase()
-  if (mode === 'navigate' && dest === 'document') return true
   if (mode === 'cors' || mode === 'no-cors' || dest === 'empty') return false
-  return (req.headers.get('accept') || '').toLowerCase().includes('text/html')
+  if (mode === 'navigate' && dest === 'document') return true
+  const acceptsHtml = (req.headers.get('accept') || '').toLowerCase().includes('text/html')
+  if (['1', 'source'].includes(url.searchParams.get('view') || '')) return acceptsHtml
+  return acceptsHtml
 }
 export const htmlPreviewSecurityHeaders = {
   'content-security-policy':
