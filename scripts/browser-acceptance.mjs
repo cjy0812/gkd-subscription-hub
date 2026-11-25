@@ -81,8 +81,10 @@ try {
     await page.goto('http://127.0.0.1:4173/admin/monitoring', { waitUntil: 'networkidle' })
     await page.getByRole('heading', { name: '运行监控' }).waitFor()
     await page.getByText(longError, { exact: true }).waitFor()
-    await page.locator('.content-card .n-collapse-item__header').first().click()
-    await page.locator('.content-card .n-collapse-item__header').nth(1).click()
+    const workflowCard = page.locator('.content-card').first()
+    await workflowCard.locator('.n-collapse-item__header').first().click()
+    await page.getByText(workflowName, { exact: true }).click()
+    await page.getByText(workflowName, { exact: true }).waitFor({ state: 'visible' })
 
     const desktopRuns = await page.locator('.desktop-runs').isVisible()
     const mobileRuns = await page.locator('.mobile-runs').isVisible()
