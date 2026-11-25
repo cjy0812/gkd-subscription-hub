@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NCard, NEmpty, NGrid, NGridItem, NInput, NSpace, NSpin, NTag, NText } from 'naive-ui'
+import { NButton, NCard, NCollapse, NCollapseItem, NEmpty, NGrid, NGridItem, NInput, NSpace, NSpin, NTag, NText } from 'naive-ui'
 
+interface PublicRun { runId?: number; workflowName: string; event: string; status: string; conclusion: string | null; created_at: string; html_url: string }
+interface PublicJob { id: number; name: string; status: string; conclusion: string | null; steps: Array<{ number: number; name: string; status: string; conclusion: string | null }> }
 interface PublicSubscription {
   id: number; provider: string; owner: string; repo: string; branch: string; group: string;
   repoUrl: string; registeredAt: string; lastCheckedAt: string | null; fileCount: number;
-  hasSubscription: boolean; subscriptionPath: string | null
+  hasSubscription: boolean; subscriptionPath: string | null; lastRuns: PublicRun[]
 }
 interface PublicRule { id: number; name: string; version: string; author?: string; ruleCount: number; appsCount: number; categoriesCount: number }
 interface ExplorerEntry { repository: { full_name?: string; html_url?: string; description?: string | null }; fork: boolean; subscriptions: PublicRule[] }
@@ -20,6 +22,11 @@ const loading = ref(true)
 const loadError = ref('')
 const copyError = ref('')
 const copyMessage = ref('')
+const expandedRun = ref<string | null>(null)
+const publicJobs = ref<PublicJob[]>([])
+const publicJobsLoading = ref(false)
+const publicJobLogs = ref<Record<string, string>>({})
+const publicLogLoading = ref(new Set<string>())
 const visibleSubscriptions = computed(() => subscriptions.value.filter((item) => `${item.id} ${item.owner}/${item.repo} ${item.group}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 const visibleExplorer = computed(() => explorer.value.filter((entry) => `${entry.repository.full_name || ''} ${entry.subscriptions.map((sub) => sub.name).join(' ')}`.toLowerCase().includes(query.value.trim().toLowerCase())))
 watch(query, (value) => {
@@ -56,6 +63,41 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+async function togglePublicRun(item: PublicSubscription, run: PublicRun) {
+  const key = `${item.id}:${run.runId}`
+  if (expandedRun.value === key) { expandedRun.value = null; return }
+  if (!run.runId) return
+  expandedRun.value = key
+  publicJobs.value = []
+  publicJobLogs.value = {}
+  publicJobsLoading.value = true
+  try {
+    const response = await fetch(`/api/public/subscriptions/${item.id}/runs/${run.runId}/jobs`, { headers: { accept: 'application/json' } })
+    const result = await response.json() as { jobs?: PublicJob[]; error?: string }
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
+    if (expandedRun.value === key) publicJobs.value = result.jobs || []
+  } catch (cause) {
+    publicJobs.value = [{ id: -1, name: cause instanceof Error ? cause.message : '读取 Job 失败', status: 'error', conclusion: null, steps: [] }]
+  } finally { publicJobsLoading.value = false }
+}
+async function loadPublicLog(item: PublicSubscription, job: PublicJob, stepNumber?: number) {
+  const key = `${job.id}:${stepNumber ?? 'all'}`
+  if (publicJobLogs.value[key] !== undefined || publicLogLoading.value.has(key)) return
+  publicLogLoading.value = new Set(publicLogLoading.value).add(key)
+  try {
+    const suffix = stepNumber == null ? '' : `?step=${stepNumber}`
+    const response = await fetch(`/api/public/subscriptions/${item.id}/jobs/${job.id}/logs${suffix}`, { headers: { accept: 'application/json' } })
+    const result = await response.json() as { log?: string; error?: string }
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`)
+    publicJobLogs.value = { ...publicJobLogs.value, [key]: result.log || '' }
+  } catch (cause) {
+    publicJobLogs.value = { ...publicJobLogs.value, [key]: cause instanceof Error ? `日志读取失败：${cause.message}` : '日志读取失败' }
+  } finally { const next = new Set(publicLogLoading.value); next.delete(key); publicLogLoading.value = next }
+}
+function publicEventLabel(event: string) {
+  const labels: Record<string, string> = { push: '代码推送', schedule: '定时任务', workflow_dispatch: '手动触发', pull_request: '拉取请求', release: '版本发布', web: '网页触发' }
+  return labels[event] || event || '未知'
 }
 async function copyUrl(item: PublicSubscription) {
   copyError.value = ''
@@ -113,6 +155,36 @@ onMounted(() => { void load() })
               <h3>{{ item.owner }}/{{ item.repo }}</h3>
               <p class="portal-meta">{{ item.provider }} · {{ item.branch }} · {{ item.fileCount }} 个文件</p>
               <n-space align="center" justify="space-between"><a :href="`/${item.id}/dist/`">浏览文件目录</a><n-button size="small" secondary :disabled="!item.hasSubscription || !item.subscriptionPath" @click="copyUrl(item)">复制订阅地址</n-button></n-space>
+              <n-collapse v-if="item.lastRuns?.length" class="public-runs" :default-expanded-names="[]">
+                <n-collapse-item name="runs">
+                  <template #header>最近运行 · {{ item.lastRuns.length }}</template>
+                  <div v-for="run in item.lastRuns" :key="run.runId || run.html_url" class="public-run">
+                    <div class="public-run-row">
+                      <span>{{ publicEventLabel(run.event) }} · {{ new Date(run.created_at).toLocaleString() }}</span>
+                      <n-button size="tiny" quaternary :disabled="!run.runId" @click="togglePublicRun(item, run)">任务与日志</n-button>
+                    </div>
+                    <div v-if="expandedRun === `${item.id}:${run.runId}`" class="public-job-panel">
+                      <n-spin :show="publicJobsLoading">
+                        <div v-for="job in publicJobs" :key="job.id" class="public-job">
+                          <strong>{{ job.name }}</strong><span>{{ job.status }} · {{ job.conclusion || '未结束' }}</span>
+                          <template v-if="job.steps.length">
+                            <div v-for="step in job.steps" :key="step.number" class="public-step">
+                              <span>{{ step.name }}</span>
+                              <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:${step.number}`)" @click="loadPublicLog(item, job, step.number)">查看日志</n-button>
+                              <pre v-if="publicJobLogs[`${job.id}:${step.number}`] !== undefined">{{ publicJobLogs[`${job.id}:${step.number}`] }}</pre>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <n-button size="tiny" quaternary :loading="publicLogLoading.has(`${job.id}:all`)" @click="loadPublicLog(item, job)">查看日志</n-button>
+                            <pre v-if="publicJobLogs[`${job.id}:all`] !== undefined">{{ publicJobLogs[`${job.id}:all`] }}</pre>
+                          </template>
+                        </div>
+                      </n-spin>
+                    </div>
+                  </div>
+                </n-collapse-item>
+              </n-collapse>
+
             </n-card>
           </n-grid-item>
         </n-grid>
@@ -162,4 +234,5 @@ onMounted(() => { void load() })
 .rule-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--color-border)}
 .rule-row span{font-size:12px;color:var(--color-text-secondary)}
 @media(max-width:600px){.portal-page{padding:16px 16px 36px}.portal-hero{padding:48px 0 32px}.portal-section-heading{align-items:flex-start}.portal-card .portal-meta{min-height:0}}
+.public-runs{margin-top:14px;border-top:1px solid var(--color-border);padding-top:8px}.public-run{display:grid;gap:8px;padding:8px 0}.public-run-row,.public-step{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}.public-run-row span,.public-step span{overflow-wrap:anywhere}.public-job-panel{display:grid;gap:10px;padding:10px;border-radius:8px;background:var(--color-surface-secondary)}.public-job{display:grid;gap:6px;font-size:12px}.public-job pre,.public-step pre{max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;border-radius:6px;background:var(--color-surface);font:11px/1.5 ui-monospace,monospace}.public-step{flex-wrap:wrap}
 </style>

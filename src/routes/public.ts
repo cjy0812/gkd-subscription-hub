@@ -23,6 +23,7 @@ app.get('/subscriptions', async (c) => {
     subscriptionPath:
       project.distFiles.find((file) => file.path.toLowerCase() === 'gkd.json5')?.path || null,
     hasSubscription: project.distFiles.some((file) => file.path.toLowerCase() === 'gkd.json5'),
+    lastRuns: project.lastRuns.slice(0, 5).map((run) => ({ runId: run.runId, workflowName: run.workflowName, event: run.event, status: run.status, conclusion: run.conclusion, created_at: run.created_at, html_url: run.html_url })),
   }))
   return json({ ok: true, subscriptions })
 })
