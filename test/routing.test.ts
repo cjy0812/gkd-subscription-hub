@@ -402,6 +402,33 @@ describe('top-level routing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('returns 404 for the removed legacy preview route', async () => {
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/preview/233?file=gkd.json5'),
+      environment(),
+      context,
+    )
+    expect(response.status).toBe(404)
+  })
+
+  it('rejects legacy dist-prefixed file URLs', async () => {
+    const project = {
+      id: 233,
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/dist/gkd.json5'),
+      env,
+      context,
+    )
+    expect(response.status).toBe(404)
+  })
+
   it('returns 404 for unknown paths', async () => {
     const response = await worker.fetch(
       new Request('https://gkd.example.com/unknown'),
