@@ -254,12 +254,22 @@ const githubAdapter: ProviderAdapter = {
   },
   async listRunJobs(env, project, runId) {
     const base = `/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs`
-    const jobs: Array<{ id: number; name: string; status: string; conclusion: string | null; steps?: Array<{ number: number; name: string; status: string; conclusion: string | null }> }> = []
+    const jobs: Array<{
+      id: number
+      name: string
+      status: string
+      conclusion: string | null
+      steps?: Array<{ number: number; name: string; status: string; conclusion: string | null }>
+    }> = []
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const data = await gh<{ jobs: typeof jobs }>(env, `${base}?per_page=${PAGE_SIZE}&page=${page}`)
+      const data = await gh<{ jobs: typeof jobs }>(
+        env,
+        `${base}?per_page=${PAGE_SIZE}&page=${page}`,
+      )
       jobs.push(...data.jobs)
       if (data.jobs.length < PAGE_SIZE) break
-      if (page === MAX_PAGES) throw Error(`GitHub Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
+      if (page === MAX_PAGES)
+        throw Error(`GitHub Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
     }
     return jobs.map((job) => ({
       id: job.id,
@@ -524,8 +534,11 @@ const gitlabAdapter: ProviderAdapter = {
     })
   },
   async listRunJobs(_env, project, runId) {
-    const projectId = encodeURIComponent(project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`)
-    let url: string | null = `https://gitlab.com/api/v4/projects/${projectId}/pipelines/${runId}/jobs?per_page=${PAGE_SIZE}`
+    const projectId = encodeURIComponent(
+      project.providerId || project.repositoryPath || `${project.owner}/${project.repo}`,
+    )
+    let url: string | null =
+      `https://gitlab.com/api/v4/projects/${projectId}/pipelines/${runId}/jobs?per_page=${PAGE_SIZE}`
     const jobs: Array<{ id: number; name: string; status: string }> = []
     let pages = 0
     while (url && pages < MAX_PAGES) {
@@ -534,7 +547,8 @@ const gitlabAdapter: ProviderAdapter = {
       jobs.push(...page.data)
       url = page.next
       pages += 1
-      if (!url && page.data.length === PAGE_SIZE && pages < MAX_PAGES) throw Error('GitLab Job 列表返回满页但缺少下一页链接，无法确认完整性')
+      if (!url && page.data.length === PAGE_SIZE && pages < MAX_PAGES)
+        throw Error('GitLab Job 列表返回满页但缺少下一页链接，无法确认完整性')
     }
     if (url) throw Error(`GitLab Job 列表超过 ${PAGE_SIZE * MAX_PAGES} 条上限，无法确认完整性`)
     return jobs.map((job) => ({
@@ -708,12 +722,22 @@ const giteaAdapter: ProviderAdapter = {
   },
   async listRunJobs(_env, project, runId) {
     const base = `https://gitea.com/api/v1/repos/${encodeURIComponent(project.owner)}/${encodeURIComponent(project.repo)}/actions/runs/${runId}/jobs`
-    const jobs: Array<{ id: number; name: string; status: string; conclusion?: string | null; steps?: Array<{ number?: number; name: string; status: string; conclusion?: string | null }> }> = []
+    const jobs: Array<{
+      id: number
+      name: string
+      status: string
+      conclusion?: string | null
+      steps?: Array<{ number?: number; name: string; status: string; conclusion?: string | null }>
+    }> = []
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const data = await providerJson<{ jobs: typeof jobs }>(`${base}?limit=50&page=${page}`, 'Gitea')
+      const data = await providerJson<{ jobs: typeof jobs }>(
+        `${base}?limit=50&page=${page}`,
+        'Gitea',
+      )
       jobs.push(...(data.jobs || []))
       if ((data.jobs || []).length < 50) break
-      if (page === MAX_PAGES) throw Error(`Gitea Job 列表超过 ${50 * MAX_PAGES} 条上限，无法确认完整性`)
+      if (page === MAX_PAGES)
+        throw Error(`Gitea Job 列表超过 ${50 * MAX_PAGES} 条上限，无法确认完整性`)
     }
     return jobs.map((job) => ({
       id: job.id,
