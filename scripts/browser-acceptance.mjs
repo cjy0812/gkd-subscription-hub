@@ -233,7 +233,10 @@ try {
       await publicPage.title(),
       (await publicPage.locator('body').innerText()).slice(0, 800),
     )
-    await publicPage.screenshot({ path: 'artifacts/browser-acceptance/public-debug.png', fullPage: true })
+    await publicPage.screenshot({
+      path: 'artifacts/browser-acceptance/public-debug.png',
+      fullPage: true,
+    })
     await publicPage.getByRole('heading', { name: '发现、浏览与订阅 GKD 规则' }).waitFor()
     assert.equal(
       await publicPage.getByRole('link', { name: '浏览文件目录' }).getAttribute('href'),
