@@ -43,7 +43,6 @@
 - 视口：320、640、641、768、1024、1440 px；检查页面横向溢出与键盘焦点。
 - 执行结果：以本 PR 最新提交的 Playwright Chromium acceptance workflow 及其截图 artifact 为准；该记录不把 fixture 浏览器测试描述成真实生产数据验收。
 
-
 ## PR #39 验收结果（最新）
 
 - 日期：2026-11-26（GitHub Actions 时间：2026-11-25 16:51 UTC）
@@ -56,14 +55,15 @@
 
 | Viewport | MonitoringPage | PublicPortal | 横向溢出 |
 | -------: | -------------- | ------------ | -------- |
-| 320 px | PASS | PASS | 无 |
-| 640 px | PASS | PASS | 无 |
-| 641 px | PASS | PASS | 无 |
-| 768 px | PASS | PASS | 无 |
-| 1024 px | PASS | PASS | 无 |
-| 1440 px | PASS | PASS | 无 |
+|   320 px | PASS           | PASS          | 无       |
+|   640 px | PASS           | PASS          | 无       |
+|   641 px | PASS           | PASS          | 无       |
+|   768 px | PASS           | PASS          | 无       |
+|  1024 px | PASS           | PASS          | 无       |
+|  1440 px | PASS           | PASS          | 无       |
 
 额外检查：
+
 - 管理端 Run 抽屉、Job/Step 展开及日志读取。
 - 公共端 Run → Job → Step → Log、失败重试。
 - Run 外链目标、`target="_blank"`、`rel="noopener"`。
