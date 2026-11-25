@@ -1,7 +1,17 @@
 import type { Project, WorkflowInfo, WorkflowRun } from './types'
 
 const RUN_EVENT_LABELS: Record<string, string> = {
-  push: '代码推送', pull_request: '拉取请求', pull_request_target: '拉取请求', schedule: '定时任务', workflow_dispatch: '手动触发', release: '版本发布', repository_dispatch: '仓库事件', workflow_call: '工作流调用', web: '网页触发', api: 'API 触发', trigger: '触发器',
+  push: '代码推送',
+  pull_request: '拉取请求',
+  pull_request_target: '拉取请求',
+  schedule: '定时任务',
+  workflow_dispatch: '手动触发',
+  release: '版本发布',
+  repository_dispatch: '仓库事件',
+  workflow_call: '工作流调用',
+  web: '网页触发',
+  api: 'API 触发',
+  trigger: '触发器',
 }
 
 export function runEventLabel(event: string): string {

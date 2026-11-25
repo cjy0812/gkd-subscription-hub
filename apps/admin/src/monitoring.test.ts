@@ -85,10 +85,16 @@ describe('buildMonitoringOverview', () => {
   })
 
   it('sorts monitoring records by trigger time, not the later update time', () => {
-    const result = buildMonitoringOverview([project(1, [], [
-      run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 1, '2026-01-05T00:00:00Z'),
-      run(2, '2026-01-01T00:00:00Z', 'completed', 'success', 2, '2026-01-06T00:00:00Z'),
-    ])])
+    const result = buildMonitoringOverview([
+      project(
+        1,
+        [],
+        [
+          run(1, '2026-01-02T00:00:00Z', 'completed', 'success', 1, '2026-01-05T00:00:00Z'),
+          run(2, '2026-01-01T00:00:00Z', 'completed', 'success', 2, '2026-01-06T00:00:00Z'),
+        ],
+      ),
+    ])
     expect(result.recentRuns.map((item) => item.workflowId)).toEqual([1, 2])
   })
 
