@@ -6,6 +6,7 @@
 - [需求工程规范](./requirements.md)：FR/NFR、验收标准、需求追踪和变更控制。
 - [架构概览](./architecture-overview.md)：Worker、Admin、KV 与外部服务的数据流。
 - [架构审计](./architecture-audit.md)：有证据的现状、问题等级和改进顺序。
+- [ADR 0001：R2 统一分块存储](../adr/0001-r2-chunked-storage.md)：记录已确认的 R2 分块存储范围及待决实现细节。
 - [文档规范](./documentation.md)：README、设计文档、ADR、路线图。
 - [AI Agent 工作流](./agent-workflows.md)：AGENTS、Claude Code、提示词与自学习。
 
