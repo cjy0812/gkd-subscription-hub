@@ -131,6 +131,21 @@ describe('repository provider adapters', () => {
     )
   })
 
+  it('lists GitHub run jobs and downloads step logs through the official API', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/actions/runs/99/jobs')) return new Response(JSON.stringify({ jobs: [{ id: 7, name: 'Build', status: 'completed', conclusion: 'success', steps: [{ number: 1, name: 'Checkout', status: 'completed', conclusion: 'success' }] }] }))
+      return new Response('step log')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const adapter = getProviderAdapter('github')
+    const project = { owner: 'owner', repo: 'repo', branch: 'main' }
+    const jobs = await adapter.listRunJobs({} as Env, project, 99)
+    expect(jobs[0]).toMatchObject({ id: 7, name: 'Build', steps: [{ number: 1, name: 'Checkout' }] })
+    await expect(adapter.getJobLog({} as Env, project, 7, 1)).resolves.toBe('step log')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('/actions/jobs/7/steps/1/logs')
+  })
+
   it('forwards HEAD and ETag to the provider raw endpoint', async () => {
     const fetchMock = vi.fn(async () => new Response(null, { status: 304 }))
     vi.stubGlobal('fetch', fetchMock)
