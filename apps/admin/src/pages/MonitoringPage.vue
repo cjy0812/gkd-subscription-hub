@@ -54,7 +54,10 @@ async function openRun(run: MonitoringRun) {
   jobLogs.value = {}
   logLoading.value = new Set()
   showRunDrawer.value = true
-  if (!run.runId) return
+  if (!run.runId) {
+    jobsLoading.value = false
+    return
+  }
   jobsLoading.value = true
   try {
     const result = await api<{ jobs: WorkflowJob[] }>(`/api/projects/${run.projectId}/runs/${run.runId}/jobs`, getAdminToken())
@@ -229,12 +232,12 @@ onMounted(() => { void load() })
                 <n-collapse-item v-for="step in job.steps" :key="step.number" :name="String(step.number)">
                   <template #header><div class="collapse-heading"><strong>{{ step.number ? `Step ${step.number} · ` : '' }}{{ step.name }}</strong><span>{{ step.status }} · {{ step.conclusion || '—' }}</span></div></template>
                   <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:${step.number}`)" @click="loadJobLog(job, step.number)">加载日志</n-button>
-                  <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:${step.number}`] }}</pre>
+                  <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] !== undefined" class="job-log">{{ jobLogs[`${selectedRun?.key}:${job.id}:${step.number}`] }}</pre>
                 </n-collapse-item>
               </n-collapse>
               <template v-else>
                 <n-button size="small" secondary :loading="logLoading.has(`${selectedRun?.key}:${job.id}:all`)" @click="loadJobLog(job)">加载 Job 日志</n-button>
-                <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:all`] !== undefined" class="job-log">{{ jobLogs[`${job.id}:all`] }}</pre>
+                <pre v-if="jobLogs[`${selectedRun?.key}:${job.id}:all`] !== undefined" class="job-log">{{ jobLogs[`${selectedRun?.key}:${job.id}:all`] }}</pre>
               </template>
             </n-collapse-item>
           </n-collapse>

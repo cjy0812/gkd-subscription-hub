@@ -203,12 +203,12 @@ onMounted(() => { void load() })
                             <div v-for="step in job.steps" :key="step.number" class="public-step">
                               <span>{{ step.name }}</span>
                               <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job, step.number))" @click="loadPublicLog(item, run, job, step.number)">查看日志</n-button>
-                              <pre v-if="publicJobLogs[publicLogKey(item, run, job, step.number)] !== undefined">{{ publicJobLogs[`${job.id}:${step.number}`] }}</pre>
+                              <pre v-if="publicJobLogs[publicLogKey(item, run, job, step.number)] !== undefined">{{ publicJobLogs[publicLogKey(item, run, job, step.number)] }}</pre>
                             </div>
                           </template>
                           <template v-else>
                             <n-button size="tiny" quaternary :loading="publicLogLoading.has(publicLogKey(item, run, job))" @click="loadPublicLog(item, run, job)">查看日志</n-button>
-                            <pre v-if="publicJobLogs[publicLogKey(item, run, job)] !== undefined">{{ publicJobLogs[`${job.id}:all`] }}</pre>
+                            <pre v-if="publicJobLogs[publicLogKey(item, run, job)] !== undefined">{{ publicJobLogs[publicLogKey(item, run, job)] }}</pre>
                           </template>
                         </div>
                       </n-spin>
