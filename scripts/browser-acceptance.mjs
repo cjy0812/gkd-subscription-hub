@@ -133,6 +133,7 @@ try {
 
     await page.getByRole('button', { name: '展开任务' }).first().click()
     await page.getByText('Build', { exact: true }).waitFor()
+    await page.getByText('Run tests', { exact: true }).click()
     await page.getByRole('button', { name: '加载日志' }).click()
     await page.getByText('admin step log output', { exact: true }).waitFor()
 
