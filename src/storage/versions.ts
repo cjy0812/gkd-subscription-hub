@@ -73,7 +73,7 @@ function statement(env: Env, sql: string, ...values: (string | number | null)[])
 
 function snapshotRank(snapshot: VersionSnapshot): number {
   return snapshot.archiveStatus === 'git-only' &&
-    !!snapshot.contentSha256 &&
+    snapshot.contentSha256 &&
     /^[a-f0-9]{64}$/i.test(snapshot.contentSha256)
     ? 0
     : 1

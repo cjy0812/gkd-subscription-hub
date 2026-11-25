@@ -273,7 +273,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     const secondProject = makeProject(644)
     secondProject.distFiles[0] = {
       path: 'gkd.json5',
-      sha: '245f02de62013b365bfaba65ed1b531b58e227eb',
+      sha: '553d6ce72010f9a74bb7a26eb55da24a09e92bcb',
       size: bytes.byteLength,
     }
     const second = await recordSubscriptionVersion(env, secondProject)
