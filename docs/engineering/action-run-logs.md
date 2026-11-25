@@ -11,11 +11,16 @@
 
 ## Provider API
 
-| Provider       | Run Jobs                                               | 日志                                                                                           |
-| -------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| GitHub Actions | `GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs` | `GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`；Step 使用 `.../steps/{step_number}/logs` |
-| GitLab CI | `GET /projects/:id/pipelines/:pipeline_id/jobs` | `GET /projects/:id/jobs/:job_id/trace` |
-| Gitea Actions | `GET /repos/{owner}/{repo}/actions/runs/{run}/jobs` | `GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs` |
+- **GitHub Actions**
+  - Run Jobs：`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`
+  - Job Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`
+  - Step Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/steps/{step_number}/logs`
+- **GitLab CI**
+  - Pipeline Jobs：`GET /projects/:id/pipelines/:pipeline_id/jobs`
+  - Job Trace：`GET /projects/:id/jobs/:job_id/trace`
+- **Gitea Actions**
+  - Run Jobs：`GET /repos/{owner}/{repo}/actions/runs/{run}/jobs`
+  - Job Log：`GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`
 
 ## 展示粒度
 

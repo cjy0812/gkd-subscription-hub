@@ -328,9 +328,7 @@ describe('top-level routing', () => {
     expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('/actions/jobs/7/steps/1/logs')
 
     const missingJobResponse = await worker.fetch(
-      new Request(
-        'https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs/999/logs',
-      ),
+      new Request('https://gkd.example.com/api/public/subscriptions/233/runs/123/jobs/999/logs'),
       env,
       context,
     )
