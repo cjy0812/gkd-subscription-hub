@@ -835,7 +835,10 @@ onMounted(() => {
   font-size: 12px;
 }
 .provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
-.repo-title-link { color: var(--color-text); text-decoration: none; }
+.provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
+.repo-title-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--color-text); text-decoration: none; }
+.repo-title-link strong,.repo-title-link > span:not(.provider-mark) { min-width: 0; overflow-wrap: anywhere; }
+.repo-title-link svg { flex: 0 0 auto; }
 .repo-title-link:hover { color: var(--color-accent); text-decoration: underline; }
 .repo-source-link {
   display: inline-flex;
@@ -896,10 +899,14 @@ onMounted(() => {
   }
   .mobile-project-title {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px 8px;
   }
+  .mobile-project-title > strong { align-self: center; margin-right: auto; }
+  .mobile-project-card :deep(.n-space) { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mobile-project-card :deep(.n-button) { min-width: 36px; }
   .mobile-project-card p {
     margin: 0;
     overflow-wrap: anywhere;
