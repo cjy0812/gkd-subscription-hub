@@ -280,6 +280,30 @@ describe('Cloudflare R2 subscription version archive', () => {
     expect(bucket.puts).toBe(0)
   })
 
+  it('serializes concurrent first writes so a version keeps one winning commit', async () => {
+    const { env, bucket, database } = makeEnv()
+    const bytes = new TextEncoder().encode('{id:233,version:643}')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes.slice().buffer as ArrayBuffer)),
+    )
+    const firstProject = makeProject()
+    const competingProject = makeProject()
+    competingProject.commitSha = 'competing-commit'
+    competingProject.distFiles[0].sha = 'competing-blob'
+
+    const [first, second] = await Promise.all([
+      recordSubscriptionVersion(env, firstProject),
+      recordSubscriptionVersion(env, competingProject),
+    ])
+
+    expect(first?.commitSha).toBe(second?.commitSha)
+    expect(first?.contentSha256).toBe(second?.contentSha256)
+    expect(database.versions.size).toBe(1)
+    expect(database.objects.size).toBe(1)
+    expect(bucket.puts).toBeGreaterThan(0)
+  })
+
   it('does not mix historical records between repositories reusing a subscription ID', async () => {
     const { env } = makeEnv()
     const source = new Uint8Array(new TextEncoder().encode('{id:233,version:643}'))
