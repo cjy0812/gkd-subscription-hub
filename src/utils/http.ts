@@ -21,9 +21,7 @@ export function wantsHtml(req: Request) {
     dest = req.headers.get('sec-fetch-dest')?.toLowerCase()
   if (mode === 'cors' || mode === 'no-cors' || dest === 'empty') return false
   if (mode === 'navigate' && dest === 'document') return true
-  const acceptsHtml = (req.headers.get('accept') || '').toLowerCase().includes('text/html')
-  if (['1', 'source'].includes(url.searchParams.get('view') || '')) return acceptsHtml
-  return acceptsHtml
+  return (req.headers.get('accept') || '').toLowerCase().includes('text/html')
 }
 export const htmlPreviewSecurityHeaders = {
   'content-security-policy':

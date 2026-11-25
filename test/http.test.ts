@@ -7,7 +7,7 @@ describe('HTTP helpers', () => {
     expect(wantsHtml(new Request('https://x/a', { headers: { accept: 'text/html' } }))).toBe(true)
   })
   it('supports the source-view query without changing the file URL', () =>
-    expect(wantsHtml(new Request('https://x/a.json5?view=source'))).toBe(true))
+    expect(wantsHtml(new Request('https://x/a.json5?view=source', { headers: { accept: 'text/html' } }))).toBe(true))
   it('keeps source-view query requests raw for App-style fetches', () => {
     expect(
       wantsHtml(
