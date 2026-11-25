@@ -67,8 +67,7 @@ const MAX_JOB_LOG_BYTES = 2 * 1024 * 1024
 
 async function readBoundedLog(response: Response): Promise<string> {
   const declaredLength = Number(response.headers.get('content-length') || 0)
-  if (declaredLength > MAX_JOB_LOG_BYTES)
-    throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+  if (declaredLength > MAX_JOB_LOG_BYTES) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
   if (!response.body) return ''
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
@@ -99,7 +98,6 @@ async function readBoundedLog(response: Response): Promise<string> {
   }
   return new TextDecoder().decode(bytes)
 }
-
 
 function parsePath(host: string, segments: string[], provider: ProjectProvider, minimum: number) {
   if (
