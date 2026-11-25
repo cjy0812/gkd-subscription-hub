@@ -193,10 +193,12 @@ function makeBucket() {
     bucket: {
       head: async (key: string) => {
         const item = stored.get(key)
-        return item ? {
-          size: item.bytes.byteLength,
-          customMetadata: item.customMetadata,
-        } : null
+        return item
+          ? {
+              size: item.bytes.byteLength,
+              customMetadata: item.customMetadata,
+            }
+          : null
       },
       put: async (
         key: string,
@@ -210,11 +212,13 @@ function makeBucket() {
       },
       get: async (key: string) => {
         const item = stored.get(key)
-        return item ? {
-          size: item.bytes.byteLength,
-          customMetadata: item.customMetadata,
-          body: new Response(item.bytes).body,
-        } : null
+        return item
+          ? {
+              size: item.bytes.byteLength,
+              customMetadata: item.customMetadata,
+              body: new Response(item.bytes).body,
+            }
+          : null
       },
     } as unknown as R2Bucket,
   }
@@ -266,7 +270,10 @@ describe('Cloudflare R2 subscription version archive', () => {
 
   it('rejects new objects when the configured compressed-storage budget is exhausted', async () => {
     const { env, bucket } = makeEnv(0)
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:643}')))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{id:233,version:643}')),
+    )
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record?.archiveStatus).toBe('unavailable')
     expect(record?.archiveError).toContain('容量')
@@ -276,7 +283,10 @@ describe('Cloudflare R2 subscription version archive', () => {
   it('does not mix historical records between repositories reusing a subscription ID', async () => {
     const { env } = makeEnv()
     const source = new Uint8Array(new TextEncoder().encode('{id:233,version:643}'))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(source)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(source)),
+    )
     await recordSubscriptionVersion(env, makeProject())
     expect(await getVersionSnapshot(env, 233, 643, makeProject(643, 'different-repo'))).toBeNull()
   })
@@ -297,7 +307,10 @@ describe('Cloudflare R2 subscription version archive', () => {
   it('rejects an archived object whose compressed payload has been altered', async () => {
     const { env, bucket } = makeEnv()
     const bytes = new TextEncoder().encode('{id:233,version:643}')
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(bytes)),
+    )
     const record = await recordSubscriptionVersion(env, makeProject())
     expect(record?.archiveStatus).toBe('r2')
     const objectKey = record?.objectKey as string

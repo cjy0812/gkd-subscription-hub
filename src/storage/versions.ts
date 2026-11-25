@@ -278,13 +278,15 @@ export async function getArchiveObject(env: Env, hash: string): Promise<ArchiveO
     compressed_size: number
     status: 'pending' | 'ready'
   }>()
-  return row ? {
-    contentSha256: row.content_sha256,
-    objectKey: row.object_key,
-    originalSize: row.original_size,
-    compressedSize: row.compressed_size,
-    status: row.status,
-  } : null
+  return row
+    ? {
+        contentSha256: row.content_sha256,
+        objectKey: row.object_key,
+        originalSize: row.original_size,
+        compressedSize: row.compressed_size,
+        status: row.status,
+      }
+    : null
 }
 
 export async function consumeArchiveReadBudget(env: Env): Promise<void> {
