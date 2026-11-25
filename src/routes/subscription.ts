@@ -1,9 +1,12 @@
 import { Hono } from 'hono'
 import { fetchProjectFile } from '../services/providers'
+import {
+  archiveHistoricalSnapshot,
+  readVersionContent,
+} from '../services/version-history'
 import { get } from '../storage/projects'
 import type { Env, Project } from '../types'
 import { getVersionSnapshot, listVersionSnapshots } from '../storage/versions'
-import { readVersionContent } from '../services/version-history'
 import { renderMarkdown } from '../utils/markdown'
 import {
   bad,
@@ -34,7 +37,14 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
     .slice()
     .sort((a, b) => b.version - a.version)
     .map((item) => {
-      const status = item.archiveStatus === 'git-only' ? 'Git 固定提交可用' : '暂不可用'
+      const status =
+        item.archiveStatus === 'r2'
+          ? 'Cloudflare R2 已归档'
+          : item.archiveStatus === 'git-only'
+            ? '旧版本待迁移'
+            : item.archiveStatus === 'pending'
+              ? '归档处理中'
+              : '暂不可用'
       return `<tr><td><a href="/preview/${project.id}?version=${item.version}">v${item.version}</a></td><td>${escapeHtml(status)}</td><td>${escapeHtml(new Date(item.createdAt).toLocaleString())}</td></tr>`
     })
     .join('')
@@ -57,7 +67,7 @@ app.all('*', async (c) => {
   const req = c.req.raw
   if (req.method !== 'GET' && req.method !== 'HEAD') return bad('Method not allowed', 405)
   const url = new URL(req.url)
-  const match = url.pathname.match(/^\/(\d+)(?:\/(.*))?$/)
+  const match = url.pathname.match(/^\\/(\\d+)(?:\\/(.*))?$/)
   if (!match) return bad('Not found', 404)
   const id = match[1]
   let path: string
@@ -67,15 +77,21 @@ app.all('*', async (c) => {
     return bad('Bad path', 400)
   }
 
-  if (/^v[^/]+\/gkd\.json5$/i.test(path) && !/^v[1-9]\d*\/gkd\.json5$/i.test(path)) {
+  if (/^v[^/]+\\/gkd\\.json5$/i.test(path) && !/^v[1-9]\\d*\\/gkd\\.json5$/i.test(path)) {
     return bad('Invalid version path', 400)
   }
-  const versionMatch = path.match(/^v([1-9]\d*)\/gkd\.json5$/i)
+  const versionMatch = path.match(/^v([1-9]\\d*)\\/gkd\\.json5$/i)
   if (versionMatch) {
     const version = Number(versionMatch[1])
-    if (!Number.isSafeInteger(version)) return bad('Invalid version', 400)
-    const snapshot = await getVersionSnapshot(c.env, Number(id), version)
+    const numericId = Number(id)
+    if (!Number.isSafeInteger(version) || !Number.isSafeInteger(numericId)) {
+      return bad('Invalid version', 400)
+    }
+    const project = await get(c.env, numericId)
+    if (!project) return bad('Subscription not registered', 404)
+    let snapshot = await getVersionSnapshot(c.env, numericId, version, project)
     if (!snapshot) return bad('Historical version not found', 404)
+
     if (wantsHtml(req) && url.searchParams.get('raw') !== '1') {
       return new Response(null, {
         status: 302,
@@ -86,12 +102,19 @@ app.all('*', async (c) => {
         },
       })
     }
-    let source: Uint8Array
-    try {
-      source = await readVersionContent(c.env, snapshot)
-    } catch {
-      return bad('历史版本无法从固定 Git 提交中恢复', 502)
+
+    if (snapshot.archiveStatus !== 'r2') {
+      snapshot = await archiveHistoricalSnapshot(c.env, snapshot)
     }
+    if (
+      snapshot.archiveStatus !== 'r2' ||
+      !snapshot.contentSha256 ||
+      !snapshot.objectKey
+    ) {
+      return bad(snapshot.archiveError || '历史版本尚未完成 Cloudflare R2 归档', 503)
+    }
+
+    const etag = `"${snapshot.contentSha256}"`
     const headers = new Headers({
       'content-type': 'application/json5; charset=utf-8',
       'access-control-allow-origin': '*',
@@ -99,20 +122,44 @@ app.all('*', async (c) => {
       'x-content-type-options': 'nosniff',
       'x-gkd-subscription-id': id,
       'x-gkd-subscription-version': String(version),
-      etag: `"${snapshot.contentSha256}"`,
+      etag,
       vary: 'Accept, Sec-Fetch-Mode, Sec-Fetch-Dest',
     })
+    if (req.headers.get('if-none-match') === etag) {
+      return new Response(null, { status: 304, headers })
+    }
+
+    const cacheUrl = new URL(req.url)
+    cacheUrl.searchParams.set('__archive', snapshot.contentSha256)
+    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' })
+    const cache = caches.default
+    if (req.method === 'GET') {
+      const cached = await cache.match(cacheKey)
+      if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers })
+    }
+
+    let source: Uint8Array
+    try {
+      if (req.method === 'HEAD') {
+        return new Response(null, { status: 200, headers })
+      }
+      source = await readVersionContent(c.env, snapshot)
+    } catch (error) {
+      return bad(error instanceof Error ? error.message : 'R2 历史归档读取失败', 502)
+    }
     const body = source.buffer.slice(
       source.byteOffset,
       source.byteOffset + source.byteLength,
     ) as ArrayBuffer
-    return new Response(req.method === 'HEAD' ? null : body, { status: 200, headers })
+    const response = new Response(body, { status: 200, headers })
+    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()))
+    return response
   }
 
   if (!path || path === 'dist' || path === 'dist/') {
     const project = await get(c.env, Number(id))
     if (!project) return bad('Subscription not registered', 404)
-    const versions = await listVersionSnapshots(c.env, Number(id))
+    const versions = await listVersionSnapshots(c.env, Number(id), project)
     const html = directory(project, versions)
     const response = new Response(html, {
       headers: {

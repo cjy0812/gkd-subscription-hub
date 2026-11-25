@@ -2,6 +2,8 @@ export type ProjectProvider = 'github' | 'gitlab' | 'gitea'
 
 export interface Env {
   STATE: KVNamespace
+  VERSIONS: D1Database
+  ARCHIVE: R2Bucket
   ASSETS: Fetcher
   ADMIN_PASSWORD: string
   GITHUB_TOKEN?: string

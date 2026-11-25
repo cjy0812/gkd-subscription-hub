@@ -1,64 +1,139 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  readSubscriptionVersionAtRef,
+  readBoundedSnapshotResponse,
   recordSubscriptionVersion,
   readVersionContent,
 } from '../src/services/version-history'
-import {
-  getVersionSnapshot,
-  listVersionSnapshots,
-  saveVersionSnapshot,
-  type VersionSnapshot,
-} from '../src/storage/versions'
-import { readBoundedSnapshotResponse } from '../src/services/version-history'
+import { getVersionSnapshot, type VersionSnapshot } from '../src/storage/versions'
 import type { Env, Project } from '../src/types'
 
-function makeState() {
-  const data = new Map<string, string>()
-  const listCalls: Array<{ prefix?: string; limit?: number }> = []
-  return {
-    data,
-    listCalls,
-    namespace: {
-      get: async (key: string, type?: string) => {
-        const value = data.get(key)
-        if (value === undefined) return null
-        return type === 'json' ? JSON.parse(value) : value
-      },
-      put: async (key: string, value: string) => {
-        data.set(key, value)
-      },
-      delete: async (key: string) => {
-        data.delete(key)
-      },
-      list: async (options: { prefix?: string; limit?: number }) => {
-        listCalls.push(options)
-        return {
-          keys: [...data.keys()]
-            .filter((key) => key.startsWith(options.prefix || ''))
-            .sort()
-            .slice(0, options.limit || 1000)
-            .map((name) => ({ name, expiration: null, metadata: null })),
-          list_complete: true,
-          cursor: undefined,
-          cacheStatus: null,
-        }
-      },
-    } as unknown as KVNamespace,
+type Row = Record<string, unknown>
+
+function makeDatabase(limit = 512 * 1024 * 1024) {
+  const versions = new Map<string, Row>()
+  const objects = new Map<string, Row>()
+  const usage = new Map<string, { r2_reads: number; r2_writes: number }>()
+  const key = (id: number, repo: string, version: number) => `${id}:${repo}:${version}`
+  const db = {
+    prepare(sql: string) {
+      return {
+        bind(...values: unknown[]) {
+          const execute = async (): Promise<Row | null> => {
+            if (sql.includes('INSERT INTO subscription_versions')) {
+              const [id, repo, version, snapshot, status, createdAt] = values as [number, string, number, string, string, string]
+              const k = key(id, repo, version)
+              if (!versions.has(k)) {
+                versions.set(k, {
+                  snapshot_json: snapshot,
+                  status,
+                  content_sha256: null,
+                  object_key: null,
+                  compressed_size: null,
+                  archive_error: null,
+                  created_at: createdAt,
+                })
+              }
+              return null
+            }
+            if (sql.includes('SELECT snapshot_json') && sql.includes('subscription_versions')) {
+              const [id, repo, version] = values as [number, string, number]
+              return versions.get(key(id, repo, version)) || null
+            }
+            if (sql.includes('INSERT INTO archive_objects')) {
+              const [hash, objectKey, originalSize, compressedSize, status, createdAt] = values as [string, string, number, number, string, string]
+              if (!objects.has(hash)) {
+                const used = [...objects.values()].reduce((sum, item) => sum + Number(item.compressed_size), 0)
+                if (used + compressedSize > limit) throw new Error('R2_ARCHIVE_QUOTA_EXCEEDED')
+                objects.set(hash, {
+                  content_sha256: hash,
+                  object_key: objectKey,
+                  original_size: originalSize,
+                  compressed_size: compressedSize,
+                  status,
+                  created_at: createdAt,
+                })
+              }
+              return null
+            }
+            if (sql.includes('SELECT content_sha256') && sql.includes('archive_objects')) {
+              return objects.get(String(values[0])) || null
+            }
+            if (sql.includes('UPDATE archive_objects')) {
+              const row = objects.get(String(values[0]))
+              if (row) row.status = 'ready'
+              return null
+            }
+            if (sql.includes("UPDATE subscription_versions SET status = 'ready'")) {
+              const [hash, objectKey, originalSize, compressedSize, id, repo, version] = values as [string, string, number, number, number, string, number]
+              const row = versions.get(key(id, repo, version))
+              if (row && row.status !== 'ready') Object.assign(row, {
+                status: 'ready',
+                content_sha256: hash,
+                object_key: objectKey,
+                original_size: originalSize,
+                compressed_size: compressedSize,
+                archive_error: null,
+              })
+              return null
+            }
+            if (sql.includes("UPDATE subscription_versions SET status = 'unavailable'")) {
+              const [error, id, repo, version] = values as [string, number, string, number]
+              const row = versions.get(key(id, repo, version))
+              if (row && row.status !== 'ready') Object.assign(row, { status: 'unavailable', archive_error: error })
+              return null
+            }
+            if (sql.includes('INSERT INTO archive_daily_usage')) {
+              const isRead = sql.includes('r2_reads = r2_reads + 1')
+              const day = '2026-11-25'
+              const row = usage.get(day) || { r2_reads: 0, r2_writes: 0 }
+              const field = isRead ? 'r2_reads' : 'r2_writes'
+              const max = isRead ? 50000 : 500
+              if (row[field] >= max) return null
+              row[field] += 1
+              usage.set(day, row)
+              return { [field]: row[field] }
+            }
+            return null
+          }
+          return {
+            run: async () => { await execute(); return { success: true, meta: {} } },
+            first: async <T>() => (await execute()) as T | null,
+            all: async <T>() => {
+              if (sql.includes('FROM subscription_versions')) {
+                const [id, repo] = values as [number, string]
+                const rows = [...versions.entries()]
+                  .filter(([k]) => k.startsWith(`${id}:${repo}:`))
+                  .map(([, row]) => row) as T[]
+                return { results: rows, success: true, meta: {} }
+              }
+              return { results: [] as T[], success: true, meta: {} }
+            },
+          }
+        },
+      }
+    },
   }
+  return { db: db as unknown as D1Database, versions, objects, usage }
 }
 
-function makeProject(): Project {
+function makeState() {
+  return {
+    get: async () => null,
+    list: async () => ({ keys: [], list_complete: true, cursor: undefined }),
+  } as unknown as KVNamespace
+}
+
+function makeProject(version = 643, repo = 'repo'): Project {
   return {
     id: 233,
     provider: 'github',
     owner: 'owner',
-    repo: 'repo',
+    repo,
     branch: 'main',
-    commitSha: 'commit-643',
-    subscriptionVersion: 643,
-    repoUrl: 'https://github.com/owner/repo',
-    distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 100 }],
+    commitSha: `commit-${version}`,
+    subscriptionVersion: version,
+    repoUrl: `https://github.com/owner/${repo}`,
+    distFiles: [{ path: 'gkd.json5', sha: `blob-${version}`, size: new TextEncoder().encode('{id:233,version:643}').byteLength }],
     distHash: 'hash',
     workflows: [],
     registeredAt: '2026-01-01T00:00:00Z',
@@ -71,61 +146,96 @@ function makeProject(): Project {
   }
 }
 
-describe('subscription version history', () => {
+function makeBucket() {
+  const stored = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>()
+  let puts = 0
+  return {
+    stored,
+    get puts() { return puts },
+    bucket: {
+      head: async (key: string) => {
+        const item = stored.get(key)
+        return item ? {
+          size: item.bytes.byteLength,
+          customMetadata: item.customMetadata,
+        } : null
+      },
+      put: async (key: string, value: ArrayBuffer | ArrayBufferView | string | ReadableStream, options?: { customMetadata?: Record<string, string> }) => {
+        const bytes = new Uint8Array(await new Response(value as BodyInit).arrayBuffer())
+        stored.set(key, { bytes, customMetadata: options?.customMetadata })
+        puts += 1
+        return null
+      },
+      get: async (key: string) => {
+        const item = stored.get(key)
+        return item ? {
+          size: item.bytes.byteLength,
+          customMetadata: item.customMetadata,
+          body: new Response(item.bytes).body,
+        } : null
+      },
+    } as unknown as R2Bucket,
+  }
+}
+
+function makeEnv(limit?: number) {
+  const database = makeDatabase(limit)
+  const bucket = makeBucket()
+  const env = {
+    STATE: makeState(),
+    VERSIONS: database.db,
+    ARCHIVE: bucket.bucket,
+  } as Env
+  return { env, database, bucket }
+}
+
+describe('Cloudflare R2 subscription version archive', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('reads the version from the GKD version metadata file', async () => {
+  it('archives compressed content, restores the exact bytes, and deduplicates identical versions', async () => {
+    const { env, bucket, database } = makeEnv()
     const source = '{id:233,version:643}'
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            content: btoa(source),
-            encoding: 'base64',
-          }),
-        ),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    const version = await readSubscriptionVersionAtRef(
-      { STATE: {} } as Env,
-      'https://github.com/owner/repo',
-      'commit-643',
-      233,
-    )
-    expect(version).toBe(643)
-    expect(fetchMock).toHaveBeenCalledOnce()
+    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(source)])
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
+
+    const firstProject = makeProject()\n    firstProject.distFiles[0].size = bytes.byteLength\n    const first = await recordSubscriptionVersion(env, firstProject)
+    expect(first?.archiveStatus).toBe('r2')
+    expect(first?.contentSha256).toMatch(/^[a-f0-9]{64}$/)
+    expect(bucket.puts).toBe(1)
+    expect(await readVersionContent(env, first as VersionSnapshot)).toEqual(bytes)
+
+    const secondProject = makeProject(644)
+    secondProject.distFiles[0] = { path: 'gkd.json5', sha: 'different-blob', size: bytes.byteLength }
+    const second = await recordSubscriptionVersion(env, secondProject)
+    expect(second?.archiveStatus).toBe('r2')
+    expect(second?.objectKey).toBe(first?.objectKey)
+    expect(bucket.puts).toBe(1)
+    expect(database.objects.size).toBe(1)
   })
 
-  it('rejects historical reads when a checksum is missing', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-    const legacySnapshot = {
-      id: 233,
-      version: 642,
-      provider: 'github' as const,
-      owner: 'owner',
-      repo: 'repo',
-      branch: 'main',
-      repoUrl: 'https://github.com/owner/repo',
-      commitSha: 'commit-642',
-      fileSha: 'blob-642',
-      fileSize: 10,
-      createdAt: '2026-01-01T00:00:00Z',
-      archiveStatus: 'git-only' as const,
-    }
-    await expect(readVersionContent({ STATE: {} } as Env, legacySnapshot)).rejects.toThrow(
-      '缺少有效的 SHA-256',
-    )
-    expect(fetchMock).not.toHaveBeenCalled()
+  it('rejects new objects when the configured compressed-storage budget is exhausted', async () => {
+    const { env, bucket } = makeEnv(0)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{id:233,version:643}')))
+    const record = await recordSubscriptionVersion(env, makeProject())
+    expect(record?.archiveStatus).toBe('unavailable')
+    expect(record?.archiveError).toContain('容量')
+    expect(bucket.puts).toBe(0)
   })
 
-  it('cancels historical response streams when the server-side byte limit is exceeded', async () => {
+  it('does not mix historical records between repositories reusing a subscription ID', async () => {
+    const { env } = makeEnv()
+    const source = new Uint8Array(new TextEncoder().encode('{id:233,version:643}'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(source)))
+    await recordSubscriptionVersion(env, makeProject())
+    expect(await getVersionSnapshot(env, 233, 643, makeProject(643, 'different-repo'))).toBeNull()
+  })
+
+  it('cancels a source stream when its byte limit is exceeded', async () => {
     const cancel = vi.fn()
-    const encoder = new TextEncoder()
     let index = 0
     const stream = new ReadableStream<Uint8Array>({
       pull(controller) {
-        controller.enqueue(encoder.encode(index++ === 0 ? '123456' : '789'))
+        controller.enqueue(new TextEncoder().encode(index++ === 0 ? '123456' : '789'))
       },
       cancel,
     })
@@ -133,115 +243,16 @@ describe('subscription version history', () => {
     expect(cancel).toHaveBeenCalledOnce()
   })
 
-  it('stores versions under independent keys so concurrent releases cannot overwrite each other', async () => {
-    const state = makeState()
-    const env = { STATE: state.namespace } as Env
-    const makeSnapshot = (version: number): VersionSnapshot => ({
-      id: 233,
-      version,
-      provider: 'github',
-      owner: 'owner',
-      repo: 'repo',
-      branch: 'main',
-      repoUrl: 'https://github.com/owner/repo',
-      commitSha: 'commit-' + version,
-      fileSha: 'blob-' + version,
-      fileSize: 10,
-      createdAt: new Date(version).toISOString(),
-      archiveStatus: 'git-only',
-      contentSha256: 'a'.repeat(64),
-    })
-    await Promise.all([
-      saveVersionSnapshot(env, makeSnapshot(643)),
-      saveVersionSnapshot(env, makeSnapshot(644)),
-    ])
-    expect(await listVersionSnapshots(env, 233)).toMatchObject([
-      { version: 643, commitSha: 'commit-643' },
-      { version: 644, commitSha: 'commit-644' },
-    ])
-  })
-
-  it('returns the exact checksum-verified historical bytes, including a UTF-8 BOM', async () => {
-    const state = makeState()
-    const env = { STATE: state.namespace } as Env
-    const payload = new TextEncoder().encode('{id:233,version:643}')
-    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...payload])
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(bytes)),
-    )
+  it('rejects an archived object whose compressed payload has been altered', async () => {
+    const { env, bucket } = makeEnv()
+    const bytes = new TextEncoder().encode('{id:233,version:643}')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes)))
     const record = await recordSubscriptionVersion(env, makeProject())
-    if (!record) throw new Error('Expected a recorded Git history snapshot')
-    expect(await readVersionContent(env, record)).toEqual(bytes)
-  })
-
-  it('loads only the requested version from the indexed snapshot keys', async () => {
-    const state = makeState()
-    const env = { STATE: state.namespace } as Env
-    const makeSnapshot = (version: number): VersionSnapshot => ({
-      id: 233,
-      version,
-      provider: 'github',
-      owner: 'owner',
-      repo: 'repo',
-      branch: 'main',
-      repoUrl: 'https://github.com/owner/repo',
-      commitSha: `commit-${version}`,
-      fileSha: `blob-${version}`,
-      fileSize: 10,
-      createdAt: new Date(version).toISOString(),
-      archiveStatus: 'git-only',
-      contentSha256: 'a'.repeat(64),
-    })
-    await saveVersionSnapshot(env, makeSnapshot(643))
-    await saveVersionSnapshot(env, makeSnapshot(644))
-    state.listCalls.length = 0
-
-    expect(await getVersionSnapshot(env, 233, 644)).toMatchObject({
-      version: 644,
-      commitSha: 'commit-644',
-    })
-    expect(state.listCalls).toHaveLength(1)
-    expect(state.listCalls[0]?.prefix).toBe('history:233:snapshot:644:')
-  })
-
-  it('preserves the exact indexed filename for historical reads', async () => {
-    const state = makeState()
-    const env = { STATE: state.namespace } as Env
-    const project = makeProject()
-    project.distFiles = [{ path: 'GKD.JSON5', sha: 'upper-blob-sha', size: 100 }]
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL) => new Response('{id:233,version:643}'),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const record = await recordSubscriptionVersion(env, project)
-    expect(record).toMatchObject({
-      fileSha: 'upper-blob-sha',
-      filePath: 'GKD.JSON5',
-      archiveStatus: 'git-only',
-    })
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/GKD.JSON5')
-  })
-
-  it('records an immutable Git-only snapshot', async () => {
-    const state = makeState()
-    const env = { STATE: state.namespace } as Env
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('{id:233,version:643}')),
-    )
-    const record = await recordSubscriptionVersion(env, makeProject())
-    expect(record).toMatchObject({
-      id: 233,
-      version: 643,
-      commitSha: 'commit-643',
-      archiveStatus: 'git-only',
-    })
-    expect(await listVersionSnapshots(env, 233)).toHaveLength(1)
-    if (!record) throw new Error('Expected a recorded Git history snapshot')
-    expect(new TextDecoder().decode(await readVersionContent(env, record))).toBe(
-      '{id:233,version:643}',
-    )
+    expect(record?.archiveStatus).toBe('r2')
+    const objectKey = record?.objectKey as string
+    const item = bucket.stored.get(objectKey)
+    if (!item) throw new Error('Expected an R2 object')
+    item.bytes[0] ^= 0xff
+    await expect(readVersionContent(env, record as VersionSnapshot)).rejects.toThrow()
   })
 })

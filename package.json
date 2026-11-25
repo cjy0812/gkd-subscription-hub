@@ -19,6 +19,8 @@
     "lint": "biome lint .",
     "format": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false --write .",
     "test": "vitest run",
+    "db:migrate:preview": "wrangler d1 migrations apply gkd-subscription-hub --preview",
+    "db:migrate:remote": "wrangler d1 migrations apply gkd-subscription-hub --remote",
     "deploy": "bun run build:admin && bun run typegen && wrangler deploy --secrets-file .secrets.json",
     "format:check": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false ."
   },

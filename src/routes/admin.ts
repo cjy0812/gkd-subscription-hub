@@ -74,8 +74,9 @@ app.post('/api/projects/:id/refresh', async (c) => {
 })
 app.get('/api/projects/:id/versions', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!(await get(c.env, id))) return bad('项目不存在', 404)
-  return json({ ok: true, versions: await listProjectVersions(c.env, id) })
+  const project = await get(c.env, id)
+  if (!project) return bad('项目不存在', 404)
+  return json({ ok: true, versions: await listProjectVersions(c.env, id, project) })
 })
 app.delete('/api/projects/:id', async (c) => {
   const id = Number(c.req.param('id'))

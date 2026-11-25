@@ -6,7 +6,10 @@
 
 - **Cloudflare Worker**：统一 HTTP 入口，承载管理 API、订阅分发、Webhook 和 Cron。
 - **SPA**：Vue 3 + Vite + Naive UI + Lucide；根路径 `/` 提供公共只读门户，`/admin/` 提供受保护管理页面，均由 Worker Static Assets 托管。
-- **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照、版本索引和 Webhook 冷却键。
+- **KV**：保存订阅项目索引、项目元数据、Explorer 扫描状态/目录快照和 Webhook 冷却键。
+- **D1**：保存订阅版本唯一索引、内容对象元数据、归档状态与每日 R2 读写预算；复合主键隔离相同订阅 ID 下不同仓库。
+- **R2**：保存 Gzip 压缩后的原始 JSON5 历史对象；以原始内容 SHA-256 寻址，相同字节只保存一份。Bucket 不公开，只有 Worker binding 可访问。
+- **Workers Cache**：缓存已校验的历史响应；缓存不是持久化来源，命中缓存不会访问 R2。
 - **代码托管 Provider**：当前通过 `src/services/providers.ts` 支持 GitHub、GitLab.com、Gitea.com 的公开仓库 Adapter；自托管实例尚未开放。
 - **版本与文件读取**：统一抽象仓库、默认分支、Commit、Tree、分支列表和文件内容；固定版本文件分发由 Adapter 生成 URL。Release/Tag 和通知事件的统一抽象仍待后续阶段。
 - **CI 状态**：GitHub Actions、GitLab Pipelines、Gitea Actions 运行记录统一映射到 `WorkflowRun`；工作流配置发现和 cron 解析仍仅支持 GitHub。
@@ -106,14 +109,17 @@ KV 不提供跨键事务或强一致锁。projects:index 与 project:{id} 分开
 - 管理端页面按复杂度逐步拆分，不按目录模板机械搬迁。
 - 重大跨模块决策写入 docs/adr/。
 
-## 订阅版本历史（Git-only）
+## 订阅版本历史（Cloudflare R2 + D1）
 
-- `gkd.version.json5` 是当前订阅版本元数据；版本号相同不会创建重复快照。
-- 扫描和刷新通过固定 Commit SHA 记录版本；刷新时先补录旧 Commit 的版本，再记录新版本。
-- 历史 URL 使用 `/<id>/v<version>/gkd.json5`；不通过当前分支或最新版回退伪造旧内容。
-- KV 仅保存小型版本索引；Git 固定 Commit SHA 与文件 Blob SHA 是唯一历史来源，读取时校验 SHA-256。
-- Worker 不绑定 R2、不写入 R2，也不提供任何 R2 归档 API，避免订阅服务因对象存储用量超额而产生额外费用。
-- 上游 Git 历史被删除或改写后，历史版本可能不可恢复；必须明确显示不可用，绝不以最新版冒充历史快照。
+- `gkd.version.json5` 是订阅版本元数据；普通 Git commit 不创建新版本。
+- 首次登记时，从上游 Provider 固定 Commit 读取 `gkd.json5` 原始字节；历史版本写入后，读取链路不再依赖 GitHub/GitLab/Gitea。
+- D1 的唯一键为 subscription ID + repository identity + version，解决 KV 最终一致性导致的同版本并发写入覆盖，也避免删除后用不同仓库重注册时串用旧历史。
+- 原始字节先计算 SHA-256，再使用 Gzip 压缩；R2 对象键由 SHA-256 决定，相同内容跨版本/订阅共用对象。
+- D1 保存对象原始大小、压缩大小、状态和 R2 key；归档容量由 D1 trigger 原子限制，默认 512 MiB。每日最多预留 500 个新对象、最多执行 500 次 R2 PUT、最多执行 50,000 次 R2 GET；预算耗尽时拒绝新增读写，不通过自动升级计划解决。
+- Worker 读取 R2 后解压，检查原始长度和 SHA-256，再返回原始 JSON5 字节；支持 ETag/304 和 Workers Cache。Cache 丢失后从 R2 恢复。
+- R2 Bucket 不开放公开访问、不配置生命周期删除规则；D1/R2 均使用独立 Preview 资源，避免 Preview 写入生产归档。
+- 旧 KV Git-only 快照在首次访问时尝试迁移；迁移前仍依赖旧 Provider。迁移失败会明确标记不可用，不会回退到最新版冒充历史内容。
+- 删除项目只移除项目元数据，不自动删除 D1/R2 历史对象；对象按内容去重共享，暂不做自动垃圾回收，优先保证历史持久性。
 
 ## GKD JSON5 预览器
 

@@ -2,6 +2,12 @@ import type { Env, Project } from '../types'
 import {
   getVersionSnapshot,
   listVersionSnapshots,
+  markArchiveObjectReady,
+  markVersionReady,
+  markVersionUnavailable,
+  consumeArchiveReadBudget,
+  consumeArchiveWriteBudget,
+  reserveArchiveObject,
   saveVersionSnapshot,
   type VersionSnapshot,
 } from '../storage/versions'
@@ -9,22 +15,19 @@ import { parseJson5 } from './json5'
 import { fetchProjectFile, readRepositoryFileAtRef } from './providers'
 
 const MAX_HISTORY_SNAPSHOT_BYTES = 20 * 1024 * 1024
+const MAX_COMPRESSED_SNAPSHOT_BYTES = 21 * 1024 * 1024
 
 export class HistorySnapshotTooLargeError extends Error {
   constructor(readonly byteLength: number) {
-    super(
-      '历史订阅文件超过 20 MB 安全读取上限（约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB）',
-    )
+    super('历史订阅文件超过 20 MB 安全读取上限（约 ' + (byteLength / 1024 / 1024).toFixed(1) + ' MB）')
     this.name = 'HistorySnapshotTooLargeError'
   }
 }
 
 function sha256(value: Uint8Array): Promise<string> {
-  return crypto.subtle
-    .digest('SHA-256', value.buffer as ArrayBuffer)
-    .then((digest) =>
-      [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
-    )
+  return crypto.subtle.digest('SHA-256', value).then((digest) =>
+    [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''),
+  )
 }
 
 export async function readBoundedSnapshotResponse(
@@ -33,46 +36,30 @@ export async function readBoundedSnapshotResponse(
 ): Promise<Uint8Array> {
   const declaredLength = Number(response.headers.get('content-length') || 0)
   if (declaredLength > maxBytes) {
-    try {
-      await response.body?.cancel()
-    } catch {
-      // A failed cancellation must not bypass the declared-size rejection.
-    }
+    try { await response.body?.cancel() } catch { /* Preserve the size rejection. */ }
     throw new HistorySnapshotTooLargeError(declaredLength)
   }
-
   if (!response.body) return new Uint8Array()
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let totalBytes = 0
-
   try {
     while (true) {
       const result = await reader.read()
       if (result.done) break
       totalBytes += result.value.byteLength
-      if (totalBytes > maxBytes) {
-        throw new HistorySnapshotTooLargeError(totalBytes)
-      }
+      if (totalBytes > maxBytes) throw new HistorySnapshotTooLargeError(totalBytes)
       chunks.push(result.value)
     }
   } catch (error) {
-    try {
-      await reader.cancel(error)
-    } catch {
-      // The stream may already have failed or canceled itself.
-    }
+    try { await reader.cancel(error) } catch { /* Stream already failed or canceled. */ }
     throw error
   } finally {
     reader.releaseLock()
   }
-
   const bytes = new Uint8Array(totalBytes)
   let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
   return bytes
 }
 
@@ -96,14 +83,9 @@ export async function readSubscriptionVersionAtRef(
   }
 }
 
-async function readGitSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
-  if (!Number.isSafeInteger(snapshot.fileSize) || snapshot.fileSize < 0) {
-    throw new Error('历史订阅文件大小元数据无效')
-  }
-  if (snapshot.fileSize > MAX_HISTORY_SNAPSHOT_BYTES) {
-    throw new HistorySnapshotTooLargeError(snapshot.fileSize)
-  }
-
+async function readSourceSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(snapshot.fileSize) || snapshot.fileSize < 0) throw new Error('历史订阅文件大小元数据无效')
+  if (snapshot.fileSize > MAX_HISTORY_SNAPSHOT_BYTES) throw new HistorySnapshotTooLargeError(snapshot.fileSize)
   const response = await fetchProjectFile(
     env,
     {
@@ -117,7 +99,74 @@ async function readGitSnapshot(env: Env, snapshot: VersionSnapshot): Promise<Uin
     { path: snapshot.filePath || 'gkd.json5', sha: snapshot.fileSha, size: snapshot.fileSize },
   )
   if (!response.ok) throw Error(`读取历史订阅文件失败：HTTP ${response.status}`)
-  return readBoundedSnapshotResponse(response)
+  const bytes = await readBoundedSnapshotResponse(response)
+  if (bytes.byteLength !== snapshot.fileSize) throw new Error('历史订阅文件大小与固定版本元数据不一致')
+  return bytes
+}
+
+async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([bytes.slice().buffer]).stream().pipeThrough(new CompressionStream('gzip'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+  return readBoundedSnapshotResponse(new Response(stream))
+}
+
+async function archiveSnapshot(
+  env: Env,
+  snapshot: VersionSnapshot,
+  bytes: Uint8Array,
+): Promise<VersionSnapshot> {
+  const hash = await sha256(bytes)
+  const compressed = await gzip(bytes)
+  const key = `objects/${hash.slice(0, 2)}/${hash}.json5.gz`
+  const reserved = await reserveArchiveObject(env, {
+    contentSha256: hash,
+    objectKey: key,
+    originalSize: bytes.byteLength,
+    compressedSize: compressed.byteLength,
+    status: 'pending',
+  })
+  if (reserved.status !== 'ready') {
+    // A deterministic content-addressed key makes retrying the same immutable bytes idempotent.
+    await consumeArchiveWriteBudget(env)
+    await env.ARCHIVE.put(reserved.objectKey, compressed, {
+      httpMetadata: { contentType: 'application/gzip' },
+      customMetadata: { sha256: hash, originalSize: String(bytes.byteLength) },
+    })
+    await markArchiveObjectReady(env, hash)
+  }
+  await markVersionReady(env, snapshot, hash, reserved.objectKey, reserved.compressedSize, bytes.byteLength)
+  return {
+    ...snapshot,
+    archiveStatus: 'r2',
+    contentSha256: hash,
+    objectKey: reserved.objectKey,
+    compressedSize: reserved.compressedSize,
+    archiveError: undefined,
+  }
+}
+
+export async function archiveHistoricalSnapshot(
+  env: Env,
+  legacySnapshot: VersionSnapshot,
+): Promise<VersionSnapshot> {
+  const expectedLegacyHash = legacySnapshot.contentSha256
+  const snapshot = await saveVersionSnapshot(env, legacySnapshot)
+  if (snapshot.archiveStatus === 'r2' && snapshot.objectKey) return snapshot
+  try {
+    const bytes = await readSourceSnapshot(env, snapshot)
+    if (expectedLegacyHash && (await sha256(bytes)) !== expectedLegacyHash) {
+      throw new Error('历史源文件 SHA-256 与已登记内容不一致')
+    }
+    return await archiveSnapshot(env, snapshot, bytes)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '历史订阅归档失败'
+    await markVersionUnavailable(env, snapshot, message)
+    return { ...snapshot, archiveStatus: 'unavailable', archiveError: message }
+  }
 }
 
 export async function recordSubscriptionVersion(
@@ -126,34 +175,12 @@ export async function recordSubscriptionVersion(
 ): Promise<VersionSnapshot | null> {
   const version = project.subscriptionVersion
   if (!version || !project.commitSha) return null
-  const existing = await getVersionSnapshot(env, project.id, version)
-  if (existing) {
-    if (existing.archiveStatus === 'git-only' && existing.contentSha256) return existing
-    try {
-      const bytes = await readGitSnapshot(env, existing)
-      const recovered: VersionSnapshot = {
-        ...existing,
-        archiveStatus: 'git-only',
-        contentSha256: await sha256(bytes),
-        archiveError: undefined,
-      }
-      await saveVersionSnapshot(env, recovered)
-      return recovered
-    } catch (error) {
-      const unavailable: VersionSnapshot = {
-        ...existing,
-        archiveStatus: 'unavailable',
-        contentSha256: undefined,
-        archiveError: error instanceof Error ? error.message : '读取历史订阅文件失败',
-      }
-      await saveVersionSnapshot(env, unavailable)
-      return unavailable
-    }
-  }
+  const existing = await getVersionSnapshot(env, project.id, version, project)
+  if (existing?.archiveStatus === 'r2' && existing.contentSha256 && existing.objectKey) return existing
+  if (existing) return archiveHistoricalSnapshot(env, existing)
 
   const file = project.distFiles.find((item) => item.path.toLowerCase() === 'gkd.json5')
   if (!file) return null
-
   const snapshot: VersionSnapshot = {
     id: project.id,
     version,
@@ -168,31 +195,42 @@ export async function recordSubscriptionVersion(
     filePath: file.path,
     fileSize: file.size,
     createdAt: new Date().toISOString(),
-    archiveStatus: 'git-only',
+    archiveStatus: 'pending',
   }
-
+  const winner = await saveVersionSnapshot(env, snapshot)
+  if (winner.archiveStatus === 'r2' && winner.objectKey) return winner
   try {
-    const bytes = await readGitSnapshot(env, snapshot)
-    snapshot.contentSha256 = await sha256(bytes)
+    const bytes = await readSourceSnapshot(env, winner)
+    return await archiveSnapshot(env, winner, bytes)
   } catch (error) {
-    snapshot.archiveStatus = 'unavailable'
-    snapshot.archiveError = error instanceof Error ? error.message : '读取历史订阅文件失败'
+    const message = error instanceof Error ? error.message : '历史订阅归档失败'
+    await markVersionUnavailable(env, winner, message)
+    return { ...winner, archiveStatus: 'unavailable', archiveError: message }
   }
-  await saveVersionSnapshot(env, snapshot)
-  return snapshot
 }
 
 export async function readVersionContent(env: Env, snapshot: VersionSnapshot): Promise<Uint8Array> {
-  if (snapshot.archiveStatus !== 'git-only' || !snapshot.contentSha256) {
-    throw Error('历史快照缺少有效的 SHA-256 校验值，拒绝返回未校验内容')
+  if (snapshot.archiveStatus !== 'r2' || !snapshot.contentSha256 || !snapshot.objectKey) {
+    throw new Error(snapshot.archiveError || '历史版本尚未完成 R2 归档')
   }
-  const bytes = await readGitSnapshot(env, snapshot)
-  if ((await sha256(bytes)) !== snapshot.contentSha256) {
-    throw Error('Git 历史快照校验失败')
+  await consumeArchiveReadBudget(env)
+  const object = await env.ARCHIVE.get(snapshot.objectKey)
+  if (!object) throw new Error('R2 历史归档对象不存在')
+  if (object.size > MAX_COMPRESSED_SNAPSHOT_BYTES) throw new Error('R2 压缩对象超过安全读取上限')
+  if (object.customMetadata?.sha256 !== snapshot.contentSha256) {
+    throw new Error('R2 对象元数据校验失败')
+  }
+  const compressed = await readBoundedSnapshotResponse(
+    new Response(object.body),
+    MAX_COMPRESSED_SNAPSHOT_BYTES,
+  )
+  const bytes = await gunzip(compressed)
+  if (bytes.byteLength !== snapshot.fileSize || (await sha256(bytes)) !== snapshot.contentSha256) {
+    throw new Error('R2 历史归档完整性校验失败')
   }
   return bytes
 }
 
-export async function listProjectVersions(env: Env, id: number) {
-  return listVersionSnapshots(env, id)
+export async function listProjectVersions(env: Env, id: number, project: Project) {
+  return listVersionSnapshots(env, id, project)
 }

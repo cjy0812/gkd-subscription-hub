@@ -79,7 +79,7 @@ Fluent-inspired 设计参数集中在 `apps/admin/src/styles/tokens.css`。Naive
 
 - **运行与包管理**：Bun（依赖管理、脚本、工作区）；Cloudflare Worker 仍运行在 workerd，不运行在 Bun runtime。
 - **前端**：Vue 3、Vite、Naive UI、Vue Router、`@lucide/vue`。业务状态继续使用 Composition API，不额外引入 Pinia。
-- **后端**：Cloudflare Workers、Hono、KV；历史订阅只通过 Git 固定 Commit 追溯；不配置 R2、不执行对象存储读写。
+- **后端**：Cloudflare Workers、Hono、KV、D1、R2；KV 保存项目索引，D1 保存版本/对象元数据与配额计数，R2 保存 Gzip 压缩后的不可变历史文件。
 - **质量工具**：Biome（格式化与 Lint，含实验性 Vue SFC 支持）、vue-tsc（Vue SFC 类型检查）、Vitest。
 - **内容处理**：markdown-it + sanitize-html（HTML allowlist 清理）+ highlight.js；GKD JSON5 使用 `@gkd-kit/api` 与 `json5`，并在专用 Web Worker 中解析。
 
@@ -133,7 +133,7 @@ bun install --frozen-lockfile
 
 ### 2. Cloudflare 资源
 
-为 Worker 创建独立 KV namespace，并将 namespace ID 配置到 `wrangler.jsonc`。部署者应使用自己 Cloudflare 账户中的 namespace ID。初次部署可使用 `workers.dev`，自定义域名为可选配置。
+为 Worker 配置独立 KV namespace、D1 数据库和私有 R2 Bucket，并将资源 ID/名称配置到 `wrangler.jsonc`。D1 migration 位于 `migrations/`；先对 Preview 数据库执行 `bun run db:migrate:preview`，验收后再执行 `bun run db:migrate:remote` 对生产数据库应用迁移。R2 不启用公开 Bucket 域名，只通过 Worker binding 访问。Workers Preview 使用独立的 `gkd-subscription-hub-preview` Worker 环境、Preview KV/D1/R2，不能连接生产归档。
 
 ### 3. 配置 Worker Secrets
 
@@ -212,7 +212,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 项目 `dist/` 目录列出当前文件和历史版本。主订阅 URL 始终保持 `/<id>/gkd.json5`，历史版本采用 `/<id>/v<version>/gkd.json5`。版本号来自 `dist/gkd.version.json5`；普通 commit 不自动产生一个新版本。
 
-历史版本只使用 Git 固定 Commit SHA 和文件 Blob SHA 追溯，并在读取时校验 SHA-256。项目不绑定 R2 Bucket、不创建 R2 对象，也不提供 R2 归档入口。Git 上游删除或改写历史时，快照可能不可恢复；此时明确标记不可用，不使用最新版冒充历史版本。
+历史版本使用 `/<id>/v<version>/gkd.json5`。首次登记时从 Provider 固定 Commit 读取原始字节，计算 SHA-256，使用 Gzip 压缩后写入 Cloudflare R2；D1 以订阅 ID + 仓库身份 + 版本号建立唯一索引，并按内容 SHA-256 对象去重。后续历史读取只依赖 D1 + R2，不再请求 GitHub/GitLab/Gitea。旧 KV Git-only 快照会在首次访问时尝试迁移到 R2；迁移完成后源仓库不再是历史读取依赖。
 
 ## GKD Rules Explorer
 
@@ -230,7 +230,7 @@ CI/CD 自动化、Cloudflare Preview、数据隔离和手动发布方式见 [CI/
 
 ## 安全与数据
 
-KV 保存项目索引和元数据；订阅文件按 Provider 固定版本读取，当前支持 GitHub、GitLab.com、Gitea.com 公开仓库。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；当前通知入口仍仅识别已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。GitLab/Gitea Webhook 接入尚未实现。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
+KV 保存项目索引和元数据；新版本采集仍从 Provider 固定 Commit 读取一次，随后历史文件持久化在 Cloudflare R2，历史读取不再依赖 GitHub/GitLab/Gitea。D1 保存版本索引、内容去重映射和配额计数。管理密码、GitHub Token 和 `NOTIFY_TOKEN` 使用 Worker Secrets。Worker 不修改上游仓库。Webhook 只是加速触发机制，Cron 每 6 小时轮询仍是主机制；当前通知入口仍仅识别已登记的 GitHub 仓库，并在 Worker 端重新扫描上游，不信任通知负载中的版本信息。GitLab/Gitea Webhook 接入尚未实现。配置 `NOTIFY_TOKEN` 后，调用方需使用 `Authorization: Bearer <NOTIFY_TOKEN>`，JSON 请求体格式为 `{"provider":"github","repository":"owner/repo"}`。KV 冷却键仅为尽力而为的去重，不作为强一致限流或安全边界。
 
 ## 工程与贡献
 
