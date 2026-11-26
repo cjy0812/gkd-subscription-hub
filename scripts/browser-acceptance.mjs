@@ -573,6 +573,7 @@ try {
       textareaWheelTarget.isTextarea,
       `wheel event must originate over raw JSON5 textarea, got ${JSON.stringify(textareaWheelTarget)}`,
     )
+    await rawTextarea.focus()
     await previewPage.mouse.move(textareaWheelX, textareaWheelY)
     for (let attempt = 0; attempt < 3; attempt += 1) {
       await previewPage.mouse.wheel(0, 700)
