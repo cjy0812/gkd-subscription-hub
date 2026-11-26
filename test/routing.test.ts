@@ -528,6 +528,7 @@ describe('top-level routing', () => {
       put: vi.fn(async () => undefined),
     }
     vi.stubGlobal('caches', { open: vi.fn(async () => cache) })
+    vi.mocked(context.waitUntil).mockClear()
 
     const response = await worker.fetch(
       new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
