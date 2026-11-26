@@ -466,7 +466,7 @@ try {
       filler.textContent = 'browser acceptance vertical scroll fixture'
       card.append(filler)
       const spacer = document.createElement('div')
-      spacer.style.height = '600px'
+      spacer.style.height = '2000px'
       document.body.append(spacer)
     })
     assert.equal(
