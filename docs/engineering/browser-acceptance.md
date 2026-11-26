@@ -104,3 +104,22 @@
 - 每个目标视口均生成截图并上传 Actions artifact。
 
 **验收边界：** 本次使用真实 Chromium 浏览器进程与模拟触摸/滚轮事件，API 数据来自固定 fixture。滚动链检查会将页面卡片放入独立外层滚动容器以验证嵌套滚动行为，不把它描述为实体设备或生产数据人工验收；尚未覆盖实体 Android/iOS、Firefox、Safari，也未对生产 D1/R2 或真实订阅数据执行写入。真实大型订阅深层滚动与实体触摸设备仍是后续专项验收项。
+
+## PR #42 托管平台 Logo 浏览器验收
+
+- 日期：2026-11-26
+- 验收提交：`da21522d9800a4fba9ee16bcfb71b59554cb7a38`
+- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45769577618>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45769577618/artifacts/15093083247>
+- 浏览器：Playwright 驱动的 Chromium headless
+- 数据：固定 fixture，不访问生产项目数据
+- 结果：Format、Lint、TypeScript、Vitest、Admin Build、Chromium Browser Acceptance 全部通过。
+
+### 覆盖范围
+
+- 项目列表桌面表格与移动卡片均检查 Provider Logo。
+- 检查 GitHub Logo 的 `alt` 可访问名称及图片 `naturalWidth > 0`，确认资源实际加载而非仅有占位 DOM。
+- 使用 Vite `BASE_URL` 构造资源路径，验证 Admin 部署子路径。
+- 沿用 PR #40 浏览器验收的 320/768/1024/1440 px 视口矩阵；每个视口生成截图并上传 Actions artifact。
+
+**验收边界：** 此次实际 Chromium 验收覆盖 GitHub fixture 的 Logo 加载与响应式布局；GitLab/Gitea 的图像资源由本地静态文件提供，但当前浏览器脚本没有分别加载这两个 provider fixture。测试不替代实体 Android/iOS、真实生产项目数据或人工视觉验收。
