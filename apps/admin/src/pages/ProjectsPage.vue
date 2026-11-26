@@ -38,7 +38,7 @@ function normalizedProvider(provider: string | undefined) {
 function providerLogo(provider: string | undefined) {
   const normalized = normalizedProvider(provider)
   const name = normalized === 'gitlab' || normalized === 'gitea' ? normalized : 'github'
-  return `/admin/provider-logos/${name}.svg`
+  return `${import.meta.env.BASE_URL}provider-logos/${name}.svg`
 }
 function providerName(provider: string | undefined) {
   switch (normalizedProvider(provider)) {
