@@ -513,6 +513,17 @@ try {
       await previewCard.evaluate((element) => getComputedStyle(element).overscrollBehaviorY),
       'auto',
     )
+    await rawTextarea.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const rawTextareaScrollTop = await rawTextarea.evaluate((element) => element.scrollTop)
+    const rawTextareaMaxScroll = await rawTextarea.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    )
+    assert.ok(
+      rawTextareaScrollTop >= rawTextareaMaxScroll - 1,
+      `raw JSON5 textarea must reach its vertical edge at ${width}px`,
+    )
     await scrollHost.evaluate((element) => {
       element.scrollTop = 0
     })
@@ -522,12 +533,18 @@ try {
     const wheelX = cardBounds.x + Math.min(12, cardBounds.width / 2)
     const wheelY = Math.max(2, Math.min(cardBounds.y + 2, 898))
     const wheelTarget = await previewPage.evaluate(
-      ({ x, y }) => document.elementFromPoint(x, y)?.closest('.preview-content')?.className,
+      ({ x, y }) => {
+        const target = document.elementFromPoint(x, y)
+        return {
+          targetClass: target?.className,
+          cardClass: target?.closest('.preview-content')?.className,
+        }
+      },
       { x: wheelX, y: wheelY },
     )
     assert.ok(
-      String(wheelTarget).includes('preview-content'),
-      `wheel event must target preview card, got ${String(wheelTarget)}`,
+      String(wheelTarget.cardClass).includes('preview-content'),
+      `wheel event must target preview card, got ${JSON.stringify(wheelTarget)}`,
     )
     await previewPage.mouse.move(wheelX, wheelY)
     await previewPage.mouse.wheel(0, 700)
@@ -535,7 +552,7 @@ try {
     const afterOuterScroll = await scrollHost.evaluate((element) => element.scrollTop)
     assert.ok(
       afterOuterScroll > beforeOuterScroll,
-      `outer scroll host must continue scrolling after preview card reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}`,
+      `outer scroll host must continue scrolling after nested content reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}, rawTextarea=${rawTextareaScrollTop}/${rawTextareaMaxScroll}, target=${JSON.stringify(wheelTarget)}`,
     )
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
