@@ -614,5 +614,34 @@ describe('top-level routing', () => {
       ok: false,
       error: '订阅文件不存在',
     })
+
+    const unknownBrowserResponse = await worker.fetch(
+      new Request('https://gkd.example.com/999/gkd.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(unknownBrowserResponse.status).toBe(404)
+    expect(unknownBrowserResponse.headers.get('content-type')).toContain('text/html')
+    expect(await unknownBrowserResponse.text()).toContain('订阅源不存在或尚未登记')
+
+    const unknownRawResponse = await worker.fetch(
+      new Request('https://gkd.example.com/999/gkd.json5?raw=1', {
+        headers: { accept: 'application/json5' },
+      }),
+      env,
+      context,
+    )
+    expect(unknownRawResponse.status).toBe(404)
+    expect(unknownRawResponse.headers.get('content-type')).toContain('application/json')
+    expect(await unknownRawResponse.json()).toMatchObject({
+      ok: false,
+      error: '订阅源不存在或尚未登记',
+    })
   })
 })
