@@ -327,6 +327,10 @@ try {
       width <= 760,
       `mobile project cards mismatch at ${width}px`,
     )
+    if (width > 760) {
+      assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
+      assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
+    }
     if (width <= 760) {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
       await projectCheckbox.waitFor({ state: 'visible' })
