@@ -314,7 +314,11 @@ try {
       return route.continue()
     })
     await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
-    await projectsPage.getByText('ID 233', { exact: true }).waitFor()
+    if (width <= 760) {
+      await projectsPage.getByText('ID 233', { exact: true }).waitFor()
+    } else {
+      await projectsPage.getByText(/订阅 ID 233/).waitFor()
+    }
     const desktopTable = projectsPage.locator('.desktop-table')
     const mobileCards = projectsPage.locator('.mobile-project-list')
     assert.equal(
@@ -330,6 +334,9 @@ try {
     if (width > 760) {
       assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
       assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
+      const providerMark = projectsPage.locator('.desktop-table .provider-mark')
+      await providerMark.waitFor({ state: 'visible' })
+      assert.equal(await providerMark.getAttribute('aria-label'), '托管平台：GitHub')
     }
     if (width <= 760) {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
@@ -341,6 +348,9 @@ try {
         await repoLink.locator('.provider-mark').getAttribute('aria-label'),
         '托管平台：GitHub',
       )
+      for (const label of ['刷新', '复制', '目录', '删除']) {
+        await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+      }
     }
     const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
