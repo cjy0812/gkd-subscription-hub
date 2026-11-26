@@ -443,7 +443,8 @@ try {
     const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
     const rawSource =
       '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\n' +
-      '// multiline scroll fixture\n'.repeat(12000)
+      'x'.repeat(24000) +
+      '\n// multiline scroll fixture\n'.repeat(12000)
     await previewPage.route('**/233/**', (route) => {
       const requestUrl = new URL(route.request().url())
       if (requestUrl.searchParams.get('raw') === '1') {
