@@ -500,6 +500,7 @@ try {
       (element) => getComputedStyle(element).overscrollBehaviorY,
     )
     assert.equal(cardOverscrollBehavior, 'auto')
+    await previewCard.scrollIntoViewIfNeeded()
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     const cardBounds = await previewCard.boundingBox()
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
