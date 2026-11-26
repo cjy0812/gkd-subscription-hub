@@ -77,9 +77,9 @@
 ## PR #40 管理端缺陷修复验收（最新）
 
 - 日期：2026-11-26
-- 验收提交：`f48e5c6f57b2fc08631e5a488d63d65120dbfcda`
-- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45732757365>
-- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45732757365/artifacts/15076314818>
+- 验收提交：`e9edde402a61f0bc45d7364793fb8af4eeaf6028`
+- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45733612295>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45733612295/artifacts/15077049767>
 - 浏览器：Playwright 1.56.1 驱动的 Chromium headless
 - 数据：固定 fixture API；不读取或修改生产订阅数据
 - 结果：Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Browser Acceptance 全部通过

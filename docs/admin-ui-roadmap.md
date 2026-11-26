@@ -208,7 +208,7 @@
 - [x] 移动端操作按钮提供可见文字；列表布局和外链图标完成调整。
 - [x] 移动导航限制在 24px 左边缘触发；横向可滚动区域不触发抽屉，touchcancel 清理状态。
 - [x] 预览页 canonical 返回路径、内部滚动与页面滚动传递完成修复。
-- [x] Playwright Chromium 已验收 320/768/1024/1440px；CI run 45732757365 全部通过，明细见 [浏览器验收记录](engineering/browser-acceptance.md)。
+- [x] Playwright Chromium 已验收 320/768/1024/1440px；CI run 45733612295 全部通过，明细见 [浏览器验收记录](engineering/browser-acceptance.md)。
 - [x] PR Review 线程已逐项回复并全部解决。
 - [ ] 正式 GitHub/GitLab/Gitea Logo、实体 Android/iOS 验收、真实大型订阅数据验收和历史目录/404 专项仍为后续任务。
 
