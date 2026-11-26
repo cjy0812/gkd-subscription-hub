@@ -13,11 +13,29 @@ const router = useRouter()
 const showMobileNav = ref(false)
 let edgeTouchStart: { x: number; y: number } | null = null
 
+function startsInHorizontalScroller(target: EventTarget | null) {
+  let element = target instanceof Element ? target : null
+  while (element && element !== document.documentElement) {
+    const style = window.getComputedStyle(element)
+    const canScrollHorizontally = style.overflowX === 'auto' || style.overflowX === 'scroll'
+    if (canScrollHorizontally && element.scrollWidth > element.clientWidth) return true
+    element = element.parentElement
+  }
+  return false
+}
+
 function onTouchStart(event: TouchEvent) {
   const touch = event.changedTouches[0]
-  // Keep the gesture start zone narrow so horizontal content scrollers do not
-  // accidentally trigger the navigation drawer.
+  // Do not steal horizontal gestures from a scrollable content region.
+  if (startsInHorizontalScroller(event.target)) {
+    edgeTouchStart = null
+    return
+  }
+  // Keep the drawer gesture start zone narrow and predictable.
   edgeTouchStart = touch && touch.clientX <= 24 ? { x: touch.clientX, y: touch.clientY } : null
+}
+function onTouchCancel() {
+  edgeTouchStart = null
 }
 function onTouchEnd(event: TouchEvent) {
   if (!edgeTouchStart) return
@@ -32,10 +50,12 @@ function onTouchEnd(event: TouchEvent) {
 onMounted(() => {
   window.addEventListener('touchstart', onTouchStart, { passive: true })
   window.addEventListener('touchend', onTouchEnd, { passive: true })
+  window.addEventListener('touchcancel', onTouchCancel, { passive: true })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('touchstart', onTouchStart)
   window.removeEventListener('touchend', onTouchEnd)
+  window.removeEventListener('touchcancel', onTouchCancel)
 })
 
 const menuIcon = (name: 'layout-dashboard' | 'folder' | 'file-text' | 'activity' | 'search') => () =>
