@@ -546,7 +546,6 @@ describe('top-level routing', () => {
     expect(context.waitUntil).toHaveBeenCalled()
   })
 
-
   it('returns browser-friendly HTML 404 while keeping raw subscription errors structured', async () => {
     const project = {
       id: 233,
