@@ -501,7 +501,11 @@ try {
     )
     assert.equal(cardOverscrollBehavior, 'auto')
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
-    await previewPage.locator('.preview-content').hover()
+    const cardBounds = await previewCard.boundingBox()
+    assert.ok(cardBounds, 'preview card must have a browser bounding box')
+    // Aim at the card border rather than the nested textarea/filler so the
+    // wheel gesture starts on the actual scroll container.
+    await previewPage.mouse.move(cardBounds.x + 2, cardBounds.y + 2)
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
     const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
