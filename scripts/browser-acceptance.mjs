@@ -459,6 +459,12 @@ try {
     await rawTextarea.waitFor({ state: 'visible' })
     const previewCard = previewPage.locator('.preview-content')
     await previewPage.evaluate(() => {
+      const card = document.querySelector('.preview-content')
+      if (!card) throw new Error('missing preview card')
+      const filler = document.createElement('div')
+      filler.style.height = '1200px'
+      filler.textContent = 'browser acceptance vertical scroll fixture'
+      card.append(filler)
       const spacer = document.createElement('div')
       spacer.style.height = '600px'
       document.body.append(spacer)
@@ -475,9 +481,15 @@ try {
       await rawTextarea.evaluate((element) => element.scrollLeft > 0),
       `raw JSON5 horizontal scrolling unavailable at ${width}px`,
     )
+    const cardOverflows = await previewCard.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    )
+    assert.ok(cardOverflows, `preview card must overflow vertically at ${width}px`)
     await previewCard.evaluate((element) => {
       element.scrollTop = element.scrollHeight
     })
+    const cardScrollTop = await previewCard.evaluate((element) => element.scrollTop)
+    assert.ok(cardScrollTop > 0, `preview card must scroll internally at ${width}px`)
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     await previewPage.locator('.preview-content').hover()
     await previewPage.mouse.wheel(0, 700)
