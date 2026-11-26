@@ -158,7 +158,7 @@ app.all('*', async (c) => {
     // Workers expose the shared Cache API as caches.default; named caches.open()
     // is a browser API and throws in the deployed Worker runtime. Cache failures
     // must never prevent an immutable historical file from being served.
-    const cache = typeof caches === 'undefined' ? undefined : caches.default
+    const cache = typeof caches === 'undefined' ? undefined : (caches as CacheStorage & { default?: Cache }).default
     if (req.method === 'GET' && cache) {
       try {
         const cached = await cache.match(cacheKey)
