@@ -458,6 +458,23 @@ try {
     const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
     await rawTextarea.waitFor({ state: 'visible' })
     const previewCard = previewPage.locator('.preview-content')
+    const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(
+      pageWidth <= width + 1,
+      `preview page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
+    await previewPage.screenshot({
+      path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
+      fullPage: true,
+    })
+    assert.ok(await rawTextarea.inputValue().then((value) => value.length > 20000))
+    await rawTextarea.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth
+    })
+    assert.ok(
+      await rawTextarea.evaluate((element) => element.scrollLeft > 0),
+      `raw JSON5 horizontal scrolling unavailable at ${width}px`,
+    )
     await previewPage.evaluate(() => {
       const card = document.querySelector('.preview-content')
       if (!card?.parentElement) throw new Error('missing preview card fixture')
@@ -489,14 +506,6 @@ try {
     assert.equal(
       await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
       'auto',
-    )
-    assert.ok(await rawTextarea.inputValue().then((value) => value.length > 20000))
-    await rawTextarea.evaluate((element) => {
-      element.scrollLeft = element.scrollWidth
-    })
-    assert.ok(
-      await rawTextarea.evaluate((element) => element.scrollLeft > 0),
-      `raw JSON5 horizontal scrolling unavailable at ${width}px`,
     )
     const cardOverflows = await previewCard.evaluate(
       (element) => element.scrollHeight > element.clientHeight,
@@ -568,15 +577,6 @@ try {
       afterOuterScroll > beforeOuterScroll,
       `outer scroll host must continue scrolling after nested content reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}, rawTextarea=${rawTextareaScrollTop}/${rawTextareaMaxScroll}, target=${JSON.stringify(wheelTarget)}, outer=${JSON.stringify(outerDiagnostics)}`,
     )
-    const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
-    assert.ok(
-      pageWidth <= width + 1,
-      `preview page horizontal overflow at ${width}px: ${pageWidth}px`,
-    )
-    await previewPage.screenshot({
-      path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
-      fullPage: true,
-    })
     console.log(
       `PASS SubscriptionPreviewPage viewport ${width}px (raw content, internal scroll, no horizontal page overflow)`,
     )
