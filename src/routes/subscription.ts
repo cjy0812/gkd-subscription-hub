@@ -47,6 +47,24 @@ async function previewApp(req: Request, assets: Fetcher) {
   })
 }
 
+function notFoundResponse(req: Request, message: string) {
+  if (!wantsHtml(req)) return bad(message, 404)
+  const response = new Response(
+    documentPage('404 · GKD 订阅', `<h1>404</h1><p>${escapeHtml(message)}</p>`),
+    {
+      status: 404,
+      headers: {
+        'content-type': 'text/html;charset=utf-8',
+        'cache-control': 'no-store',
+        ...htmlPreviewSecurityHeaders,
+      },
+    },
+  )
+  return req.method === 'HEAD'
+    ? new Response(null, { status: response.status, headers: response.headers })
+    : response
+}
+
 function directory(project: Project, versions: Awaited<ReturnType<typeof listVersionSnapshots>>) {
   const rows = project.distFiles
     .slice()
@@ -55,7 +73,7 @@ function directory(project: Project, versions: Awaited<ReturnType<typeof listVer
       const path = file.path.split('/').map(encodeURIComponent).join('/')
       const type = mime(file.path).split(';', 1)[0]
       const href = `/${project.id}/${path}`
-      return `<tr><td><a href="${href}">${escapeHtml(file.path)}</a></td><td>${escapeHtml(type)}</td><td>${file.size.toLocaleString()} bytes</td></tr>`
+      return `<tr><td><a href="${href}">${escapeHtml(file.path)}</a></td><td class="file-type">${escapeHtml(type)}</td><td class="file-size">${file.size.toLocaleString()} bytes</td></tr>`
     })
     .join('')
   const historyRows = versions
@@ -126,7 +144,7 @@ app.all('*', async (c) => {
       }
       snapshot = lookup.snapshot
     }
-    if (!snapshot) return bad('Historical version not found', 404)
+    if (!snapshot) return notFoundResponse(req, '历史版本不存在或尚未登记')
 
     if (wantsHtml(req) && url.searchParams.get('raw') !== '1') return previewApp(req, c.env.ASSETS)
 
@@ -199,7 +217,7 @@ app.all('*', async (c) => {
 
   if (!path) {
     const project = await get(c.env, Number(id))
-    if (!project) return bad('Subscription not registered', 404)
+    if (!project) return notFoundResponse(req, '订阅源不存在或尚未登记')
     const versions = await listVersionSnapshots(c.env, Number(id), project)
     const html = directory(project, versions)
     const response = new Response(html, {
@@ -226,7 +244,7 @@ app.all('*', async (c) => {
     return bad('Not found', 404)
 
   const file = project.distFiles.find((item) => item.path === path)
-  if (!file) return bad('File not found', 404)
+  if (!file) return notFoundResponse(req, '订阅文件不存在')
   if (wantsHtml(req) && url.searchParams.get('raw') !== '1' && /\.json5$/i.test(path))
     return previewApp(req, c.env.ASSETS)
 
