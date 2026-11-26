@@ -523,10 +523,6 @@ describe('top-level routing', () => {
         })),
       } as unknown as R2Bucket,
     })
-    const cache = {
-      match: vi.fn(async () => undefined),
-      put: vi.fn(async () => undefined),
-    }
     const waitUntil = vi.fn()
     const requestContext = { waitUntil } as unknown as ExecutionContext
     const scenarios = ['open', 'match', 'put'] as const
