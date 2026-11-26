@@ -440,6 +440,11 @@ try {
     const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
     await rawTextarea.waitFor({ state: 'visible' })
     const previewCard = previewPage.locator('.preview-content')
+    await previewPage.evaluate(() => {
+      const spacer = document.createElement('div')
+      spacer.style.height = '600px'
+      document.body.append(spacer)
+    })
     assert.equal(
       await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
       'auto',
