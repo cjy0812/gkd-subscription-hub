@@ -232,7 +232,7 @@ app.all('*', async (c) => {
       : response
   }
   const project = await get(c.env, Number(id))
-  if (!project) return bad('Subscription not registered', 404)
+  if (!project) return notFoundResponse(req, '订阅源不存在或尚未登记')
   if (!path) return bad('Not found', 404)
   if (
     path
