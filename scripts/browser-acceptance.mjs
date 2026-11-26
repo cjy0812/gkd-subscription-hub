@@ -496,13 +496,16 @@ try {
         behavior: 'instant',
       })
     })
-    await previewCard.evaluate((element) => {
-      element.scrollTop = element.scrollHeight
-    })
+    const initialCardBounds = await previewCard.boundingBox()
+    assert.ok(initialCardBounds, 'preview card must have a browser bounding box')
+    await previewPage.mouse.move(initialCardBounds.x + 2, initialCardBounds.y + 2)
+    await previewPage.mouse.wheel(0, 1600)
+    await previewPage.waitForTimeout(100)
     const cardScrollTop = await previewCard.evaluate((element) => element.scrollTop)
     const maxCardScroll = await previewCard.evaluate(
       (element) => element.scrollHeight - element.clientHeight,
     )
+    assert.ok(cardScrollTop > 0, `preview card must scroll internally at ${width}px`)
     assert.ok(
       cardScrollTop >= maxCardScroll - 1,
       `preview card must reach its scroll edge at ${width}px`,
@@ -515,9 +518,17 @@ try {
       .locator('#app')
       .evaluate((element) => element.scrollTop)
     const cardBounds = await previewCard.boundingBox()
-    assert.ok(cardBounds, 'preview card must have a browser bounding box')
-    // Aim at the card border rather than the nested textarea/filler so the
-    // wheel gesture starts on the actual scroll container.
+    assert.ok(cardBounds, 'preview card must remain measurable after internal scrolling')
+    const wheelX = cardBounds.x + 2
+    const wheelY = Math.max(2, Math.min(cardBounds.y + 2, 898))
+    const wheelTargetBefore = await previewPage.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.className,
+      { x: wheelX, y: wheelY },
+    )
+    assert.ok(
+      String(wheelTargetBefore).includes('preview-content'),
+      `second wheel gesture must target preview card, got ${String(wheelTargetBefore)}`,
+    )
     await previewPage.evaluate(() => {
       window.__wheelDebug = null
       document.addEventListener(
@@ -532,9 +543,9 @@ try {
         { once: true },
       )
     })
-    await previewPage.mouse.move(cardBounds.x + 2, cardBounds.y + 2)
+    await previewPage.mouse.move(wheelX, wheelY)
     await previewPage.mouse.wheel(0, 700)
-    await previewPage.waitForTimeout(100)
+    await previewPage.waitForTimeout(150)
     const afterPageScroll = await previewPage
       .locator('#app')
       .evaluate((element) => element.scrollTop)
@@ -542,25 +553,20 @@ try {
       const app = document.querySelector('#app')
       const card = document.querySelector('.preview-content')
       return {
-        documentHeight: document.documentElement.scrollHeight,
-        documentClientHeight: document.documentElement.clientHeight,
-        bodyHeight: document.body.scrollHeight,
-        bodyOverflowY: getComputedStyle(document.body).overflowY,
         appHeight: app?.scrollHeight,
         appClientHeight: app?.clientHeight,
         appScrollTop: app?.scrollTop,
         appOverflowY: app ? getComputedStyle(app).overflowY : 'missing',
+        cardScrollTop: card?.scrollTop,
+        cardScrollHeight: card?.scrollHeight,
+        cardClientHeight: card?.clientHeight,
         cardOverscrollBehavior: card ? getComputedStyle(card).overscrollBehaviorY : 'missing',
       }
     })
     Object.assign(scrollDiagnostics, {
       beforePageScroll,
       afterPageScroll,
-      cardBounds,
-      wheelTarget: await previewPage.evaluate(
-        ({ x, y }) => document.elementFromPoint(x, y)?.className,
-        { x: cardBounds.x + 2, y: cardBounds.y + 2 },
-      ),
+      wheelTargetBefore,
       wheelDebug: await previewPage.evaluate(() => window.__wheelDebug),
     })
     assert.ok(
