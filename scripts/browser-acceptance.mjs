@@ -442,7 +442,8 @@ try {
   for (const width of [320, 768, 1024, 1440]) {
     const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
     const rawSource =
-      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\n' + 'x'.repeat(24000)
+      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\n' +
+      '// multiline scroll fixture\n'.repeat(12000)
     await previewPage.route('**/233/**', (route) => {
       const requestUrl = new URL(route.request().url())
       if (requestUrl.searchParams.get('raw') === '1') {
