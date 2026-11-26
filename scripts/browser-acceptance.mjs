@@ -526,11 +526,16 @@ try {
         appHeight: app?.scrollHeight,
         appOverflowY: app ? getComputedStyle(app).overflowY : 'missing',
         cardOverscrollBehavior: card ? getComputedStyle(card).overscrollBehaviorY : 'missing',
-        beforePageScroll,
-        afterPageScroll,
-        cardBounds,
-        wheelTarget: document.elementFromPoint(cardBounds.x + 2, cardBounds.y + 2)?.className,
       }
+    })
+    Object.assign(scrollDiagnostics, {
+      beforePageScroll,
+      afterPageScroll,
+      cardBounds,
+      wheelTarget: await previewPage.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y)?.className,
+        { x: cardBounds.x + 2, y: cardBounds.y + 2 },
+      ),
     })
     assert.ok(
       afterPageScroll > beforePageScroll,
