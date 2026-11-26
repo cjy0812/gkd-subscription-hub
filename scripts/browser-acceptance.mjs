@@ -511,7 +511,9 @@ try {
       (element) => getComputedStyle(element).overscrollBehaviorY,
     )
     assert.equal(cardOverscrollBehavior, 'auto')
-    const beforePageScroll = await previewPage.locator('#app').evaluate((element) => element.scrollTop)
+    const beforePageScroll = await previewPage
+      .locator('#app')
+      .evaluate((element) => element.scrollTop)
     const cardBounds = await previewCard.boundingBox()
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
     // Aim at the card border rather than the nested textarea/filler so the
@@ -519,7 +521,9 @@ try {
     await previewPage.mouse.move(cardBounds.x + 2, cardBounds.y + 2)
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
-    const afterPageScroll = await previewPage.locator('#app').evaluate((element) => element.scrollTop)
+    const afterPageScroll = await previewPage
+      .locator('#app')
+      .evaluate((element) => element.scrollTop)
     const scrollDiagnostics = await previewPage.evaluate(() => {
       const app = document.querySelector('#app')
       const card = document.querySelector('.preview-content')
