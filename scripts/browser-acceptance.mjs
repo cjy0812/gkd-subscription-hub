@@ -505,15 +505,19 @@ try {
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
     const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
-    const scrollDiagnostics = await previewPage.evaluate(() => ({
-      documentHeight: document.documentElement.scrollHeight,
-      documentClientHeight: document.documentElement.clientHeight,
-      bodyHeight: document.body.scrollHeight,
-      bodyOverflowY: getComputedStyle(document.body).overflowY,
-      appHeight: document.querySelector('#app')?.scrollHeight,
-      appOverflowY: getComputedStyle(document.querySelector('#app')!).overflowY,
-      cardOverscrollBehavior: getComputedStyle(document.querySelector('.preview-content')!).overscrollBehaviorY,
-    }))
+    const scrollDiagnostics = await previewPage.evaluate(() => {
+      const app = document.querySelector('#app')
+      const card = document.querySelector('.preview-content')
+      return {
+        documentHeight: document.documentElement.scrollHeight,
+        documentClientHeight: document.documentElement.clientHeight,
+        bodyHeight: document.body.scrollHeight,
+        bodyOverflowY: getComputedStyle(document.body).overflowY,
+        appHeight: app?.scrollHeight,
+        appOverflowY: app ? getComputedStyle(app).overflowY : 'missing',
+        cardOverscrollBehavior: card ? getComputedStyle(card).overscrollBehaviorY : 'missing',
+      }
+    })
     assert.ok(
       afterPageScroll > beforePageScroll,
       `page must continue scrolling after preview card reaches its edge at ${width}px: ${JSON.stringify(scrollDiagnostics)}`,
