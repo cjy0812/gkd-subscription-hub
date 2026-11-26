@@ -463,18 +463,31 @@ describe('top-level routing', () => {
     const compressedStream = new Blob([source]).stream().pipeThrough(new CompressionStream('gzip'))
     const compressed = new Uint8Array(await new Response(compressedStream).arrayBuffer())
     const digest = await crypto.subtle.digest('SHA-256', source)
-    const contentSha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    const contentSha256 = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
     const snapshot = {
-      id: 233, version: 16, provider: 'github', owner: 'owner', repo: 'repo',
-      branch: 'main', repoUrl: 'https://github.com/owner/repo', commitSha: 'commit-sha',
-      fileSha: 'blob-sha', filePath: 'gkd.json5', fileSize: source.byteLength,
-      createdAt: '2026-11-25T00:00:00.000Z', archiveStatus: 'pending',
+      id: 233,
+      version: 16,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      commitSha: 'commit-sha',
+      fileSha: 'blob-sha',
+      filePath: 'gkd.json5',
+      fileSize: source.byteLength,
+      createdAt: '2026-11-25T00:00:00.000Z',
+      archiveStatus: 'pending',
     }
     const row = {
-      snapshot_json: JSON.stringify(snapshot), status: 'ready',
+      snapshot_json: JSON.stringify(snapshot),
+      status: 'ready',
       content_sha256: contentSha256,
       object_key: `objects/${contentSha256.slice(0, 2)}/${contentSha256}.json5.gz`,
-      compressed_size: compressed.byteLength, archive_error: null,
+      compressed_size: compressed.byteLength,
+      archive_error: null,
     }
     const database = {
       prepare: vi.fn((sql: string) => ({
@@ -489,7 +502,11 @@ describe('top-level routing', () => {
       })),
     }
     const project = {
-      id: 233, provider: 'github', owner: 'owner', repo: 'repo', branch: 'main',
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
       repoUrl: 'https://github.com/owner/repo',
       distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: source.byteLength }],
     }
@@ -568,7 +585,10 @@ describe('top-level routing', () => {
     )
     expect(rawResponse.status).toBe(404)
     expect(rawResponse.headers.get('content-type')).toContain('application/json')
-    expect(await rawResponse.json()).toMatchObject({ ok: false, error: '订阅文件不存在' })
+    expect(await rawResponse.json()).toMatchObject({
+      ok: false,
+      error: '订阅文件不存在',
+    })
   })
 
 })
