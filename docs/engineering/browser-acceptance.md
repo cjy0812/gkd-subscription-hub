@@ -73,3 +73,34 @@
 - 每个视口检查页面级横向溢出并生成截图。
 
 本次验收使用固定 API fixture 与真实 Chromium 浏览器进程；不访问生产项目数据。它验证浏览器交互与布局，不替代真实 GKD App 请求头的设备侧验证，也未覆盖 Firefox、Safari 或实体 Android/iOS 设备。
+
+## PR #40 管理端缺陷修复验收（最新）
+
+- 日期：2026-11-26
+- 验收提交：a08f648be52d22ef41dcc32793618ef1db7c2117
+- PR CI（全部通过）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45751150342>
+- 浏览器截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45751150342/artifacts/15085811528>
+- 浏览器：Playwright 1.56.1 驱动的 Chromium headless
+- 数据：固定 fixture API；不读取或修改生产订阅数据
+- 结果：Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Browser Acceptance 全部通过。
+
+### PR #40 视口结果
+
+- **320 px** — ProjectsPage：PASS（移动卡片、Provider fallback、可见操作标签）；SubscriptionPreviewPage：PASS（原始 JSON5、横向/纵向滚动、嵌套滚动链、无页面横向溢出）；AdminLayout：PASS（左边缘手势打开左侧抽屉，横向滚动区域不触发抽屉）。
+- **768 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、横向/纵向滚动、嵌套滚动链、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
+- **1024 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、横向/纵向滚动、嵌套滚动链、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
+- **1440 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、横向/纵向滚动、嵌套滚动链、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
+
+### 额外交互检查
+
+- 移动端项目复选框提供项目 ID 与仓库名称的可访问名称。
+- 移动端刷新、复制、目录、删除操作均有可见文字，不依赖 hover Tooltip。
+- 缺失 Provider 的旧记录在桌面和移动布局均按 GitHub 显示，并向辅助技术暴露完整名称。
+- 320px 触摸事件模拟：从左边缘向右滑动打开左侧抽屉；从可横向滚动区域开始的手势不会同时打开抽屉。
+- 原始 JSON5 fixture 同时包含长行和多行内容，分别验证水平与垂直溢出；文本框滚动到垂直边界后，通过真实 Chromium wheel 输入验证滚动继续传递到预览卡片。
+- 修复 Naive UI 标签面板 .n-tabs-pane-wrapper 的 overflow:hidden 对滚动链的阻断；在预览卡片到达滚动边界后，继续验证滚动传递到外层容器。
+- 真实页面的横向溢出断言和页面截图在安装滚动链 fixture 前执行，避免测试夹具遮盖页面布局问题或污染截图。
+- 保留原有 MonitoringPage、PublicPortal 六个视口（320/640/641/768/1024/1440 px）和 canonical 预览路径回归。
+- 每个目标视口均生成截图并上传 Actions artifact。
+
+**验收边界：** 本次使用真实 Chromium 浏览器进程与模拟触摸/滚轮事件，API 数据来自固定 fixture。滚动链检查会将页面卡片放入独立外层滚动容器以验证嵌套滚动行为，不把它描述为实体设备或生产数据人工验收；尚未覆盖实体 Android/iOS、Firefox、Safari，也未对生产 D1/R2 或真实订阅数据执行写入。真实大型订阅深层滚动与实体触摸设备仍是后续专项验收项。

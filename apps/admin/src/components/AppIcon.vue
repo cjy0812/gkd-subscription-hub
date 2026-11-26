@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Activity, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Folder, GitBranch,
-  LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Trash2,
+  LayoutDashboard, LogOut, Menu, MessageSquare, Plus, RefreshCw, Search, Trash2,
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
@@ -18,6 +18,7 @@ type IconName =
   | 'layout-dashboard'
   | 'log-out'
   | 'menu'
+  | 'message-square'
   | 'plus'
   | 'refresh-cw'
   | 'search'
@@ -40,6 +41,7 @@ const icons: Record<IconName, Component> = {
   'layout-dashboard': LayoutDashboard,
   'log-out': LogOut,
   menu: Menu,
+  'message-square': MessageSquare,
   plus: Plus,
   'refresh-cw': RefreshCw,
   search: Search,

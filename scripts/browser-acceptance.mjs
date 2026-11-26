@@ -286,39 +286,380 @@ try {
     await previewPage.close()
   }
 
-  const projectsPage = await browser.newPage({ viewport: { width: 320, height: 900 } })
-  await projectsPage.addInitScript(() =>
-    sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
-  )
-  await projectsPage.route('**/*', (route) => {
-    const requestUrl = new URL(route.request().url())
-    if (requestUrl.pathname.endsWith('/admin/api/projects')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, projects: [project] }),
-      })
+  for (const width of [320, 768, 1024, 1440]) {
+    const projectsPage = await browser.newPage({
+      viewport: { width, height: 900 },
+      hasTouch: width <= 760,
+      deviceScaleFactor: 1,
+    })
+    await projectsPage.addInitScript(() =>
+      sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
+    )
+    await projectsPage.route('**/*', (route) => {
+      const requestUrl = new URL(route.request().url())
+      if (requestUrl.pathname.endsWith('/admin/api/projects')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, projects: [project] }),
+        })
+      }
+      if (requestUrl.pathname.endsWith('/admin/api/config')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, subscriptionDomain: 'example.test' }),
+        })
+      }
+      return route.continue()
+    })
+    await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
+    if (width <= 760) {
+      await projectsPage.getByText('ID 233', { exact: true }).waitFor()
+    } else {
+      await projectsPage.getByText(/订阅 ID 233/).waitFor()
     }
-    if (requestUrl.pathname.endsWith('/admin/api/config')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, subscriptionDomain: 'example.test' }),
-      })
+    const desktopTable = projectsPage.locator('.desktop-table')
+    const mobileCards = projectsPage.locator('.mobile-project-list')
+    assert.equal(
+      await desktopTable.isVisible(),
+      width > 760,
+      `desktop project table mismatch at ${width}px`,
+    )
+    assert.equal(
+      await mobileCards.isVisible(),
+      width <= 760,
+      `mobile project cards mismatch at ${width}px`,
+    )
+    if (width > 760) {
+      assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
+      assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
+      const providerMark = projectsPage.locator('.desktop-table .provider-mark')
+      await providerMark.waitFor({ state: 'visible' })
+      assert.equal(await providerMark.getAttribute('aria-label'), '托管平台：GitHub')
     }
-    return route.continue()
-  })
-  await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
-  await projectsPage.getByText('ID 233', { exact: true }).waitFor()
-  const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
-  await projectCheckbox.waitFor({ state: 'visible' })
-  assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
-  console.log('PASS mobile project checkbox has an accessible project-specific name')
-  await projectsPage.screenshot({
-    path: 'artifacts/browser-acceptance/projects-320.png',
-    fullPage: true,
-  })
-  await projectsPage.close()
+    if (width <= 760) {
+      const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
+      await projectCheckbox.waitFor({ state: 'visible' })
+      assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
+      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
+      await repoLink.waitFor({ state: 'visible' })
+      assert.equal(
+        await repoLink.locator('.provider-mark').getAttribute('aria-label'),
+        '托管平台：GitHub',
+      )
+      for (const label of ['刷新', '复制', '目录', '删除']) {
+        await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+      }
+    }
+    const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(
+      pageWidth <= width + 1,
+      `projects page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
+    await projectsPage.screenshot({
+      path: `artifacts/browser-acceptance/projects-${width}.png`,
+      fullPage: true,
+    })
+    console.log(
+      `PASS ProjectsPage viewport ${width}px (responsive layout, provider fallback, no horizontal overflow)`,
+    )
+
+    if (width === 320) {
+      // A real scrollable region beginning at the viewport edge must retain its
+      // horizontal gesture instead of opening the navigation drawer.
+      await projectsPage.evaluate(() => {
+        const scroller = document.createElement('div')
+        scroller.id = 'gesture-scroll-fixture'
+        scroller.style.cssText =
+          'position:fixed;left:0;top:120px;width:220px;height:48px;overflow-x:auto;z-index:9999;background:#ddd'
+        const content = document.createElement('div')
+        content.style.cssText = 'width:900px;height:40px'
+        scroller.append(content)
+        document.body.append(scroller)
+      })
+      await projectsPage.evaluate(() => {
+        const target = document.elementFromPoint(10, 130)
+        if (!target) {
+          throw new Error('missing horizontal scroll fixture')
+        }
+        const start = new Touch({ identifier: 1, target, clientX: 10, clientY: 130 })
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
+        const end = new Touch({ identifier: 1, target, clientX: 110, clientY: 130 })
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
+      })
+      assert.equal(
+        await projectsPage
+          .locator('.n-drawer')
+          .first()
+          .isVisible()
+          .catch(() => false),
+        false,
+        'horizontal scroller gesture must not open the drawer',
+      )
+      // The same rightward swipe from the ordinary screen edge should open it.
+      await projectsPage.evaluate(() => {
+        const target = document.body
+        const start = new Touch({ identifier: 2, target, clientX: 8, clientY: 400 })
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
+        const end = new Touch({ identifier: 2, target, clientX: 112, clientY: 400 })
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
+      })
+      const drawer = projectsPage.locator('.n-drawer').first()
+      await drawer.waitFor({ state: 'visible' })
+      await projectsPage.waitForFunction(() => {
+        const element = document.querySelector('.n-drawer')
+        return element && Math.abs(element.getBoundingClientRect().left) <= 1
+      })
+      const drawerLeft = await drawer.evaluate((element) => element.getBoundingClientRect().left)
+      assert.ok(
+        Math.abs(drawerLeft) <= 1,
+        `mobile drawer must open from the left edge, got ${drawerLeft}px`,
+      )
+      console.log(
+        'PASS AdminLayout left-edge swipe opens left drawer; horizontal scroller swipe does not',
+      )
+    }
+    await projectsPage.close()
+  }
+
+  for (const width of [320, 768, 1024, 1440]) {
+    const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
+    const rawSource =
+      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\n' +
+      'x'.repeat(24000) +
+      '\n// multiline scroll fixture\n'.repeat(12000)
+    await previewPage.route('**/233/**', (route) => {
+      const requestUrl = new URL(route.request().url())
+      if (requestUrl.searchParams.get('raw') === '1') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json5',
+          body: rawSource,
+        })
+      }
+      return route.continue()
+    })
+    await previewPage.goto('http://127.0.0.1:4173/233/?view=source', { waitUntil: 'networkidle' })
+    const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
+    await rawTextarea.waitFor({ state: 'visible' })
+    const previewCard = previewPage.locator('.preview-content')
+    const tabsPaneWrapper = previewCard.locator('.n-tabs-pane-wrapper')
+    assert.equal(
+      await tabsPaneWrapper.evaluate((element) => getComputedStyle(element).overflowY),
+      'visible',
+      `tab pane wrapper must not trap nested scroll chaining at ${width}px`,
+    )
+    const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(
+      pageWidth <= width + 1,
+      `preview page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
+    await previewPage.screenshot({
+      path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
+      fullPage: true,
+    })
+    assert.ok(await rawTextarea.inputValue().then((value) => value.length > 20000))
+    await rawTextarea.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth
+    })
+    assert.ok(
+      await rawTextarea.evaluate((element) => element.scrollLeft > 0),
+      `raw JSON5 horizontal scrolling unavailable at ${width}px`,
+    )
+    await previewPage.evaluate(() => {
+      const card = document.querySelector('.preview-content')
+      if (!card?.parentElement) throw new Error('missing preview card fixture')
+      const scrollHost = document.createElement('div')
+      scrollHost.dataset.testid = 'preview-scroll-host'
+      scrollHost.style.position = 'fixed'
+      scrollHost.style.inset = '0 auto auto 0'
+      scrollHost.style.height = '900px'
+      scrollHost.style.width = '100vw'
+      scrollHost.style.zIndex = '9999'
+      scrollHost.style.background = 'white'
+      scrollHost.style.overflowY = 'auto'
+      scrollHost.style.overflowX = 'hidden'
+      scrollHost.style.minHeight = '0'
+      document.body.append(scrollHost)
+      scrollHost.append(card)
+
+      const filler = document.createElement('div')
+      filler.style.height = '1200px'
+      filler.textContent = 'browser acceptance vertical scroll fixture'
+      card.append(filler)
+
+      const spacer = document.createElement('div')
+      spacer.style.height = '2000px'
+      spacer.textContent = 'outer scroll-chain fixture'
+      scrollHost.append(spacer)
+    })
+    const scrollHost = previewPage.getByTestId('preview-scroll-host')
+    assert.equal(
+      await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
+      'auto',
+    )
+    const cardOverflows = await previewCard.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    )
+    assert.ok(cardOverflows, `preview card must overflow vertically at ${width}px`)
+    await previewCard.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const cardScrollTop = await previewCard.evaluate((element) => element.scrollTop)
+    const maxCardScroll = await previewCard.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    )
+    assert.ok(cardScrollTop > 0, `preview card must scroll internally at ${width}px`)
+    assert.ok(
+      cardScrollTop >= maxCardScroll - 1,
+      `preview card must reach its scroll edge at ${width}px`,
+    )
+    assert.equal(
+      await previewCard.evaluate((element) => getComputedStyle(element).overscrollBehaviorY),
+      'auto',
+    )
+    await rawTextarea.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const rawTextareaScrollTop = await rawTextarea.evaluate((element) => element.scrollTop)
+    const rawTextareaMaxScroll = await rawTextarea.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    )
+    assert.ok(
+      rawTextareaMaxScroll > 0,
+      `raw JSON5 textarea must have vertical overflow at ${width}px`,
+    )
+    assert.ok(
+      rawTextareaScrollTop >= rawTextareaMaxScroll - 1,
+      `raw JSON5 textarea must reach its vertical edge at ${width}px`,
+    )
+    await previewCard.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await scrollHost.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    const textareaBounds = await rawTextarea.boundingBox()
+    assert.ok(textareaBounds, 'raw JSON5 textarea must remain measurable')
+    const textareaWheelX = textareaBounds.x + textareaBounds.width / 2
+    const textareaWheelY = textareaBounds.y + textareaBounds.height / 2
+    const textareaWheelTarget = await previewPage.evaluate(
+      ({ x, y }) => {
+        const target = document.elementFromPoint(x, y)
+        return {
+          tagName: target?.tagName,
+          isTextarea: target instanceof HTMLTextAreaElement,
+        }
+      },
+      { x: textareaWheelX, y: textareaWheelY },
+    )
+    assert.ok(
+      textareaWheelTarget.isTextarea,
+      `wheel event must originate over raw JSON5 textarea, got ${JSON.stringify(textareaWheelTarget)}`,
+    )
+    await rawTextarea.focus()
+    await previewPage.mouse.move(textareaWheelX, textareaWheelY)
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await previewPage.mouse.wheel(0, 700)
+      await previewPage.waitForTimeout(80)
+    }
+    const textareaAfterWheel = await rawTextarea.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      maxScroll: element.scrollHeight - element.clientHeight,
+      overscrollBehaviorY: getComputedStyle(element).overscrollBehaviorY,
+    }))
+    const cardAfterTextareaWheel = await previewCard.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      maxScroll: element.scrollHeight - element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      overscrollBehaviorY: getComputedStyle(element).overscrollBehaviorY,
+    }))
+    const textareaAncestorScroll = await rawTextarea.evaluate((element) => {
+      const ancestors = []
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        const style = getComputedStyle(node)
+        if (node.scrollHeight > node.clientHeight || style.overflowY !== 'visible') {
+          ancestors.push({
+            tag: node.tagName,
+            className: typeof node.className === 'string' ? node.className : '',
+            scrollTop: node.scrollTop,
+            maxScroll: node.scrollHeight - node.clientHeight,
+            overflowY: style.overflowY,
+            overscrollBehaviorY: style.overscrollBehaviorY,
+          })
+        }
+      }
+      return ancestors
+    })
+    assert.ok(
+      cardAfterTextareaWheel.scrollTop > 0,
+      `card must continue scrolling when textarea reaches its vertical edge at ${width}px: textarea=${JSON.stringify(textareaAfterWheel)}, card=${JSON.stringify(cardAfterTextareaWheel)}, ancestors=${JSON.stringify(textareaAncestorScroll)}`,
+    )
+
+    await previewCard.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await scrollHost.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    const beforeOuterScroll = await scrollHost.evaluate((element) => element.scrollTop)
+    const cardBounds = await previewCard.boundingBox()
+    assert.ok(cardBounds, 'preview card must remain measurable after internal scrolling')
+    const wheelX = cardBounds.x + Math.min(12, cardBounds.width / 2)
+    const wheelY = Math.max(2, Math.min(cardBounds.y + 2, 898))
+    const wheelTarget = await previewPage.evaluate(
+      ({ x, y }) => {
+        const target = document.elementFromPoint(x, y)
+        return {
+          targetClass: target?.className,
+          cardClass: target?.closest('.preview-content')?.className,
+        }
+      },
+      { x: wheelX, y: wheelY },
+    )
+    assert.ok(
+      String(wheelTarget.cardClass).includes('preview-content'),
+      `wheel event must target preview card, got ${JSON.stringify(wheelTarget)}`,
+    )
+    await previewPage.mouse.move(wheelX, wheelY)
+    await previewPage.mouse.wheel(0, 700)
+    await previewPage.waitForTimeout(150)
+    const afterOuterScroll = await scrollHost.evaluate((element) => element.scrollTop)
+    const outerDiagnostics = await scrollHost.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      bounds: element.getBoundingClientRect().toJSON(),
+      parentDisplay: getComputedStyle(element.parentElement).display,
+      parentClass: element.parentElement.className,
+    }))
+    assert.ok(
+      afterOuterScroll > beforeOuterScroll,
+      `outer scroll host must continue scrolling after nested content reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}, rawTextarea=${rawTextareaScrollTop}/${rawTextareaMaxScroll}, target=${JSON.stringify(wheelTarget)}, outer=${JSON.stringify(outerDiagnostics)}`,
+    )
+    console.log(
+      `PASS SubscriptionPreviewPage viewport ${width}px (raw content, internal scroll, no horizontal page overflow)`,
+    )
+    await previewPage.close()
+  }
 } finally {
   await browser.close()
 }

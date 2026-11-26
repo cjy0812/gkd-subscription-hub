@@ -32,6 +32,26 @@ import AppIcon from '../components/AppIcon.vue'
 const message = useMessage()
 const token = ref(getAdminToken())
 const projects = ref<Project[]>([])
+function normalizedProvider(provider: string | undefined) {
+  return provider || 'github'
+}
+function providerLabel(provider: string | undefined) {
+  switch (normalizedProvider(provider)) {
+    case 'github': return 'GH'
+    case 'gitlab': return 'GL'
+    case 'gitea': return 'GT'
+    default: return 'Git'
+  }
+}
+function providerName(provider: string | undefined) {
+  switch (normalizedProvider(provider)) {
+    case 'github': return 'GitHub'
+    case 'gitlab': return 'GitLab'
+    case 'gitea': return 'Gitea'
+    default: return 'Git 托管平台'
+  }
+}
+
 const repositoryUrl = ref('')
 const branchName = ref<string | null>(null)
 const branchOptions = ref<Array<{ label: string; value: string }>>([])
@@ -271,7 +291,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h(AppIcon, { name: 'git-branch', size: 15 }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 12 })]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('span', { class: ['provider-mark', `provider-${normalizedProvider(row.provider)}`], role: 'img', 'aria-label': `托管平台：${providerName(row.provider)}` }, providerLabel(row.provider)), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -649,7 +669,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><AppIcon :name="'git-branch'" :size="15" /><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="12" /></a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><span class="provider-mark" :class="`provider-${normalizedProvider(project.provider)}`" role="img" :aria-label="`托管平台：${providerName(project.provider)}`">{{ providerLabel(project.provider) }}</span><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -675,9 +695,11 @@ onMounted(() => {
                     @click="refreshProject(project.id)"
                   >
                     <template #icon><AppIcon name="refresh-cw" /></template>
+                    刷新
                   </n-button>
                   <n-button size="small" quaternary title="复制主订阅 JSON5 地址" aria-label="复制主订阅 JSON5 地址" @click="copySubscriptionUrl(project.id)">
                     <template #icon><AppIcon name="copy" /></template>
+                    复制
                   </n-button>
                   <n-button
                     size="small"
@@ -688,6 +710,7 @@ onMounted(() => {
                     @click="openSubscription(project.id)"
                   >
                     <template #icon><AppIcon name="file-text" /></template>
+                    目录
                   </n-button>
                   <n-button
                     size="small"
@@ -699,6 +722,7 @@ onMounted(() => {
                     @click="removeProject(project.id)"
                   >
                     <template #icon><AppIcon name="trash-2" /></template>
+                    删除
                   </n-button>
                 </n-space>
               </article>
@@ -825,7 +849,10 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
-.repo-title-link { color: var(--color-text); text-decoration: none; }
+.provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
+.repo-title-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--color-text); text-decoration: none; }
+.repo-title-link strong,.repo-title-link > span:not(.provider-mark) { min-width: 0; overflow-wrap: anywhere; }
+.repo-title-link svg { flex: 0 0 auto; }
 .repo-title-link:hover { color: var(--color-accent); text-decoration: underline; }
 .repo-source-link {
   display: inline-flex;
@@ -886,10 +913,14 @@ onMounted(() => {
   }
   .mobile-project-title {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px 8px;
   }
+  .mobile-project-title > strong { align-self: center; margin-right: auto; }
+  .mobile-project-card :deep(.n-space) { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mobile-project-card :deep(.n-button) { min-width: 36px; }
   .mobile-project-card p {
     margin: 0;
     overflow-wrap: anywhere;
