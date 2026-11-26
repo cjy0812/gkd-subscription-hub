@@ -77,27 +77,29 @@
 ## PR #40 管理端缺陷修复验收（最新）
 
 - 日期：2026-11-26
-- 验收提交：`e9edde402a61f0bc45d7364793fb8af4eeaf6028`
-- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45733612295>
-- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45733612295/artifacts/15077049767>
+- 验收提交：`f2297d118eef7a4535ec7fb9094aca3cbf4ebfe8`
+- GitHub Actions（PR 检查）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739940530>
+- GitHub Actions（push 检查）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739931817>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739940530/artifacts/15081280331>
 - 浏览器：Playwright 1.56.1 驱动的 Chromium headless
 - 数据：固定 fixture API；不读取或修改生产订阅数据
-- 结果：Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Browser Acceptance 全部通过
+- 结果：Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Browser Acceptance 全部通过；PR 与 push 两条 Actions 检查均成功。
 
 ### PR #40 视口结果
 
-- **320 px** — ProjectsPage：PASS（移动卡片、Provider fallback、可见操作标签）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、页面滚动传递）；AdminLayout：PASS（左边缘手势打开左侧抽屉，横向滚动区域不触发抽屉）；无页面横向溢出。
-- **768 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、页面滚动传递）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）；无页面横向溢出。
-- **1024 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、页面滚动传递）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）；无页面横向溢出。
-- **1440 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、页面滚动传递）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）；无页面横向溢出。
+- **320 px** — ProjectsPage：PASS（移动卡片、Provider fallback、可见操作标签）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、无页面横向溢出）；AdminLayout：PASS（左边缘手势打开左侧抽屉，横向滚动区域不触发抽屉）。
+- **768 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
+- **1024 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
+- **1440 px** — ProjectsPage：PASS（桌面表格、Provider fallback）；SubscriptionPreviewPage：PASS（原始 JSON5、内部滚动、无页面横向溢出）；AdminLayout：PASS（桌面侧栏显示、移动菜单隐藏）。
 
 ### 额外交互检查
 
 - 移动端项目复选框提供项目 ID 与仓库名称的可访问名称。
 - 移动端刷新、复制、目录、删除操作均有可见文字，不依赖 hover Tooltip。
 - 缺失 Provider 的旧记录在桌面和移动布局均按 GitHub 显示，并向辅助技术暴露完整名称。
-- 320px 触摸事件模拟：从普通左边缘向右滑动打开左侧抽屉；从可横向滚动区域开始的手势不会同时打开抽屉。
-- 预览页原始 JSON5 内容可横向滚动；预览卡片滚动到边界后，滚轮事件可以继续滚动外层页面。
+- 320px 触摸事件模拟：从左边缘向右滑动打开左侧抽屉；从可横向滚动区域开始的手势不会同时打开抽屉。
+- 预览卡片具备真实纵向溢出并可滚动到边界；Chromium 嵌套滚动容器 fixture 验证边界处的默认滚动链行为，页面样式不再设置 `overscroll-behavior: contain`。
 - 保留原有 MonitoringPage、PublicPortal 六个视口（320/640/641/768/1024/1440 px）和 canonical 预览路径回归。
+- 每个目标视口均生成截图并上传 Actions artifact。
 
-**验收边界：** 本次使用真实 Chromium 浏览器进程和模拟触摸事件，不等于实体 Android/iOS 设备验收；未覆盖 Firefox、Safari，也未对生产 D1/R2 或真实订阅数据执行写入。实体触摸设备检查仍是交付后的人工补充项。
+**验收边界：** 本次使用真实 Chromium 浏览器进程与模拟触摸事件，API 数据来自固定 fixture。嵌套滚动链使用独立滚动容器 fixture，不把它描述为实体设备或生产页面人工验收；尚未覆盖实体 Android/iOS、Firefox、Safari，也未对生产 D1/R2 或真实订阅数据执行写入。真实大型订阅深层滚动与实体触摸设备仍是后续专项验收项。
