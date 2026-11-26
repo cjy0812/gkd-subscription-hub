@@ -458,7 +458,7 @@ describe('top-level routing', () => {
     expect(response.status).toBe(404)
   })
 
-  it('serves an archived historical subscription when the Worker Cache API is unavailable', async () => {
+  it('serves archived history with Cache API and forwards the Worker execution context', async () => {
     const source = new TextEncoder().encode('{id:233,version:16}')
     const compressedStream = new Blob([source]).stream().pipeThrough(new CompressionStream('gzip'))
     const compressed = new Uint8Array(await new Response(compressedStream).arrayBuffer())
@@ -506,7 +506,11 @@ describe('top-level routing', () => {
         })),
       } as unknown as R2Bucket,
     })
-    vi.stubGlobal('caches', undefined)
+    const cache = {
+      match: vi.fn(async () => undefined),
+      put: vi.fn(async () => undefined),
+    }
+    vi.stubGlobal('caches', { open: vi.fn(async () => cache) })
 
     const response = await worker.fetch(
       new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
@@ -520,6 +524,8 @@ describe('top-level routing', () => {
     expect(response.headers.get('content-type')).toContain('application/json5')
     expect(response.headers.get('x-gkd-subscription-version')).toBe('16')
     expect(await response.text()).toBe(new TextDecoder().decode(source))
+    expect(cache.put).toHaveBeenCalledOnce()
+    expect(context.waitUntil).toHaveBeenCalled()
   })
 
 })
