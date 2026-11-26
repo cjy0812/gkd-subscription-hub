@@ -250,11 +250,11 @@ PR #40 后续已合并至 main（merge commit `09ed25c4409035183e7f465b76b8aefd3
 
 - [x] 核对生产 D1：当前可见的 5 条历史版本记录均为 `ready`，具备 SHA-256、对象 Key 和压缩大小元数据。
 - [x] 核对生产 R2：上述 5 个对象均存在，实际对象大小、`sha256` 与 `originalSize` 自定义元数据均与 D1 对应记录一致。
-- [x] 源码定位：历史版本读取路径调用了浏览器式 `caches.open('gkd-subscription-history-v1')`；Cloudflare Workers 应使用 `caches.default`。该调用位于原 R2 读取异常捕获范围之外，可能直接造成 Worker 500。
-- [x] 修复分支改为使用 Workers 默认 Cache API；缓存读取失败时回源权威 R2，缓存写入失败不影响已成功读取的历史文件。
+- [x] 源码风险定位：历史版本读取路径在 R2 读取前执行 Cache API 初始化和命中查询，且位于原 R2 读取异常捕获范围之外；缓存 API 的异常可能直接导致 Worker 500。Cloudflare Workers 同时支持 `caches.default` 与 `caches.open()`，因此不能将命名缓存 API 本身认定为根因。
+- [x] 修复分支将缓存初始化、命中查询与写入均设为 best-effort；缓存不可用时回源权威 R2，缓存写入失败不影响已成功读取的历史文件。
 - [x] 增加无 Cache API 环境下历史归档读取的路由回归测试。
 - [ ] CI 中 Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build 全部通过。
-- [ ] Workers Preview / workerd 集成测试验证 `caches.default` 命中、未命中、缓存异常和 R2 读取；不能只以 Node mock 代替 Worker runtime。
+- [ ] Workers Preview / workerd 集成测试验证命名缓存命中、未命中、缓存异常和 R2 读取；不能只以 Node mock 代替 Worker runtime。
 - [ ] 通过生产只读 HTTP Smoke Test 验证 `/233/v16/gkd.json5?raw=1`、`/667/v643/gkd.json5?raw=1` 等已知历史路径，确认状态码、Content-Type、版本 Header、原始长度与 SHA-256；不得写入或迁移生产数据。
 - [ ] 验证浏览器导航历史版本时获得预览 SPA，GKD/非 HTML 请求获得原始 JSON5 字节；验证目录页历史版本列表与 404/503 边界。
 
