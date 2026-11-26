@@ -107,19 +107,21 @@
 
 ## PR #42 托管平台 Logo 浏览器验收
 
-- 日期：2026-11-26
-- 验收提交：`da21522d9800a4fba9ee16bcfb71b59554cb7a38`
-- GitHub Actions：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45769577618>
-- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45769577618/artifacts/15093083247>
+- 日期：2026-11-27
+- 验收提交：`063c53511cad90766f90b8d9c1d62739135173f4`
+- GitHub Actions（PR merge ref）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45913695573>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45913695573/artifacts/15161347306>
 - 浏览器：Playwright 驱动的 Chromium headless
-- 数据：固定 fixture，不访问生产项目数据
+- 数据：固定 fixture，包含 GitHub、GitLab、Gitea 三个项目，不访问生产项目数据
 - 结果：Format、Lint、TypeScript、Vitest、Admin Build、Chromium Browser Acceptance 全部通过。
 
 ### 覆盖范围
 
-- 项目列表桌面表格与移动卡片均检查 Provider Logo。
-- 检查 GitHub Logo 的 `alt` 可访问名称及图片 `naturalWidth > 0`，确认资源实际加载而非仅有占位 DOM。
-- 使用 Vite `BASE_URL` 构造资源路径，验证 Admin 部署子路径。
-- 沿用 PR #40 浏览器验收的 320/768/1024/1440 px 视口矩阵；每个视口生成截图并上传 Actions artifact。
+- 在 320、768、1024、1440 px 四个视口检查项目列表响应式布局。
+- 桌面表格和移动卡片分别只检查当前可见容器，避免隐藏布局的元素造成误报。
+- 对 GitHub、GitLab、Gitea 三种 Logo 分别检查可访问名称和图片 `naturalWidth > 0`，确认三个本地 SVG 资源实际加载。
+- 检查移动端项目卡片的刷新、复制、目录、删除动作标签在单卡片范围内可见。
+- 使用 Vite `BASE_URL` 构造 Logo 资源路径，避免 Admin 子路径部署时请求错误。
+- 每个视口生成截图并上传 Actions artifact。
 
-**验收边界：** 此次实际 Chromium 验收覆盖 GitHub fixture 的 Logo 加载与响应式布局；GitLab/Gitea 的图像资源由本地静态文件提供，但当前浏览器脚本没有分别加载这两个 provider fixture。测试不替代实体 Android/iOS、真实生产项目数据或人工视觉验收。
+**验收边界：** 本次是 Chromium 自动化验收，覆盖三个 Provider fixture 和四个项目列表视口；不等同于人工视觉评审、真实大型生产数据验收或实体 Android/iOS 设备验收。
