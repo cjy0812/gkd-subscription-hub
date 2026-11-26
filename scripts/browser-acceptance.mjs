@@ -500,7 +500,12 @@ try {
       (element) => getComputedStyle(element).overscrollBehaviorY,
     )
     assert.equal(cardOverscrollBehavior, 'auto')
-    await previewCard.scrollIntoViewIfNeeded()
+    await previewPage.evaluate(() => {
+      document.querySelector('.preview-content')?.scrollIntoView({
+        block: 'center',
+        behavior: 'instant',
+      })
+    })
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     const cardBounds = await previewCard.boundingBox()
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
@@ -521,6 +526,10 @@ try {
         appHeight: app?.scrollHeight,
         appOverflowY: app ? getComputedStyle(app).overflowY : 'missing',
         cardOverscrollBehavior: card ? getComputedStyle(card).overscrollBehaviorY : 'missing',
+        beforePageScroll,
+        afterPageScroll,
+        cardBounds,
+        wheelTarget: document.elementFromPoint(cardBounds.x + 2, cardBounds.y + 2)?.className,
       }
     })
     assert.ok(
