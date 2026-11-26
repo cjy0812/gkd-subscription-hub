@@ -312,7 +312,13 @@ try {
                 owner: 'gitlab-owner',
                 repo: 'gitlab-repo',
               },
-              { ...project, id: 235, provider: 'gitea', owner: 'gitea-owner', repo: 'gitea-repo' },
+              {
+                ...project,
+                id: 235,
+                provider: 'gitea',
+                owner: 'gitea-owner',
+                repo: 'gitea-repo',
+              },
             ],
           }),
         })
@@ -347,7 +353,7 @@ try {
     if (width > 760) {
       assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
       assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
-      const providerLogo = projectsPage.locator('.desktop-table .provider-logo')
+      const providerLogo = projectsPage.locator('.desktop-table .provider-logo').first()
       await providerLogo.waitFor({ state: 'visible' })
       assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
       assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
@@ -361,12 +367,14 @@ try {
       const providerLogo = repoLink.locator('.provider-logo')
       assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
       assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
+      const firstProjectCard = projectsPage.locator('.mobile-project-card').first()
       for (const label of ['刷新', '复制', '目录', '删除']) {
-        await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+        await firstProjectCard.getByText(label, { exact: true }).waitFor({ state: 'visible' })
       }
     }
     for (const provider of ['GitHub', 'GitLab', 'Gitea']) {
-      const logo = projectsPage.locator(`.provider-logo[alt="${provider}"]`).first()
+      const logoScope = width <= 760 ? '.mobile-project-list' : '.desktop-table'
+      const logo = projectsPage.locator(`${logoScope} .provider-logo[alt="${provider}"]`).first()
       await logo.waitFor({ state: 'visible' })
       assert.ok(
         (await logo.evaluate((image) => image.naturalWidth)) > 0,
