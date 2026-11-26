@@ -748,7 +748,7 @@ onBeforeUnmount(() => {
 .error-content{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .subscription-overview{display:grid;grid-template-columns:minmax(230px,1.1fr) minmax(0,2fr);gap:12px;margin-bottom:18px}
 .meta-card,.stat-card,.preview-content{border:1px solid var(--color-border);border-radius:var(--radius-container);box-shadow:var(--shadow-card)}
-.preview-content{max-height:calc(100vh - 190px);overflow-y:auto}
+.preview-content{max-height:calc(100vh - 190px);overflow-y:auto}.preview-content :deep(.n-tabs-pane-wrapper){overflow:visible}
 .meta-topline{display:flex;align-items:center;justify-content:space-between;color:var(--color-text-secondary);font-size:12px}
 .meta-card h2{font-size:22px;line-height:1.3;overflow-wrap:anywhere;margin:18px 0 6px}
 .meta-author{font-size:13px;color:var(--color-text-secondary);margin:0}
