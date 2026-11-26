@@ -518,6 +518,20 @@ try {
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
     // Aim at the card border rather than the nested textarea/filler so the
     // wheel gesture starts on the actual scroll container.
+    await previewPage.evaluate(() => {
+      window.__wheelDebug = null
+      document.addEventListener(
+        'wheel',
+        (event) => {
+          window.__wheelDebug = {
+            defaultPrevented: event.defaultPrevented,
+            deltaY: event.deltaY,
+            targetClass: event.target?.className,
+          }
+        },
+        { once: true },
+      )
+    })
     await previewPage.mouse.move(cardBounds.x + 2, cardBounds.y + 2)
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
@@ -547,6 +561,7 @@ try {
         ({ x, y }) => document.elementFromPoint(x, y)?.className,
         { x: cardBounds.x + 2, y: cardBounds.y + 2 },
       ),
+      wheelDebug: await previewPage.evaluate(() => window.__wheelDebug),
     })
     assert.ok(
       afterPageScroll > beforePageScroll,
