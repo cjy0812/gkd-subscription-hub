@@ -317,23 +317,39 @@ try {
     await projectsPage.getByText('ID 233', { exact: true }).waitFor()
     const desktopTable = projectsPage.locator('.desktop-table')
     const mobileCards = projectsPage.locator('.mobile-project-list')
-    assert.equal(await desktopTable.isVisible(), width > 760, `desktop project table mismatch at ${width}px`)
-    assert.equal(await mobileCards.isVisible(), width <= 760, `mobile project cards mismatch at ${width}px`)
+    assert.equal(
+      await desktopTable.isVisible(),
+      width > 760,
+      `desktop project table mismatch at ${width}px`,
+    )
+    assert.equal(
+      await mobileCards.isVisible(),
+      width <= 760,
+      `mobile project cards mismatch at ${width}px`,
+    )
     if (width <= 760) {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
       await projectCheckbox.waitFor({ state: 'visible' })
       assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
       const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
       await repoLink.waitFor({ state: 'visible' })
-      assert.equal(await repoLink.locator('.provider-mark').getAttribute('aria-label'), '托管平台：GitHub')
+      assert.equal(
+        await repoLink.locator('.provider-mark').getAttribute('aria-label'),
+        '托管平台：GitHub',
+      )
     }
     const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
-    assert.ok(pageWidth <= width + 1, `projects page horizontal overflow at ${width}px: ${pageWidth}px`)
+    assert.ok(
+      pageWidth <= width + 1,
+      `projects page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
     await projectsPage.screenshot({
       path: `artifacts/browser-acceptance/projects-${width}.png`,
       fullPage: true,
     })
-    console.log(`PASS ProjectsPage viewport ${width}px (responsive layout, provider fallback, no horizontal overflow)`)
+    console.log(
+      `PASS ProjectsPage viewport ${width}px (responsive layout, provider fallback, no horizontal overflow)`,
+    )
 
     if (width === 320) {
       // A real scrollable region beginning at the viewport edge must retain its
@@ -341,7 +357,8 @@ try {
       await projectsPage.evaluate(() => {
         const scroller = document.createElement('div')
         scroller.id = 'gesture-scroll-fixture'
-        scroller.style.cssText = 'position:fixed;left:0;top:120px;width:220px;height:48px;overflow-x:auto;z-index:9999;background:#ddd'
+        scroller.style.cssText =
+          'position:fixed;left:0;top:120px;width:220px;height:48px;overflow-x:auto;z-index:9999;background:#ddd'
         const content = document.createElement('div')
         content.style.cssText = 'width:900px;height:40px'
         scroller.append(content)
@@ -353,32 +370,61 @@ try {
           throw new Error('missing horizontal scroll fixture')
         }
         const start = new Touch({ identifier: 1, target, clientX: 10, clientY: 130 })
-        target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, changedTouches: [start], touches: [start] }))
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
         const end = new Touch({ identifier: 1, target, clientX: 110, clientY: 130 })
-        target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }))
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
       })
-      assert.equal(await projectsPage.locator('.n-drawer').first().isVisible().catch(() => false), false,
-        'horizontal scroller gesture must not open the drawer')
+      assert.equal(
+        await projectsPage
+          .locator('.n-drawer')
+          .first()
+          .isVisible()
+          .catch(() => false),
+        false,
+        'horizontal scroller gesture must not open the drawer',
+      )
       // The same rightward swipe from the ordinary screen edge should open it.
       await projectsPage.evaluate(() => {
         const target = document.body
         const start = new Touch({ identifier: 2, target, clientX: 8, clientY: 400 })
-        target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, changedTouches: [start], touches: [start] }))
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
         const end = new Touch({ identifier: 2, target, clientX: 112, clientY: 400 })
-        target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }))
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
       })
       const drawer = projectsPage.locator('.n-drawer').first()
       await drawer.waitFor({ state: 'visible' })
       const drawerLeft = await drawer.evaluate((element) => element.getBoundingClientRect().left)
-      assert.ok(Math.abs(drawerLeft) <= 1, `mobile drawer must open from the left edge, got ${drawerLeft}px`)
-      console.log('PASS AdminLayout left-edge swipe opens left drawer; horizontal scroller swipe does not')
+      assert.ok(
+        Math.abs(drawerLeft) <= 1,
+        `mobile drawer must open from the left edge, got ${drawerLeft}px`,
+      )
+      console.log(
+        'PASS AdminLayout left-edge swipe opens left drawer; horizontal scroller swipe does not',
+      )
     }
     await projectsPage.close()
   }
 
   for (const width of [320, 768, 1024, 1440]) {
     const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
-    const rawSource = '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\\n' + 'x'.repeat(24000)
+    const rawSource =
+      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\\n' + 'x'.repeat(24000)
     await previewPage.route('**/233/**', (route) => {
       const requestUrl = new URL(route.request().url())
       if (requestUrl.searchParams.get('raw') === '1') {
@@ -394,23 +440,35 @@ try {
     const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
     await rawTextarea.waitFor({ state: 'visible' })
     const previewCard = previewPage.locator('.preview-content')
-    assert.equal(await previewCard.evaluate((element) => getComputedStyle(element).overflowY), 'auto')
+    assert.equal(
+      await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
+      'auto',
+    )
     assert.ok(await rawTextarea.inputValue().then((value) => value.length > 20000))
     await rawTextarea.evaluate((element) => {
       element.scrollLeft = element.scrollWidth
     })
-    assert.ok(await rawTextarea.evaluate((element) => element.scrollLeft > 0),
-      `raw JSON5 horizontal scrolling unavailable at ${width}px`)
-    await previewCard.evaluate((element) => { element.scrollTop = element.scrollHeight })
+    assert.ok(
+      await rawTextarea.evaluate((element) => element.scrollLeft > 0),
+      `raw JSON5 horizontal scrolling unavailable at ${width}px`,
+    )
+    await previewCard.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     await previewPage.locator('.preview-content').hover()
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
     const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
-    assert.ok(afterPageScroll > beforePageScroll,
-      `page must continue scrolling after preview card reaches its edge at ${width}px`)
+    assert.ok(
+      afterPageScroll > beforePageScroll,
+      `page must continue scrolling after preview card reaches its edge at ${width}px`,
+    )
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
-    assert.ok(pageWidth <= width + 1, `preview page horizontal overflow at ${width}px: ${pageWidth}px`)
+    assert.ok(
+      pageWidth <= width + 1,
+      `preview page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
     await previewPage.screenshot({
       path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
       fullPage: true,
