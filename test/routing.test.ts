@@ -528,4 +528,47 @@ describe('top-level routing', () => {
     expect(context.waitUntil).toHaveBeenCalled()
   })
 
+
+  it('returns browser-friendly HTML 404 while keeping raw subscription errors structured', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const browserResponse = await worker.fetch(
+      new Request('https://gkd.example.com/233/missing.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(browserResponse.status).toBe(404)
+    expect(browserResponse.headers.get('content-type')).toContain('text/html')
+    expect(await browserResponse.text()).toContain('订阅文件不存在')
+
+    const rawResponse = await worker.fetch(
+      new Request('https://gkd.example.com/233/missing.json5?raw=1', {
+        headers: { accept: 'application/json5' },
+      }),
+      env,
+      context,
+    )
+    expect(rawResponse.status).toBe(404)
+    expect(rawResponse.headers.get('content-type')).toContain('application/json')
+    expect(await rawResponse.json()).toMatchObject({ ok: false, error: '订阅文件不存在' })
+  })
+
 })
