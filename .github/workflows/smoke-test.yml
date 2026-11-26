@@ -32,23 +32,63 @@ jobs:
           status=$(curl -sS -o /tmp/api.json -w '%{http_code}' "$BASE_URL/admin/api/projects")
           test "$status" = "401"
 
-      - name: Verify registered subscription and version metadata
+      - name: Verify current subscription and version metadata
         env:
           BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
-          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.json5" -o /tmp/gkd.json5
-          grep -Fq "id:233" /tmp/gkd.json5
-          grep -Fq "author:'⚠警告'" /tmp/gkd.json5
-          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.version.json5" -o /tmp/gkd.version.json5
-          grep -Fq "id:233,version:16" /tmp/gkd.version.json5
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.json5" -o /tmp/current.json5
+          grep -Fq "id:233" /tmp/current.json5
+          grep -Fq "author:'⚠警告'" /tmp/current.json5
+          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/233/gkd.version.json5" -o /tmp/version.json5
+          grep -Fq "id:233,version:16" /tmp/version.json5
 
-      - name: Verify temporary legacy endpoint and explicit 404
+      - name: Verify historical R2 reads, metadata and content integrity
         env:
           BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
         run: |
           set -euo pipefail
-          curl --retry 5 --retry-delay 2 --retry-all-errors -fsS "$BASE_URL/gkd.json5" -o /tmp/legacy.json5
-          grep -Fq "id:233" /tmp/legacy.json5
-          status=$(curl -sS -o /tmp/not-found.txt -w '%{http_code}' "$BASE_URL/this-path-must-not-exist")
+          verify_history() {
+            local id="$1"
+            local version="$2"
+            local headers="/tmp/history-$id-$version.headers"
+            local body="/tmp/history-$id-$version.json5"
+            local status etag actual_sha
+            status=$(curl --retry 5 --retry-delay 2 --retry-all-errors -sS -o "$body" -D "$headers" -w '%{http_code}' -H 'Accept: application/json5' "$BASE_URL/$id/v$version/gkd.json5?raw=1")
+            test "$status" = "200"
+            grep -Eiq '^content-type: application/json5' "$headers"
+            grep -Eiq "^x-gkd-subscription-id: $id" "$headers"
+            grep -Eiq "^x-gkd-subscription-version: $version" "$headers"
+            etag=$(awk 'tolower($1) == "etag:" { gsub(/\r|"/, "", $2); print $2 }' "$headers" | tail -n 1)
+            actual_sha=$(sha256sum "$body" | cut -d' ' -f1)
+            test -n "$etag"
+            test "$actual_sha" = "$etag"
+            echo "HISTORY_OK id=$id version=$version bytes=$(wc -c < "$body") sha256=$actual_sha"
+          }
+          verify_history 233 16
+          verify_history 667 643
+
+      - name: Verify browser preview and negotiated not-found responses
+        env:
+          BASE_URL: https://gkd-subscription-hub.cjy081219.workers.dev
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/history-preview.html -D /tmp/history-preview.headers -w '%{http_code}' \
+            -H 'Accept: text/html' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document' \
+            "$BASE_URL/233/v16/gkd.json5")
+          test "$status" = "200"
+          grep -Eiq '^content-type: text/html' /tmp/history-preview.headers
+          grep -q 'id="app"' /tmp/history-preview.html
+
+          status=$(curl -sS -o /tmp/unknown-browser.html -D /tmp/unknown-browser.headers -w '%{http_code}' \
+            -H 'Accept: text/html' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Dest: document' \
+            "$BASE_URL/999/gkd.json5")
           test "$status" = "404"
+          grep -Eiq '^content-type: text/html' /tmp/unknown-browser.headers
+          grep -q '订阅源不存在或尚未登记' /tmp/unknown-browser.html
+
+          status=$(curl -sS -o /tmp/unknown-raw.json -D /tmp/unknown-raw.headers -w '%{http_code}' \
+            -H 'Accept: application/json5' "$BASE_URL/999/gkd.json5?raw=1")
+          test "$status" = "404"
+          grep -Eiq '^content-type: application/json' /tmp/unknown-raw.headers
+          grep -q '订阅源不存在或尚未登记' /tmp/unknown-raw.json
