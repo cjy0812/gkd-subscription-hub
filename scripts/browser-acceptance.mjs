@@ -334,9 +334,10 @@ try {
     if (width > 760) {
       assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
       assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
-      const providerMark = projectsPage.locator('.desktop-table .provider-mark')
-      await providerMark.waitFor({ state: 'visible' })
-      assert.equal(await providerMark.getAttribute('aria-label'), '托管平台：GitHub')
+      const providerLogo = projectsPage.locator('.desktop-table .provider-logo')
+      await providerLogo.waitFor({ state: 'visible' })
+      assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
+      assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
     }
     if (width <= 760) {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
@@ -344,10 +345,9 @@ try {
       assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
       const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
       await repoLink.waitFor({ state: 'visible' })
-      assert.equal(
-        await repoLink.locator('.provider-mark').getAttribute('aria-label'),
-        '托管平台：GitHub',
-      )
+      const providerLogo = repoLink.locator('.provider-logo')
+      assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
+      assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
       for (const label of ['刷新', '复制', '目录', '删除']) {
         await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
       }
