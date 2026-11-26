@@ -260,7 +260,7 @@ PR #40 后续已合并至 main（merge commit `09ed25c4409035183e7f465b76b8aefd3
 
 ### 三个页面及 PR #40 遗留问题
 
-- [ ] 项目列表：将 GH/GL/GT 字母标记替换为 GitHub、GitLab、Gitea 正式平台 Logo；保留可访问名称和 Provider fallback。
+- [x] 项目列表：将 GH/GL/GT 字母标记替换为 GitHub、GitLab、Gitea 品牌 Logo 本地资源；保留 alt 可访问名称和旧 Provider 默认 GitHub fallback，并更新 Chromium 资源加载断言。
 - [x] 项目列表：外链图标尺寸已缩小至 10px（需随本轮浏览器验收回归）。
 - [x] 项目列表：移动端操作按钮已有可见文字，不依赖 hover 才能理解操作。
 - [ ] 项目列表：逐项验证长按/Tooltip、桌面鼠标 hover、键盘焦点与屏幕阅读器可访问名称；不能把可见文字等同于长按 Tooltip。
