@@ -155,17 +155,21 @@ app.all('*', async (c) => {
     const cacheUrl = new URL(req.url)
     cacheUrl.searchParams.set('__archive', snapshot.contentSha256)
     const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' })
-    // Workers expose the shared Cache API as caches.default; named caches.open()
-    // is a browser API and throws in the deployed Worker runtime. Cache failures
-    // must never prevent an immutable historical file from being served.
-    const cache = typeof caches === 'undefined' ? undefined : (caches as CacheStorage & { default?: Cache }).default
+    // Cache is an optimization only. A Cache API failure must not block the
+    // authoritative immutable R2 read.
+    let cache: Cache | undefined
+    try {
+      cache = await caches.open('gkd-subscription-history-v1')
+    } catch {
+      cache = undefined
+    }
     if (req.method === 'GET' && cache) {
       try {
         const cached = await cache.match(cacheKey)
         if (cached)
           return new Response(cached.body, { status: cached.status, headers: cached.headers })
       } catch {
-        // Fall through to the authoritative R2 object when the edge cache is unavailable.
+        cache = undefined
       }
     }
 
