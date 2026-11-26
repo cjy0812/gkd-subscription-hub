@@ -473,7 +473,9 @@ try {
       path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
       fullPage: true,
     })
-    console.log(`PASS SubscriptionPreviewPage viewport ${width}px (raw content, internal scroll, no horizontal page overflow)`)
+    console.log(
+      `PASS SubscriptionPreviewPage viewport ${width}px (raw content, internal scroll, no horizontal page overflow)`,
+    )
     await previewPage.close()
   }
 } finally {
