@@ -581,9 +581,26 @@ try {
       overflowY: getComputedStyle(element).overflowY,
       overscrollBehaviorY: getComputedStyle(element).overscrollBehaviorY,
     }))
+    const textareaAncestorScroll = await rawTextarea.evaluate((element) => {
+      const ancestors = []
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        const style = getComputedStyle(node)
+        if (node.scrollHeight > node.clientHeight || style.overflowY !== 'visible') {
+          ancestors.push({
+            tag: node.tagName,
+            className: typeof node.className === 'string' ? node.className : '',
+            scrollTop: node.scrollTop,
+            maxScroll: node.scrollHeight - node.clientHeight,
+            overflowY: style.overflowY,
+            overscrollBehaviorY: style.overscrollBehaviorY,
+          })
+        }
+      }
+      return ancestors
+    })
     assert.ok(
       cardAfterTextareaWheel.scrollTop > 0,
-      `card must continue scrolling when textarea reaches its vertical edge at ${width}px: textarea=${JSON.stringify(textareaAfterWheel)}, card=${JSON.stringify(cardAfterTextareaWheel)}`,
+      `card must continue scrolling when textarea reaches its vertical edge at ${width}px: textarea=${JSON.stringify(textareaAfterWheel)}, card=${JSON.stringify(cardAfterTextareaWheel)}, ancestors=${JSON.stringify(textareaAncestorScroll)}`,
     )
 
     await previewCard.evaluate((element) => {
