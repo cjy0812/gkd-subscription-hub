@@ -460,14 +460,19 @@ try {
     const previewCard = previewPage.locator('.preview-content')
     await previewPage.evaluate(() => {
       const card = document.querySelector('.preview-content')
-      if (!card) throw new Error('missing preview card')
+      const app = document.querySelector('#app')
+      if (!card || !app) throw new Error('missing preview page fixture')
+      app.style.height = '900px'
+      app.style.minHeight = '0'
+      app.style.overflowY = 'auto'
+      app.style.overflowX = 'hidden'
       const filler = document.createElement('div')
       filler.style.height = '1200px'
       filler.textContent = 'browser acceptance vertical scroll fixture'
       card.append(filler)
       const spacer = document.createElement('div')
       spacer.style.height = '2000px'
-      document.body.append(spacer)
+      app.append(spacer)
     })
     assert.equal(
       await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
@@ -506,7 +511,7 @@ try {
       (element) => getComputedStyle(element).overscrollBehaviorY,
     )
     assert.equal(cardOverscrollBehavior, 'auto')
-    const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
+    const beforePageScroll = await previewPage.locator('#app').evaluate((element) => element.scrollTop)
     const cardBounds = await previewCard.boundingBox()
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
     // Aim at the card border rather than the nested textarea/filler so the
@@ -514,7 +519,7 @@ try {
     await previewPage.mouse.move(cardBounds.x + 2, cardBounds.y + 2)
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
-    const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
+    const afterPageScroll = await previewPage.locator('#app').evaluate((element) => element.scrollTop)
     const scrollDiagnostics = await previewPage.evaluate(() => {
       const app = document.querySelector('#app')
       const card = document.querySelector('.preview-content')
@@ -524,6 +529,8 @@ try {
         bodyHeight: document.body.scrollHeight,
         bodyOverflowY: getComputedStyle(document.body).overflowY,
         appHeight: app?.scrollHeight,
+        appClientHeight: app?.clientHeight,
+        appScrollTop: app?.scrollTop,
         appOverflowY: app ? getComputedStyle(app).overflowY : 'missing',
         cardOverscrollBehavior: card ? getComputedStyle(card).overscrollBehaviorY : 'missing',
       }
