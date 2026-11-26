@@ -489,15 +489,34 @@ try {
       element.scrollTop = element.scrollHeight
     })
     const cardScrollTop = await previewCard.evaluate((element) => element.scrollTop)
-    assert.ok(cardScrollTop > 0, `preview card must scroll internally at ${width}px`)
+    const maxCardScroll = await previewCard.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    )
+    assert.ok(
+      cardScrollTop >= maxCardScroll - 1,
+      `preview card must reach its scroll edge at ${width}px`,
+    )
+    const cardOverscrollBehavior = await previewCard.evaluate(
+      (element) => getComputedStyle(element).overscrollBehaviorY,
+    )
+    assert.equal(cardOverscrollBehavior, 'auto')
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     await previewPage.locator('.preview-content').hover()
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(100)
     const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
+    const scrollDiagnostics = await previewPage.evaluate(() => ({
+      documentHeight: document.documentElement.scrollHeight,
+      documentClientHeight: document.documentElement.clientHeight,
+      bodyHeight: document.body.scrollHeight,
+      bodyOverflowY: getComputedStyle(document.body).overflowY,
+      appHeight: document.querySelector('#app')?.scrollHeight,
+      appOverflowY: getComputedStyle(document.querySelector('#app')!).overflowY,
+      cardOverscrollBehavior: getComputedStyle(document.querySelector('.preview-content')!).overscrollBehaviorY,
+    }))
     assert.ok(
       afterPageScroll > beforePageScroll,
-      `page must continue scrolling after preview card reaches its edge at ${width}px`,
+      `page must continue scrolling after preview card reaches its edge at ${width}px: ${JSON.stringify(scrollDiagnostics)}`,
     )
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
