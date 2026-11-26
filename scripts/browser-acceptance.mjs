@@ -551,8 +551,8 @@ try {
     })
     const textareaBounds = await rawTextarea.boundingBox()
     assert.ok(textareaBounds, 'raw JSON5 textarea must remain measurable')
-    const textareaWheelX = textareaBounds.x + Math.min(12, textareaBounds.width / 2)
-    const textareaWheelY = textareaBounds.y + Math.min(textareaBounds.height - 2, 24)
+    const textareaWheelX = textareaBounds.x + textareaBounds.width / 2
+    const textareaWheelY = textareaBounds.y + textareaBounds.height / 2
     const textareaWheelTarget = await previewPage.evaluate(
       ({ x, y }) => {
         const target = document.elementFromPoint(x, y)
@@ -570,10 +570,20 @@ try {
     await previewPage.mouse.move(textareaWheelX, textareaWheelY)
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(150)
-    const cardAfterTextareaWheel = await previewCard.evaluate((element) => element.scrollTop)
+    const textareaAfterWheel = await rawTextarea.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      maxScroll: element.scrollHeight - element.clientHeight,
+      overscrollBehaviorY: getComputedStyle(element).overscrollBehaviorY,
+    }))
+    const cardAfterTextareaWheel = await previewCard.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      maxScroll: element.scrollHeight - element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      overscrollBehaviorY: getComputedStyle(element).overscrollBehaviorY,
+    }))
     assert.ok(
-      cardAfterTextareaWheel > 0,
-      `card must continue scrolling when textarea reaches its vertical edge at ${width}px`,
+      cardAfterTextareaWheel.scrollTop > 0,
+      `card must continue scrolling when textarea reaches its vertical edge at ${width}px: textarea=${JSON.stringify(textareaAfterWheel)}, card=${JSON.stringify(cardAfterTextareaWheel)}`,
     )
 
     await previewCard.evaluate((element) => {
