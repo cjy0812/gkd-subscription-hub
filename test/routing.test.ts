@@ -457,4 +457,69 @@ describe('top-level routing', () => {
     )
     expect(response.status).toBe(404)
   })
+
+  it('serves an archived historical subscription when the Worker Cache API is unavailable', async () => {
+    const source = new TextEncoder().encode('{id:233,version:16}')
+    const compressedStream = new Blob([source]).stream().pipeThrough(new CompressionStream('gzip'))
+    const compressed = new Uint8Array(await new Response(compressedStream).arrayBuffer())
+    const digest = await crypto.subtle.digest('SHA-256', source)
+    const contentSha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    const snapshot = {
+      id: 233, version: 16, provider: 'github', owner: 'owner', repo: 'repo',
+      branch: 'main', repoUrl: 'https://github.com/owner/repo', commitSha: 'commit-sha',
+      fileSha: 'blob-sha', filePath: 'gkd.json5', fileSize: source.byteLength,
+      createdAt: '2026-11-25T00:00:00.000Z', archiveStatus: 'pending',
+    }
+    const row = {
+      snapshot_json: JSON.stringify(snapshot), status: 'ready',
+      content_sha256: contentSha256,
+      object_key: `objects/${contentSha256.slice(0, 2)}/${contentSha256}.json5.gz`,
+      compressed_size: compressed.byteLength, archive_error: null,
+    }
+    const database = {
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn(() => ({
+          first: vi.fn(async () => {
+            if (sql.includes('subscription_versions')) return row
+            if (sql.includes('archive_daily_usage')) return { r2_reads: 1 }
+            return null
+          }),
+          run: vi.fn(async () => ({ success: true })),
+        })),
+      })),
+    }
+    const project = {
+      id: 233, provider: 'github', owner: 'owner', repo: 'repo', branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: source.byteLength }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+      VERSIONS: database as unknown as D1Database,
+      ARCHIVE: {
+        get: vi.fn(async () => ({
+          size: compressed.byteLength,
+          customMetadata: { sha256: contentSha256, originalSize: String(source.byteLength) },
+          body: new Response(compressed).body,
+        })),
+      } as unknown as R2Bucket,
+    })
+    vi.stubGlobal('caches', undefined)
+
+    const response = await worker.fetch(
+      new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
+        headers: { accept: 'application/json5' },
+      }),
+      env,
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/json5')
+    expect(response.headers.get('x-gkd-subscription-version')).toBe('16')
+    expect(await response.text()).toBe(new TextDecoder().decode(source))
+  })
+
 })
