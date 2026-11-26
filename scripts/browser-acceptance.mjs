@@ -463,13 +463,16 @@ try {
       if (!card?.parentElement) throw new Error('missing preview card fixture')
       const scrollHost = document.createElement('div')
       scrollHost.dataset.testid = 'preview-scroll-host'
+      scrollHost.style.position = 'fixed'
+      scrollHost.style.inset = '0 auto auto 0'
       scrollHost.style.height = '900px'
-      scrollHost.style.flex = '0 0 900px'
-      scrollHost.style.width = '100%'
+      scrollHost.style.width = '100vw'
+      scrollHost.style.zIndex = '9999'
+      scrollHost.style.background = 'white'
       scrollHost.style.overflowY = 'auto'
       scrollHost.style.overflowX = 'hidden'
       scrollHost.style.minHeight = '0'
-      card.parentElement.insertBefore(scrollHost, card)
+      document.body.append(scrollHost)
       scrollHost.append(card)
 
       const filler = document.createElement('div')
