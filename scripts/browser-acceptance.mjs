@@ -349,7 +349,9 @@ try {
       })
       await projectsPage.evaluate(() => {
         const target = document.elementFromPoint(10, 130)
-        if (!target) throw new Error('missing horizontal scroll fixture')
+        if (!target) {
+          throw new Error('missing horizontal scroll fixture')
+        }
         const start = new Touch({ identifier: 1, target, clientX: 10, clientY: 130 })
         target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, changedTouches: [start], touches: [start] }))
         const end = new Touch({ identifier: 1, target, clientX: 110, clientY: 130 })
