@@ -77,10 +77,10 @@
 ## PR #40 管理端缺陷修复验收（最新）
 
 - 日期：2026-11-26
-- 验收提交：`f2297d118eef7a4535ec7fb9094aca3cbf4ebfe8`
-- GitHub Actions（PR 检查）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739940530>
-- GitHub Actions（push 检查）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739931817>
-- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45739940530/artifacts/15081280331>
+- 验收提交：`3a5bf58a7e78d7a9b295bb324787a67f5c1b3608`
+- PR CI（全部通过）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45740683073>
+- Push CI（全部通过）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45740677338>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45740683073/artifacts/15081291425>
 - 浏览器：Playwright 1.56.1 驱动的 Chromium headless
 - 数据：固定 fixture API；不读取或修改生产订阅数据
 - 结果：Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Browser Acceptance 全部通过；PR 与 push 两条 Actions 检查均成功。
@@ -99,6 +99,7 @@
 - 缺失 Provider 的旧记录在桌面和移动布局均按 GitHub 显示，并向辅助技术暴露完整名称。
 - 320px 触摸事件模拟：从左边缘向右滑动打开左侧抽屉；从可横向滚动区域开始的手势不会同时打开抽屉。
 - 预览卡片具备真实纵向溢出并可滚动到边界；Chromium 嵌套滚动容器 fixture 验证边界处的默认滚动链行为，页面样式不再设置 `overscroll-behavior: contain`。
+- 真实页面的横向溢出断言和页面截图在安装滚动链 fixture 前执行，避免测试夹具遮盖页面布局问题或污染截图。
 - 保留原有 MonitoringPage、PublicPortal 六个视口（320/640/641/768/1024/1440 px）和 canonical 预览路径回归。
 - 每个目标视口均生成截图并上传 Actions artifact。
 
