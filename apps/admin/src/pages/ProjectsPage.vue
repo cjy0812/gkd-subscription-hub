@@ -35,13 +35,10 @@ const projects = ref<Project[]>([])
 function normalizedProvider(provider: string | undefined) {
   return provider || 'github'
 }
-function providerLabel(provider: string | undefined) {
-  switch (normalizedProvider(provider)) {
-    case 'github': return 'GH'
-    case 'gitlab': return 'GL'
-    case 'gitea': return 'GT'
-    default: return 'Git'
-  }
+function providerLogo(provider: string | undefined) {
+  const normalized = normalizedProvider(provider)
+  const name = normalized === 'gitlab' || normalized === 'gitea' ? normalized : 'github'
+  return `/admin/provider-logos/${name}.svg`
 }
 function providerName(provider: string | undefined) {
   switch (normalizedProvider(provider)) {
@@ -291,7 +288,7 @@ const columns: DataTableColumns<Project> = [
     minWidth: 240,
     render: (row) =>
       h('div', { class: 'repo-cell' }, [
-        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('span', { class: ['provider-mark', `provider-${normalizedProvider(row.provider)}`], role: 'img', 'aria-label': `托管平台：${providerName(row.provider)}` }, providerLabel(row.provider)), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
+        h('a', { href: row.repoUrl, target: '_blank', rel: 'noopener noreferrer', class: 'repo-title-link', title: '打开源码仓库' }, [h('img', { class: 'provider-logo', src: providerLogo(row.provider), alt: providerName(row.provider) }), h('strong', `${row.owner}/${row.repo}`), h(AppIcon, { name: 'external-link', size: 10 })]),
         h(
           'small',
           `${row.provider === 'gitlab' ? 'GitLab' : row.provider === 'gitea' ? 'Gitea' : 'GitHub'} · 订阅 ID ${row.id}`,
@@ -669,7 +666,7 @@ onMounted(() => {
                   </n-tag>
                   <n-tag size="small" :bordered="false">{{ project.distFiles.length }} 个文件</n-tag>
                 </div>
-                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><span class="provider-mark" :class="`provider-${normalizedProvider(project.provider)}`" role="img" :aria-label="`托管平台：${providerName(project.provider)}`">{{ providerLabel(project.provider) }}</span><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
+                <p><a :href="project.repoUrl" target="_blank" rel="noopener noreferrer" class="repo-title-link"><img class="provider-logo" :src="providerLogo(project.provider)" :alt="providerName(project.provider)" /><span>{{ project.owner }}/{{ project.repo }}</span><AppIcon name="external-link" :size="10" /></a></p>
                 <small>分支：{{ project.branch }}</small>
                 <small
                   >最近检查：{{
@@ -849,9 +846,9 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
-.provider-mark { display: inline-grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; border-radius: 5px; background: var(--color-surface-secondary); color: var(--color-text-secondary); font-size: 9px; font-weight: 800; letter-spacing: -.04em; }
+.provider-logo { display: block; flex: 0 0 20px; width: 20px; height: 20px; object-fit: contain; }
 .repo-title-link { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--color-text); text-decoration: none; }
-.repo-title-link strong,.repo-title-link > span:not(.provider-mark) { min-width: 0; overflow-wrap: anywhere; }
+.repo-title-link strong,.repo-title-link > span { min-width: 0; overflow-wrap: anywhere; }
 .repo-title-link svg { flex: 0 0 auto; }
 .repo-title-link:hover { color: var(--color-accent); text-decoration: underline; }
 .repo-source-link {
