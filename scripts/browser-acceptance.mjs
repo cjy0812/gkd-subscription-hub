@@ -442,7 +442,7 @@ try {
   for (const width of [320, 768, 1024, 1440]) {
     const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
     const rawSource =
-      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\\n' + 'x'.repeat(24000)
+      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\n' + 'x'.repeat(24000)
     await previewPage.route('**/233/**', (route) => {
       const requestUrl = new URL(route.request().url())
       if (requestUrl.searchParams.get('raw') === '1') {
@@ -535,9 +535,49 @@ try {
       (element) => element.scrollHeight - element.clientHeight,
     )
     assert.ok(
+      rawTextareaMaxScroll > 0,
+      `raw JSON5 textarea must have vertical overflow at ${width}px`,
+    )
+    assert.ok(
       rawTextareaScrollTop >= rawTextareaMaxScroll - 1,
       `raw JSON5 textarea must reach its vertical edge at ${width}px`,
     )
+    await previewCard.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await scrollHost.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    const textareaBounds = await rawTextarea.boundingBox()
+    assert.ok(textareaBounds, 'raw JSON5 textarea must remain measurable')
+    const textareaWheelX = textareaBounds.x + Math.min(12, textareaBounds.width / 2)
+    const textareaWheelY = textareaBounds.y + Math.min(textareaBounds.height - 2, 24)
+    const textareaWheelTarget = await previewPage.evaluate(
+      ({ x, y }) => {
+        const target = document.elementFromPoint(x, y)
+        return {
+          tagName: target?.tagName,
+          isTextarea: target instanceof HTMLTextAreaElement,
+        }
+      },
+      { x: textareaWheelX, y: textareaWheelY },
+    )
+    assert.ok(
+      textareaWheelTarget.isTextarea,
+      `wheel event must originate over raw JSON5 textarea, got ${JSON.stringify(textareaWheelTarget)}`,
+    )
+    await previewPage.mouse.move(textareaWheelX, textareaWheelY)
+    await previewPage.mouse.wheel(0, 700)
+    await previewPage.waitForTimeout(150)
+    const cardAfterTextareaWheel = await previewCard.evaluate((element) => element.scrollTop)
+    assert.ok(
+      cardAfterTextareaWheel > 0,
+      `card must continue scrolling when textarea reaches its vertical edge at ${width}px`,
+    )
+
+    await previewCard.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
     await scrollHost.evaluate((element) => {
       element.scrollTop = 0
     })
