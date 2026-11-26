@@ -40,6 +40,8 @@ jobs:
         run: bun run test
       - name: Build admin app
         run: bun run build:admin
+      - name: Validate Worker bundle without deploying
+        run: bunx wrangler deploy --dry-run --outdir /tmp/gkd-hub-worker-bundle
       - name: Install Chromium for browser acceptance
         run: npx --yes playwright@1.56.1 install --with-deps chromium
       - name: Start admin browser test server
