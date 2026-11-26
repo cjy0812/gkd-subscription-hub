@@ -365,8 +365,11 @@ try {
         const end = new Touch({ identifier: 2, target, clientX: 112, clientY: 400 })
         target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }))
       })
-      await projectsPage.locator('.n-drawer').first().waitFor({ state: 'visible' })
-      console.log('PASS AdminLayout edge swipe opens drawer; horizontal scroller swipe does not')
+      const drawer = projectsPage.locator('.n-drawer').first()
+      await drawer.waitFor({ state: 'visible' })
+      const drawerLeft = await drawer.evaluate((element) => element.getBoundingClientRect().left)
+      assert.ok(Math.abs(drawerLeft) <= 1, `mobile drawer must open from the left edge, got ${drawerLeft}px`)
+      console.log('PASS AdminLayout left-edge swipe opens left drawer; horizontal scroller swipe does not')
     }
     await projectsPage.close()
   }
@@ -396,6 +399,14 @@ try {
     })
     assert.ok(await rawTextarea.evaluate((element) => element.scrollLeft > 0),
       `raw JSON5 horizontal scrolling unavailable at ${width}px`)
+    await previewCard.evaluate((element) => { element.scrollTop = element.scrollHeight })
+    const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
+    await previewPage.locator('.preview-content').hover()
+    await previewPage.mouse.wheel(0, 700)
+    await previewPage.waitForTimeout(100)
+    const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
+    assert.ok(afterPageScroll > beforePageScroll,
+      `page must continue scrolling after preview card reaches its edge at ${width}px`)
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(pageWidth <= width + 1, `preview page horizontal overflow at ${width}px: ${pageWidth}px`)
     await previewPage.screenshot({
