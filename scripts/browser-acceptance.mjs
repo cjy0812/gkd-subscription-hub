@@ -409,6 +409,10 @@ try {
       })
       const drawer = projectsPage.locator('.n-drawer').first()
       await drawer.waitFor({ state: 'visible' })
+      await projectsPage.waitForFunction(() => {
+        const element = document.querySelector('.n-drawer')
+        return element && Math.abs(element.getBoundingClientRect().left) <= 1
+      })
       const drawerLeft = await drawer.evaluate((element) => element.getBoundingClientRect().left)
       assert.ok(
         Math.abs(drawerLeft) <= 1,
