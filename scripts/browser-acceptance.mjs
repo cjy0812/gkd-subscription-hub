@@ -305,7 +305,13 @@ try {
             ok: true,
             projects: [
               project,
-              { ...project, id: 234, provider: 'gitlab', owner: 'gitlab-owner', repo: 'gitlab-repo' },
+              {
+                ...project,
+                id: 234,
+                provider: 'gitlab',
+                owner: 'gitlab-owner',
+                repo: 'gitlab-repo',
+              },
               { ...project, id: 235, provider: 'gitea', owner: 'gitea-owner', repo: 'gitea-repo' },
             ],
           }),
