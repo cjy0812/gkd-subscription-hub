@@ -527,23 +527,48 @@ describe('top-level routing', () => {
       match: vi.fn(async () => undefined),
       put: vi.fn(async () => undefined),
     }
-    vi.stubGlobal('caches', { open: vi.fn(async () => cache) })
-    vi.mocked(context.waitUntil).mockClear()
+    const waitUntil = vi.fn()
+    const requestContext = { waitUntil } as unknown as ExecutionContext
+    const scenarios = ['open', 'match', 'put'] as const
 
-    const response = await worker.fetch(
-      new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
-        headers: { accept: 'application/json5' },
-      }),
-      env,
-      context,
-    )
+    for (const scenario of scenarios) {
+      const cache = {
+        match: vi.fn(async () => {
+          if (scenario === 'match') throw new Error('Cache match unavailable')
+          return undefined
+        }),
+        put: vi.fn(async () => {
+          if (scenario === 'put') throw new Error('Cache put unavailable')
+        }),
+      }
+      const open = vi.fn(async () => {
+        if (scenario === 'open') throw new Error('Cache open unavailable')
+        return cache
+      })
+      vi.stubGlobal('caches', { open })
+      waitUntil.mockClear()
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('application/json5')
-    expect(response.headers.get('x-gkd-subscription-version')).toBe('16')
-    expect(await response.text()).toBe(new TextDecoder().decode(source))
-    expect(cache.put).toHaveBeenCalledOnce()
-    expect(context.waitUntil).toHaveBeenCalled()
+      const response = await worker.fetch(
+        new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
+          headers: { accept: 'application/json5' },
+        }),
+        env,
+        requestContext,
+      )
+
+      expect(response.status, scenario).toBe(200)
+      expect(response.headers.get('content-type')).toContain('application/json5')
+      expect(response.headers.get('x-gkd-subscription-version')).toBe('16')
+      expect(await response.text()).toBe(new TextDecoder().decode(source))
+
+      if (scenario === 'put') {
+        expect(waitUntil).toHaveBeenCalledOnce()
+        const scheduledWrite = waitUntil.mock.calls[0]?.[0] as Promise<unknown>
+        await expect(scheduledWrite).resolves.toBeUndefined()
+      } else {
+        expect(waitUntil).not.toHaveBeenCalled()
+      }
+    }
   })
 
   it('returns browser-friendly HTML 404 while keeping raw subscription errors structured', async () => {
