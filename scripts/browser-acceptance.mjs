@@ -485,6 +485,12 @@ try {
       (element) => element.scrollHeight > element.clientHeight,
     )
     assert.ok(cardOverflows, `preview card must overflow vertically at ${width}px`)
+    await previewPage.evaluate(() => {
+      document.querySelector('.preview-content')?.scrollIntoView({
+        block: 'center',
+        behavior: 'instant',
+      })
+    })
     await previewCard.evaluate((element) => {
       element.scrollTop = element.scrollHeight
     })
@@ -500,12 +506,6 @@ try {
       (element) => getComputedStyle(element).overscrollBehaviorY,
     )
     assert.equal(cardOverscrollBehavior, 'auto')
-    await previewPage.evaluate(() => {
-      document.querySelector('.preview-content')?.scrollIntoView({
-        block: 'center',
-        behavior: 'instant',
-      })
-    })
     const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
     const cardBounds = await previewCard.boundingBox()
     assert.ok(cardBounds, 'preview card must have a browser bounding box')
