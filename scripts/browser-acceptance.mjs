@@ -301,7 +301,14 @@ try {
         return route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ ok: true, projects: [project] }),
+          body: JSON.stringify({
+            ok: true,
+            projects: [
+              project,
+              { ...project, id: 234, provider: 'gitlab', owner: 'gitlab-owner', repo: 'gitlab-repo' },
+              { ...project, id: 235, provider: 'gitea', owner: 'gitea-owner', repo: 'gitea-repo' },
+            ],
+          }),
         })
       }
       if (requestUrl.pathname.endsWith('/admin/api/config')) {
@@ -351,6 +358,14 @@ try {
       for (const label of ['刷新', '复制', '目录', '删除']) {
         await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
       }
+    }
+    for (const provider of ['GitHub', 'GitLab', 'Gitea']) {
+      const logo = projectsPage.locator(`.provider-logo[alt="${provider}"]`).first()
+      await logo.waitFor({ state: 'visible' })
+      assert.ok(
+        (await logo.evaluate((image) => image.naturalWidth)) > 0,
+        `${provider} logo failed to load at ${width}px`,
+      )
     }
     const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
