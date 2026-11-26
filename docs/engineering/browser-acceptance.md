@@ -86,12 +86,12 @@
 
 ### PR #40 视口结果
 
-| Viewport | ProjectsPage | SubscriptionPreviewPage | AdminLayout 导航 | 页面横向溢出 |
-| -------: | ------------ | ------------------------ | ---------------- | ------------ |
-| 320 px   | PASS（移动卡片、Provider fallback、可见操作标签） | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（左边缘手势打开左侧抽屉；横向滚动区域不触发抽屉） | 无 |
-| 768 px   | PASS（桌面表格、Provider fallback） | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏） | 无 |
-| 1024 px  | PASS（桌面表格、Provider fallback） | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏） | 无 |
-| 1440 px  | PASS（桌面表格、Provider fallback） | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏） | 无 |
+| Viewport | ProjectsPage                                        | SubscriptionPreviewPage                      | AdminLayout 导航                                         | 页面横向溢出 |
+| -------: | ------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------ | ------------ |
+| 320 px   | PASS（移动卡片、Provider fallback、可见操作标签） | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（左边缘手势打开左侧抽屉；横向滚动区域不触发抽屉） | 无           |
+| 768 px   | PASS（桌面表格、Provider fallback）               | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏）                     | 无           |
+| 1024 px  | PASS（桌面表格、Provider fallback）               | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏）                     | 无           |
+| 1440 px  | PASS（桌面表格、Provider fallback）               | PASS（原始 JSON5、内部滚动、页面滚动传递） | PASS（桌面侧栏显示、移动菜单隐藏）                     | 无           |
 
 ### 额外交互检查
 
