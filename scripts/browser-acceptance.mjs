@@ -459,6 +459,12 @@ try {
     const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
     await rawTextarea.waitFor({ state: 'visible' })
     const previewCard = previewPage.locator('.preview-content')
+    const tabsPaneWrapper = previewCard.locator('.n-tabs-pane-wrapper')
+    assert.equal(
+      await tabsPaneWrapper.evaluate((element) => getComputedStyle(element).overflowY),
+      'visible',
+      `tab pane wrapper must not trap nested scroll chaining at ${width}px`,
+    )
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
       pageWidth <= width + 1,
