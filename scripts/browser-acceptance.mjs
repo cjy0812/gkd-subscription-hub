@@ -574,8 +574,10 @@ try {
       `wheel event must originate over raw JSON5 textarea, got ${JSON.stringify(textareaWheelTarget)}`,
     )
     await previewPage.mouse.move(textareaWheelX, textareaWheelY)
-    await previewPage.mouse.wheel(0, 700)
-    await previewPage.waitForTimeout(150)
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await previewPage.mouse.wheel(0, 700)
+      await previewPage.waitForTimeout(80)
+    }
     const textareaAfterWheel = await rawTextarea.evaluate((element) => ({
       scrollTop: element.scrollTop,
       maxScroll: element.scrollHeight - element.clientHeight,
