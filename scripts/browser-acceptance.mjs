@@ -464,6 +464,8 @@ try {
       const scrollHost = document.createElement('div')
       scrollHost.dataset.testid = 'preview-scroll-host'
       scrollHost.style.height = '900px'
+      scrollHost.style.flex = '0 0 900px'
+      scrollHost.style.width = '100%'
       scrollHost.style.overflowY = 'auto'
       scrollHost.style.overflowX = 'hidden'
       scrollHost.style.minHeight = '0'
@@ -550,9 +552,18 @@ try {
     await previewPage.mouse.wheel(0, 700)
     await previewPage.waitForTimeout(150)
     const afterOuterScroll = await scrollHost.evaluate((element) => element.scrollTop)
+    const outerDiagnostics = await scrollHost.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      bounds: element.getBoundingClientRect().toJSON(),
+      parentDisplay: getComputedStyle(element.parentElement).display,
+      parentClass: element.parentElement.className,
+    }))
     assert.ok(
       afterOuterScroll > beforeOuterScroll,
-      `outer scroll host must continue scrolling after nested content reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}, rawTextarea=${rawTextareaScrollTop}/${rawTextareaMaxScroll}, target=${JSON.stringify(wheelTarget)}`,
+      `outer scroll host must continue scrolling after nested content reaches its edge at ${width}px: before=${beforeOuterScroll}, after=${afterOuterScroll}, rawTextarea=${rawTextareaScrollTop}/${rawTextareaMaxScroll}, target=${JSON.stringify(wheelTarget)}, outer=${JSON.stringify(outerDiagnostics)}`,
     )
     const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(
