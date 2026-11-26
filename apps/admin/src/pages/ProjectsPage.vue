@@ -695,9 +695,11 @@ onMounted(() => {
                     @click="refreshProject(project.id)"
                   >
                     <template #icon><AppIcon name="refresh-cw" /></template>
+                    刷新
                   </n-button>
                   <n-button size="small" quaternary title="复制主订阅 JSON5 地址" aria-label="复制主订阅 JSON5 地址" @click="copySubscriptionUrl(project.id)">
                     <template #icon><AppIcon name="copy" /></template>
+                    复制
                   </n-button>
                   <n-button
                     size="small"
@@ -708,6 +710,7 @@ onMounted(() => {
                     @click="openSubscription(project.id)"
                   >
                     <template #icon><AppIcon name="file-text" /></template>
+                    目录
                   </n-button>
                   <n-button
                     size="small"
@@ -719,6 +722,7 @@ onMounted(() => {
                     @click="removeProject(project.id)"
                   >
                     <template #icon><AppIcon name="trash-2" /></template>
+                    删除
                   </n-button>
                 </n-space>
               </article>
