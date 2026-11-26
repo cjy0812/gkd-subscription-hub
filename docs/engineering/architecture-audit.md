@@ -5,7 +5,7 @@
 > 本节补充 2026-11-23 静态审计基线之后的交付情况，不代表重新执行了本地全量审计。
 
 - [x] PR #39 已于 2026-11-25 合并：canonical 文件 URL、浏览器预览 / 原始响应内容协商、移除旧预览与 dist 路径兼容、跨 Provider Run/Job/Step/Log 按需读取、安全限制和 Chromium 浏览器验收。
-- [ ] PR #40 仍开放：管理端 Provider 标识、移动端手势和预览滚动体验修复尚未完成最终 Review 与真实浏览器验收。当前 Review 已提出有效问题，包括缺少 provider 时统一回退 GitHub、辅助技术读取完整平台名称、横向滚动手势误触发抽屉、预览滚动边界冲突，以及 320/768/1024/1440 px 验收记录。
+- [x] PR #40 已在开放分支完成管理端 Provider fallback/无障碍标记、移动端导航手势与预览滚动修复；CI run 45732757365 的 Format、Lint、TypeScript、Vitest、Admin Build 和 Chromium Browser Acceptance 全部通过，Review 线程已清零。PR 当前 Ready for review、尚未合并，因此这些修改尚未计入 main；正式品牌 Logo、实体设备、真实大型订阅和历史目录/404 专项仍待后续处理。
 - [ ] 真实 GKD App 请求头仍需设备侧验证；浏览器模拟与 Worker 内容协商测试不能替代真实客户端验证。
 - [x] R2 统一分块存储范围决策已确认：所有写入 R2 的文件都必须分块存储。
 - [ ] R2 分块架构尚未实现；当前历史归档代码仍是完整文件 Gzip 对象 + SHA-256 寻址。后续需统一 Manifest / Chunk / 引用模型，并迁移既有对象。

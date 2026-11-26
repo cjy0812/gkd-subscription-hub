@@ -202,16 +202,17 @@
 - [x] **PR #39 已合并**：GitHub Actions、GitLab CI、Gitea Actions 的 Run/Job 分页与按需 Step/Log 读取；补充公共端可见性校验、限频、日志大小限制、请求去重和失败重试。
 - [x] **PR #39 已合并**：Chromium 浏览器验收覆盖 320/640/641/768/1024/1440 px；Format、Lint、TypeScript、Tests、Admin Build、Browser Acceptance、Workers Preview Build 均通过；Review 线程清零。真实 GKD App 请求头仍需设备侧验证。
 
-### 进行中：PR #40 管理端体验修复
+### 已交付到 PR 分支：PR #40 管理端体验修复
 
-- [ ] Provider 标识：旧记录缺少 `provider` 时，徽标、可访问名称和说明统一按 GitHub 回退；桌面/移动端完整 Provider 名称需被辅助技术正确读取。
-- [ ] 移动端导航手势：避免从横向可滚动区域开始的手势误触发抽屉，同时保留屏幕边缘打开手势。
-- [ ] 预览内容滚动：修复内部滚动区与页面滚动的边界冲突，并按剩余视口空间控制高度。
-- [ ] 按 320/768/1024/1440 px 完成真实浏览器验收，记录每个视口的抽屉方向、滚动冲突和预览内容行为。
-- [ ] 逐项处理 PR #40 的 Codex / CodeRabbit Review 评论，确认所有有效线程已解决；CI 与 Preview 部署成功不能代替上述行为验收。
-- [ ] 合并前重新检查评论和最新 head；合并后确认自动部署及只读 Smoke Test。
+- [x] Provider 缺失时统一按 GitHub 回退；桌面/移动标记提供完整可访问名称。
+- [x] 移动端操作按钮提供可见文字；列表布局和外链图标完成调整。
+- [x] 移动导航限制在 24px 左边缘触发；横向可滚动区域不触发抽屉，touchcancel 清理状态。
+- [x] 预览页 canonical 返回路径、内部滚动与页面滚动传递完成修复。
+- [x] Playwright Chromium 已验收 320/768/1024/1440px；CI run 45732757365 全部通过，明细见 [浏览器验收记录](engineering/browser-acceptance.md)。
+- [x] PR Review 线程已逐项回复并全部解决。
+- [ ] 正式 GitHub/GitLab/Gitea Logo、实体 Android/iOS 验收、真实大型订阅数据验收和历史目录/404 专项仍为后续任务。
 
-当前 PR #40：[#40 fix(admin): 补齐订阅列表与预览页交互缺陷](https://github.com/cjy0812/gkd-subscription-hub/pull/40)，截至本次更新仍为 Open，不能标记为交付完成。
+当前 PR #40 已 Ready for review、仍 Open 且未合并；分支验收通过不代表 main 已交付。合并后仍需检查自动部署与只读 Smoke Test。
 
 ### 已确认但尚未实施：R2 统一分块存储
 

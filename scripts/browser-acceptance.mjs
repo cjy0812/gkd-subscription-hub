@@ -286,39 +286,221 @@ try {
     await previewPage.close()
   }
 
-  const projectsPage = await browser.newPage({ viewport: { width: 320, height: 900 } })
-  await projectsPage.addInitScript(() =>
-    sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
-  )
-  await projectsPage.route('**/*', (route) => {
-    const requestUrl = new URL(route.request().url())
-    if (requestUrl.pathname.endsWith('/admin/api/projects')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, projects: [project] }),
-      })
+  for (const width of [320, 768, 1024, 1440]) {
+    const projectsPage = await browser.newPage({
+      viewport: { width, height: 900 },
+      hasTouch: width <= 760,
+      deviceScaleFactor: 1,
+    })
+    await projectsPage.addInitScript(() =>
+      sessionStorage.setItem('gkdtoken', 'browser-acceptance-token'),
+    )
+    await projectsPage.route('**/*', (route) => {
+      const requestUrl = new URL(route.request().url())
+      if (requestUrl.pathname.endsWith('/admin/api/projects')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, projects: [project] }),
+        })
+      }
+      if (requestUrl.pathname.endsWith('/admin/api/config')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, subscriptionDomain: 'example.test' }),
+        })
+      }
+      return route.continue()
+    })
+    await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
+    if (width <= 760) {
+      await projectsPage.getByText('ID 233', { exact: true }).waitFor()
+    } else {
+      await projectsPage.getByText(/订阅 ID 233/).waitFor()
     }
-    if (requestUrl.pathname.endsWith('/admin/api/config')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, subscriptionDomain: 'example.test' }),
-      })
+    const desktopTable = projectsPage.locator('.desktop-table')
+    const mobileCards = projectsPage.locator('.mobile-project-list')
+    assert.equal(
+      await desktopTable.isVisible(),
+      width > 760,
+      `desktop project table mismatch at ${width}px`,
+    )
+    assert.equal(
+      await mobileCards.isVisible(),
+      width <= 760,
+      `mobile project cards mismatch at ${width}px`,
+    )
+    if (width > 760) {
+      assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
+      assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
+      const providerMark = projectsPage.locator('.desktop-table .provider-mark')
+      await providerMark.waitFor({ state: 'visible' })
+      assert.equal(await providerMark.getAttribute('aria-label'), '托管平台：GitHub')
     }
-    return route.continue()
-  })
-  await projectsPage.goto('http://127.0.0.1:4173/admin/projects', { waitUntil: 'networkidle' })
-  await projectsPage.getByText('ID 233', { exact: true }).waitFor()
-  const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
-  await projectCheckbox.waitFor({ state: 'visible' })
-  assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
-  console.log('PASS mobile project checkbox has an accessible project-specific name')
-  await projectsPage.screenshot({
-    path: 'artifacts/browser-acceptance/projects-320.png',
-    fullPage: true,
-  })
-  await projectsPage.close()
+    if (width <= 760) {
+      const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
+      await projectCheckbox.waitFor({ state: 'visible' })
+      assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
+      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
+      await repoLink.waitFor({ state: 'visible' })
+      assert.equal(
+        await repoLink.locator('.provider-mark').getAttribute('aria-label'),
+        '托管平台：GitHub',
+      )
+      for (const label of ['刷新', '复制', '目录', '删除']) {
+        await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+      }
+    }
+    const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(
+      pageWidth <= width + 1,
+      `projects page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
+    await projectsPage.screenshot({
+      path: `artifacts/browser-acceptance/projects-${width}.png`,
+      fullPage: true,
+    })
+    console.log(
+      `PASS ProjectsPage viewport ${width}px (responsive layout, provider fallback, no horizontal overflow)`,
+    )
+
+    if (width === 320) {
+      // A real scrollable region beginning at the viewport edge must retain its
+      // horizontal gesture instead of opening the navigation drawer.
+      await projectsPage.evaluate(() => {
+        const scroller = document.createElement('div')
+        scroller.id = 'gesture-scroll-fixture'
+        scroller.style.cssText =
+          'position:fixed;left:0;top:120px;width:220px;height:48px;overflow-x:auto;z-index:9999;background:#ddd'
+        const content = document.createElement('div')
+        content.style.cssText = 'width:900px;height:40px'
+        scroller.append(content)
+        document.body.append(scroller)
+      })
+      await projectsPage.evaluate(() => {
+        const target = document.elementFromPoint(10, 130)
+        if (!target) {
+          throw new Error('missing horizontal scroll fixture')
+        }
+        const start = new Touch({ identifier: 1, target, clientX: 10, clientY: 130 })
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
+        const end = new Touch({ identifier: 1, target, clientX: 110, clientY: 130 })
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
+      })
+      assert.equal(
+        await projectsPage
+          .locator('.n-drawer')
+          .first()
+          .isVisible()
+          .catch(() => false),
+        false,
+        'horizontal scroller gesture must not open the drawer',
+      )
+      // The same rightward swipe from the ordinary screen edge should open it.
+      await projectsPage.evaluate(() => {
+        const target = document.body
+        const start = new Touch({ identifier: 2, target, clientX: 8, clientY: 400 })
+        target.dispatchEvent(
+          new TouchEvent('touchstart', {
+            bubbles: true,
+            changedTouches: [start],
+            touches: [start],
+          }),
+        )
+        const end = new Touch({ identifier: 2, target, clientX: 112, clientY: 400 })
+        target.dispatchEvent(
+          new TouchEvent('touchend', { bubbles: true, changedTouches: [end], touches: [] }),
+        )
+      })
+      const drawer = projectsPage.locator('.n-drawer').first()
+      await drawer.waitFor({ state: 'visible' })
+      await projectsPage.waitForFunction(() => {
+        const element = document.querySelector('.n-drawer')
+        return element && Math.abs(element.getBoundingClientRect().left) <= 1
+      })
+      const drawerLeft = await drawer.evaluate((element) => element.getBoundingClientRect().left)
+      assert.ok(
+        Math.abs(drawerLeft) <= 1,
+        `mobile drawer must open from the left edge, got ${drawerLeft}px`,
+      )
+      console.log(
+        'PASS AdminLayout left-edge swipe opens left drawer; horizontal scroller swipe does not',
+      )
+    }
+    await projectsPage.close()
+  }
+
+  for (const width of [320, 768, 1024, 1440]) {
+    const previewPage = await browser.newPage({ viewport: { width, height: 900 } })
+    const rawSource =
+      '{id:233, name:"Browser Acceptance Fixture", version:1, apps:[]}\\n' + 'x'.repeat(24000)
+    await previewPage.route('**/233/**', (route) => {
+      const requestUrl = new URL(route.request().url())
+      if (requestUrl.searchParams.get('raw') === '1') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json5',
+          body: rawSource,
+        })
+      }
+      return route.continue()
+    })
+    await previewPage.goto('http://127.0.0.1:4173/233/?view=source', { waitUntil: 'networkidle' })
+    const rawTextarea = previewPage.getByRole('textbox', { name: '原始 JSON5 内容' })
+    await rawTextarea.waitFor({ state: 'visible' })
+    const previewCard = previewPage.locator('.preview-content')
+    await previewPage.evaluate(() => {
+      const spacer = document.createElement('div')
+      spacer.style.height = '600px'
+      document.body.append(spacer)
+    })
+    assert.equal(
+      await previewCard.evaluate((element) => getComputedStyle(element).overflowY),
+      'auto',
+    )
+    assert.ok(await rawTextarea.inputValue().then((value) => value.length > 20000))
+    await rawTextarea.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth
+    })
+    assert.ok(
+      await rawTextarea.evaluate((element) => element.scrollLeft > 0),
+      `raw JSON5 horizontal scrolling unavailable at ${width}px`,
+    )
+    await previewCard.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    const beforePageScroll = await previewPage.evaluate(() => window.scrollY)
+    await previewPage.locator('.preview-content').hover()
+    await previewPage.mouse.wheel(0, 700)
+    await previewPage.waitForTimeout(100)
+    const afterPageScroll = await previewPage.evaluate(() => window.scrollY)
+    assert.ok(
+      afterPageScroll > beforePageScroll,
+      `page must continue scrolling after preview card reaches its edge at ${width}px`,
+    )
+    const pageWidth = await previewPage.evaluate(() => document.documentElement.scrollWidth)
+    assert.ok(
+      pageWidth <= width + 1,
+      `preview page horizontal overflow at ${width}px: ${pageWidth}px`,
+    )
+    await previewPage.screenshot({
+      path: `artifacts/browser-acceptance/subscription-preview-${width}.png`,
+      fullPage: true,
+    })
+    console.log(
+      `PASS SubscriptionPreviewPage viewport ${width}px (raw content, internal scroll, no horizontal page overflow)`,
+    )
+    await previewPage.close()
+  }
 } finally {
   await browser.close()
 }
