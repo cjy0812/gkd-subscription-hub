@@ -356,7 +356,7 @@ try {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
       await projectCheckbox.waitFor({ state: 'visible' })
       assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
-      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
+      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link').first()
       await repoLink.waitFor({ state: 'visible' })
       const providerLogo = repoLink.locator('.provider-logo')
       assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
