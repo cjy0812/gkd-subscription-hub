@@ -239,6 +239,31 @@ export async function saveVersionSnapshot(
   return winner
 }
 
+export async function getArchiveObject(
+  env: Env,
+  contentSha256: string,
+): Promise<ArchiveObject | null> {
+  const row = await statement(
+    env,
+    'SELECT content_sha256, object_key, original_size, compressed_size, status FROM archive_objects WHERE content_sha256 = ?',
+    contentSha256,
+  ).first<{
+    content_sha256: string
+    object_key: string
+    original_size: number
+    compressed_size: number
+    status: 'pending' | 'ready'
+  }>()
+  if (!row) return null
+  return {
+    contentSha256: row.content_sha256,
+    objectKey: row.object_key,
+    originalSize: row.original_size,
+    compressedSize: row.compressed_size,
+    status: row.status,
+  }
+}
+
 export async function reserveArchiveObject(
   env: Env,
   object: ArchiveObject,

@@ -324,15 +324,39 @@ describe('repository provider adapters', () => {
     expect(jobs.at(-1)?.id).toBe(51)
   })
 
-  it('rejects workflow logs above the bounded response size', async () => {
+  it('cancels workflow log streams when the streamed size limit is exceeded', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1))
+      },
+      cancel,
+    })
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response('x'.repeat(2 * 1024 * 1024 + 1))),
+      vi.fn(async () => new Response(stream)),
     )
     const adapter = getProviderAdapter('github')
     await expect(
       adapter.getJobLog({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 7),
     ).rejects.toThrow('超过 2 MB 上限')
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
+  it('cancels workflow log bodies immediately when Content-Length exceeds the limit', async () => {
+    const cancel = vi.fn()
+    const response = {
+      status: 200,
+      ok: true,
+      headers: new Headers({ 'content-length': String(2 * 1024 * 1024 + 1) }),
+      body: { cancel },
+    } as unknown as Response
+    vi.stubGlobal('fetch', vi.fn(async () => response))
+    const adapter = getProviderAdapter('github')
+    await expect(
+      adapter.getJobLog({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 7),
+    ).rejects.toThrow('超过 2 MB 上限')
+    expect(cancel).toHaveBeenCalledOnce()
   })
 
   it('forwards HEAD and ETag to the provider raw endpoint', async () => {

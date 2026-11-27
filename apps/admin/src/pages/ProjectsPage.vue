@@ -94,21 +94,24 @@ const groupedProjects = computed(() => {
   const groups = new Map<string, Project[]>()
   for (const project of filteredProjects.value) {
     const name = project.group || '默认分组'
-    groups.set(name, [...(groups.get(name) || []), project])
+    const items = groups.get(name)
+    if (items) items.push(project)
+    else groups.set(name, [project])
   }
   return [...groups.entries()].map(([name, items]) => ({ name, items }))
 })
+const selectedIdSet = computed(() => new Set(selectedIds.value))
 const selectedProjects = computed(() =>
-  projects.value.filter((project) => selectedIds.value.includes(project.id)),
+  projects.value.filter((project) => selectedIdSet.value.has(project.id)),
 )
 const allFilteredSelected = computed(
   () =>
     filteredProjects.value.length > 0 &&
-    filteredProjects.value.every((project) => selectedIds.value.includes(project.id)),
+    filteredProjects.value.every((project) => selectedIdSet.value.has(project.id)),
 )
 const someFilteredSelected = computed(
   () =>
-    filteredProjects.value.some((project) => selectedIds.value.includes(project.id)) &&
+    filteredProjects.value.some((project) => selectedIdSet.value.has(project.id)) &&
     !allFilteredSelected.value,
 )
 const selectedOutsideFilterCount = computed(() => {
@@ -651,7 +654,7 @@ onMounted(() => {
               >
                 <div class="mobile-project-title">
                   <n-checkbox
-                    :checked="selectedIds.includes(project.id)"
+                    :checked="selectedIdSet.has(project.id)"
                     :aria-label="`选择项目 ${project.id}（${project.owner}/${project.repo}）`"
                     :disabled="batchBusy"
                     @update:checked="(checked) => toggleProjectSelection(project.id, checked)"

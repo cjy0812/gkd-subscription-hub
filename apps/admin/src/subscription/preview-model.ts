@@ -144,6 +144,16 @@ function getRuleCount(groups: readonly PreviewGroup[]): number {
   return groups.reduce((total, group) => total + getRules(group).length, 0)
 }
 
+const appRuleCountCache = new WeakMap<RawApp, number>()
+
+function getAppRuleCount(app: RawApp): number {
+  const cached = appRuleCountCache.get(app)
+  if (cached !== undefined) return cached
+  const count = getRuleCount(app.groups as PreviewGroup[])
+  appRuleCountCache.set(app, count)
+  return count
+}
+
 export function summarizeSubscription(subscription: RawSubscription): {
   meta: SubscriptionMeta
   stats: SubscriptionStats
@@ -190,14 +200,21 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
   }
 }
 
-function includesQuery(values: unknown[], query: string): boolean {
-  const normalized = query.trim().toLocaleLowerCase()
-  if (!normalized) return true
+function normalizeQuery(query: string): string {
+  return query.trim().toLocaleLowerCase()
+}
+
+function includesNormalizedQuery(values: unknown[], normalizedQuery: string): boolean {
+  if (!normalizedQuery) return true
   return values.some((value) =>
     String(value ?? '')
       .toLocaleLowerCase()
-      .includes(normalized),
+      .includes(normalizedQuery),
   )
+}
+
+function includesQuery(values: unknown[], query: string): boolean {
+  return includesNormalizedQuery(values, normalizeQuery(query))
 }
 
 export function getAppsPage(
@@ -206,9 +223,15 @@ export function getAppsPage(
   pageSize: number,
   query = '',
 ): PageResult<AppPreviewSummary> {
-  const matchingApps = (subscription.apps || [])
-    .map((app: RawApp, index) => ({ app, index }))
-    .filter(({ app }) => includesQuery([app.id, app.name || app.id], query))
+  const normalizedQuery = normalizeQuery(query)
+  const matchingApps: Array<{ app: RawApp; index: number }> = []
+  const sourceApps = subscription.apps || []
+  for (let index = 0; index < sourceApps.length; index += 1) {
+    const app = sourceApps[index]
+    if (app && includesNormalizedQuery([app.id, app.name || app.id], normalizedQuery)) {
+      matchingApps.push({ app, index })
+    }
+  }
   const result = paginate(matchingApps, page, pageSize)
   return {
     ...result,
@@ -217,7 +240,7 @@ export function getAppsPage(
       id: app.id,
       name: app.name || app.id,
       groupCount: app.groups.length,
-      ruleCount: getRuleCount(app.groups as PreviewGroup[]),
+      ruleCount: getAppRuleCount(app),
     })),
   }
 }
@@ -328,9 +351,15 @@ export function getGroupsPage(
   pageSize: number,
   query = '',
 ): PageResult<GroupPreviewSummary> {
-  const matchingGroups = getScopeGroups(subscription, scope, appIndex)
-    .map((group, index) => ({ group, index }))
-    .filter(({ group }) => includesQuery([group.key, group.name, group.desc], query))
+  const normalizedQuery = normalizeQuery(query)
+  const matchingGroups: Array<{ group: PreviewGroup; index: number }> = []
+  const sourceGroups = getScopeGroups(subscription, scope, appIndex)
+  for (let index = 0; index < sourceGroups.length; index += 1) {
+    const group = sourceGroups[index]
+    if (group && includesNormalizedQuery([group.key, group.name, group.desc], normalizedQuery)) {
+      matchingGroups.push({ group, index })
+    }
+  }
   const result = paginate(matchingGroups, page, pageSize)
   return {
     ...result,
@@ -384,11 +413,15 @@ export function getRulesPage(
 ): PageResult<RulePreviewSummary> {
   const group = getScopeGroups(subscription, scope, appIndex)[groupIndex]
   if (!group) throw new Error('规则组不存在或已更改')
-  const matchingRules = getRules(group)
-    .map((rule, index) => ({ rule, index }))
-    .filter(({ rule }) => {
-      const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
-      return includesQuery(
+  const normalizedQuery = normalizeQuery(query)
+  const matchingRules: Array<{ rule: PreviewRule; index: number }> = []
+  const sourceRules = getRules(group)
+  for (let index = 0; index < sourceRules.length; index += 1) {
+    const rule = sourceRules[index]
+    if (!rule) continue
+    const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
+    if (
+      includesNormalizedQuery(
         [
           normalized.key,
           normalized.name,
@@ -396,9 +429,12 @@ export function getRulesPage(
           getFullRuleMatches(normalized.matches),
           getFullRuleMatches(normalized.anyMatches),
         ],
-        query,
+        normalizedQuery,
       )
-    })
+    ) {
+      matchingRules.push({ rule, index })
+    }
+  }
   const result = paginate(matchingRules, page, pageSize)
   return {
     ...result,

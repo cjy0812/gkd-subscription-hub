@@ -1,5 +1,6 @@
 import type { Env, Project } from '../types'
 import {
+  getArchiveObject,
   getVersionSnapshot,
   listVersionSnapshots,
   markArchiveObjectReady,
@@ -157,8 +158,33 @@ async function archiveSnapshot(
   bytes: Uint8Array,
 ): Promise<VersionSnapshot> {
   const hash = await sha256(bytes)
-  const compressed = await gzip(bytes)
   const key = `objects/${hash.slice(0, 2)}/${hash}.json5.gz`
+  const existing = await getArchiveObject(env, hash)
+  if (existing) {
+    if (existing.originalSize !== bytes.byteLength || existing.objectKey !== key) {
+      throw new Error('R2 内容寻址对象元数据冲突')
+    }
+    if (existing.status === 'ready') {
+      await markVersionReady(
+        env,
+        snapshot,
+        hash,
+        existing.objectKey,
+        existing.compressedSize,
+        bytes.byteLength,
+      )
+      return {
+        ...snapshot,
+        archiveStatus: 'r2',
+        contentSha256: hash,
+        objectKey: existing.objectKey,
+        compressedSize: existing.compressedSize,
+        archiveError: undefined,
+      }
+    }
+  }
+
+  const compressed = await gzip(bytes)
   const reserved = await reserveArchiveObject(env, {
     contentSha256: hash,
     objectKey: key,
