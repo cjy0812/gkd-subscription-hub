@@ -351,7 +351,10 @@ describe('repository provider adapters', () => {
       headers: new Headers({ 'content-length': String(2 * 1024 * 1024 + 1) }),
       body: { cancel },
     } as unknown as Response
-    vi.stubGlobal('fetch', vi.fn(async () => response))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response),
+    )
     const adapter = getProviderAdapter('github')
     await expect(
       adapter.getJobLog({} as Env, { owner: 'owner', repo: 'repo', branch: 'main' }, 7),
