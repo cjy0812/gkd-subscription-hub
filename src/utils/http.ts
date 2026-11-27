@@ -61,6 +61,9 @@ export function documentPage(title: string, body: string, rawHref?: string) {
     .markdown-body img{display:block;max-width:100%;height:auto;margin:1.2em auto;border-radius:8px}
     .markdown-body hr{height:1px;border:0;background:var(--border);margin:2em 0}
     .markdown-body table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;border-spacing:0;margin:1.2em 0}
+    .directory-table{max-width:100%;overflow-x:auto}
+    .directory-table table{min-width:max-content}
+    .directory-table td.file-type,.directory-table td.file-size{white-space:nowrap;overflow-wrap:normal}
     .markdown-body th,.markdown-body td{padding:8px 12px;border:1px solid var(--border);text-align:left;vertical-align:top}
     .markdown-body th{background:var(--soft);font-weight:650}
     .markdown-body tr:nth-child(even){background:color-mix(in srgb,var(--soft) 45%,transparent)}

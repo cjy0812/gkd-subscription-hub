@@ -71,7 +71,7 @@ export default {
     if (path.startsWith('/api/public/')) {
       const rewritten = new URL(req.url)
       rewritten.pathname = path.slice('/api/public'.length)
-      return publicApi.fetch(new Request(rewritten, req), env)
+      return publicApi.fetch(new Request(rewritten, req), env, ctx)
     }
     if (path === '/hooks/notify') return notify(req, env, ctx)
 
@@ -91,14 +91,14 @@ export default {
       if (path.startsWith('/admin/api/')) {
         const rewritten = new URL(req.url)
         rewritten.pathname = path.slice('/admin'.length)
-        return admin.fetch(new Request(rewritten, req), env)
+        return admin.fetch(new Request(rewritten, req), env, ctx)
       }
       const assetUrl = new URL(req.url)
       assetUrl.pathname = path === '/admin/' ? '/' : path.slice('/admin'.length)
       return env.ASSETS.fetch(new Request(assetUrl, req))
     }
 
-    if (/^\/\d+(?:\/|$)/.test(path)) return subscription.fetch(req, env)
+    if (/^\/\d+(?:\/|$)/.test(path)) return subscription.fetch(req, env, ctx)
     return bad('Not found', 404)
   },
   async scheduled(_c: ScheduledController, e: Env, ctx: ExecutionContext) {

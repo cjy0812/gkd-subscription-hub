@@ -104,3 +104,24 @@
 - 每个目标视口均生成截图并上传 Actions artifact。
 
 **验收边界：** 本次使用真实 Chromium 浏览器进程与模拟触摸/滚轮事件，API 数据来自固定 fixture。滚动链检查会将页面卡片放入独立外层滚动容器以验证嵌套滚动行为，不把它描述为实体设备或生产数据人工验收；尚未覆盖实体 Android/iOS、Firefox、Safari，也未对生产 D1/R2 或真实订阅数据执行写入。真实大型订阅深层滚动与实体触摸设备仍是后续专项验收项。
+
+## PR #42 托管平台 Logo 浏览器验收
+
+- 日期：2026-11-27
+- 验收提交：`063c53511cad90766f90b8d9c1d62739135173f4`
+- GitHub Actions（PR merge ref）：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45913695573>
+- 截图产物：<https://github.com/cjy0812/gkd-subscription-hub/actions/runs/45913695573/artifacts/15161347306>
+- 浏览器：Playwright 驱动的 Chromium headless
+- 数据：固定 fixture，包含 GitHub、GitLab、Gitea 三个项目，不访问生产项目数据
+- 结果：Format、Lint、TypeScript、Vitest、Admin Build、Chromium Browser Acceptance 全部通过。
+
+### 覆盖范围
+
+- 在 320、768、1024、1440 px 四个视口检查项目列表响应式布局。
+- 桌面表格和移动卡片分别只检查当前可见容器，避免隐藏布局的元素造成误报。
+- 对 GitHub、GitLab、Gitea 三种 Logo 分别检查可访问名称和图片 `naturalWidth > 0`，确认三个本地 SVG 资源实际加载。
+- 检查移动端项目卡片的刷新、复制、目录、删除动作标签在单卡片范围内可见。
+- 使用 Vite `BASE_URL` 构造 Logo 资源路径，避免 Admin 子路径部署时请求错误。
+- 每个视口生成截图并上传 Actions artifact。
+
+**验收边界：** 本次是 Chromium 自动化验收，覆盖三个 Provider fixture 和四个项目列表视口；不等同于人工视觉评审、真实大型生产数据验收或实体 Android/iOS 设备验收。

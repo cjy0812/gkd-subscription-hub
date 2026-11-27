@@ -457,4 +457,187 @@ describe('top-level routing', () => {
     )
     expect(response.status).toBe(404)
   })
+
+  it('serves archived history with Cache API and forwards the Worker execution context', async () => {
+    const source = new TextEncoder().encode('{id:233,version:16}')
+    const compressedStream = new Blob([source]).stream().pipeThrough(new CompressionStream('gzip'))
+    const compressed = new Uint8Array(await new Response(compressedStream).arrayBuffer())
+    const digest = await crypto.subtle.digest('SHA-256', source)
+    const contentSha256 = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+    const snapshot = {
+      id: 233,
+      version: 16,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      commitSha: 'commit-sha',
+      fileSha: 'blob-sha',
+      filePath: 'gkd.json5',
+      fileSize: source.byteLength,
+      createdAt: '2026-11-25T00:00:00.000Z',
+      archiveStatus: 'pending',
+    }
+    const row = {
+      snapshot_json: JSON.stringify(snapshot),
+      status: 'ready',
+      content_sha256: contentSha256,
+      object_key: `objects/${contentSha256.slice(0, 2)}/${contentSha256}.json5.gz`,
+      compressed_size: compressed.byteLength,
+      archive_error: null,
+    }
+    const database = {
+      prepare: vi.fn((sql: string) => ({
+        bind: vi.fn(() => ({
+          first: vi.fn(async () => {
+            if (sql.includes('subscription_versions')) return row
+            if (sql.includes('archive_daily_usage')) return { r2_reads: 1 }
+            return null
+          }),
+          run: vi.fn(async () => ({ success: true })),
+        })),
+      })),
+    }
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: source.byteLength }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+      VERSIONS: database as unknown as D1Database,
+      ARCHIVE: {
+        get: vi.fn(async () => ({
+          size: compressed.byteLength,
+          customMetadata: { sha256: contentSha256, originalSize: String(source.byteLength) },
+          body: new Response(compressed).body,
+        })),
+      } as unknown as R2Bucket,
+    })
+    const waitUntil = vi.fn()
+    const requestContext = { waitUntil } as unknown as ExecutionContext
+    const scenarios = ['open', 'match', 'put'] as const
+
+    for (const scenario of scenarios) {
+      const cache = {
+        match: vi.fn(async () => {
+          if (scenario === 'match') throw new Error('Cache match unavailable')
+          return undefined
+        }),
+        put: vi.fn(async () => {
+          if (scenario === 'put') throw new Error('Cache put unavailable')
+        }),
+      }
+      const open = vi.fn(async () => {
+        if (scenario === 'open') throw new Error('Cache open unavailable')
+        return cache
+      })
+      vi.stubGlobal('caches', { open })
+      waitUntil.mockClear()
+
+      const response = await worker.fetch(
+        new Request('https://gkd.example.com/233/v16/gkd.json5?raw=1', {
+          headers: { accept: 'application/json5' },
+        }),
+        env,
+        requestContext,
+      )
+
+      expect(response.status, scenario).toBe(200)
+      expect(response.headers.get('content-type')).toContain('application/json5')
+      expect(response.headers.get('x-gkd-subscription-version')).toBe('16')
+      expect(await response.text()).toBe(new TextDecoder().decode(source))
+
+      if (scenario === 'put') {
+        expect(waitUntil).toHaveBeenCalledOnce()
+        const scheduledWrite = waitUntil.mock.calls[0]?.[0] as Promise<unknown>
+        await expect(scheduledWrite).resolves.toBeUndefined()
+      } else {
+        expect(waitUntil).not.toHaveBeenCalled()
+      }
+    }
+  })
+
+  it('returns browser-friendly HTML 404 while keeping raw subscription errors structured', async () => {
+    const project = {
+      id: 233,
+      provider: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      repoUrl: 'https://github.com/owner/repo',
+      distFiles: [{ path: 'gkd.json5', sha: 'blob-sha', size: 42 }],
+    }
+    const env = environment({
+      STATE: {
+        get: vi.fn(async (key: string) => (key === 'project:233' ? project : null)),
+      } as unknown as KVNamespace,
+    })
+    const browserResponse = await worker.fetch(
+      new Request('https://gkd.example.com/233/missing.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(browserResponse.status).toBe(404)
+    expect(browserResponse.headers.get('content-type')).toContain('text/html')
+    expect(await browserResponse.text()).toContain('订阅文件不存在')
+
+    const rawResponse = await worker.fetch(
+      new Request('https://gkd.example.com/233/missing.json5?raw=1', {
+        headers: { accept: 'application/json5' },
+      }),
+      env,
+      context,
+    )
+    expect(rawResponse.status).toBe(404)
+    expect(rawResponse.headers.get('content-type')).toContain('application/json')
+    expect(await rawResponse.json()).toMatchObject({
+      ok: false,
+      error: '订阅文件不存在',
+    })
+
+    const unknownBrowserResponse = await worker.fetch(
+      new Request('https://gkd.example.com/999/gkd.json5', {
+        headers: {
+          accept: 'text/html',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+      }),
+      env,
+      context,
+    )
+    expect(unknownBrowserResponse.status).toBe(404)
+    expect(unknownBrowserResponse.headers.get('content-type')).toContain('text/html')
+    expect(await unknownBrowserResponse.text()).toContain('订阅源不存在或尚未登记')
+
+    const unknownRawResponse = await worker.fetch(
+      new Request('https://gkd.example.com/999/gkd.json5?raw=1', {
+        headers: { accept: 'application/json5' },
+      }),
+      env,
+      context,
+    )
+    expect(unknownRawResponse.status).toBe(404)
+    expect(unknownRawResponse.headers.get('content-type')).toContain('application/json')
+    expect(await unknownRawResponse.json()).toMatchObject({
+      ok: false,
+      error: '订阅源不存在或尚未登记',
+    })
+  })
 })

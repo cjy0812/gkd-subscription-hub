@@ -301,7 +301,26 @@ try {
         return route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ ok: true, projects: [project] }),
+          body: JSON.stringify({
+            ok: true,
+            projects: [
+              project,
+              {
+                ...project,
+                id: 234,
+                provider: 'gitlab',
+                owner: 'gitlab-owner',
+                repo: 'gitlab-repo',
+              },
+              {
+                ...project,
+                id: 235,
+                provider: 'gitea',
+                owner: 'gitea-owner',
+                repo: 'gitea-repo',
+              },
+            ],
+          }),
         })
       }
       if (requestUrl.pathname.endsWith('/admin/api/config')) {
@@ -334,23 +353,33 @@ try {
     if (width > 760) {
       assert.equal(await projectsPage.locator('.mobile-menu').isVisible(), false)
       assert.equal(await projectsPage.locator('.desktop-sidebar').isVisible(), true)
-      const providerMark = projectsPage.locator('.desktop-table .provider-mark')
-      await providerMark.waitFor({ state: 'visible' })
-      assert.equal(await providerMark.getAttribute('aria-label'), '托管平台：GitHub')
+      const providerLogo = projectsPage.locator('.desktop-table .provider-logo').first()
+      await providerLogo.waitFor({ state: 'visible' })
+      assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
+      assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
     }
     if (width <= 760) {
       const projectCheckbox = projectsPage.getByRole('checkbox', { name: /选择项目 233/ })
       await projectCheckbox.waitFor({ state: 'visible' })
       assert.ok((await projectCheckbox.getAttribute('aria-label'))?.includes(`${owner}/${repo}`))
-      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link')
+      const repoLink = projectsPage.locator('.mobile-project-card .repo-title-link').first()
       await repoLink.waitFor({ state: 'visible' })
-      assert.equal(
-        await repoLink.locator('.provider-mark').getAttribute('aria-label'),
-        '托管平台：GitHub',
-      )
+      const providerLogo = repoLink.locator('.provider-logo')
+      assert.equal(await providerLogo.getAttribute('alt'), 'GitHub')
+      assert.ok((await providerLogo.evaluate((image) => image.naturalWidth)) > 0)
+      const firstProjectCard = projectsPage.locator('.mobile-project-card').first()
       for (const label of ['刷新', '复制', '目录', '删除']) {
-        await projectsPage.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+        await firstProjectCard.getByText(label, { exact: true }).waitFor({ state: 'visible' })
       }
+    }
+    for (const provider of ['GitHub', 'GitLab', 'Gitea']) {
+      const logoScope = width <= 760 ? '.mobile-project-list' : '.desktop-table'
+      const logo = projectsPage.locator(`${logoScope} .provider-logo[alt="${provider}"]`).first()
+      await logo.waitFor({ state: 'visible' })
+      assert.ok(
+        (await logo.evaluate((image) => image.naturalWidth)) > 0,
+        `${provider} logo failed to load at ${width}px`,
+      )
     }
     const pageWidth = await projectsPage.evaluate(() => document.documentElement.scrollWidth)
     assert.ok(

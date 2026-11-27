@@ -194,7 +194,7 @@
 
 ## 进度更新（2026-11-26）
 
-> 本节以当前 `main`（`2c597b0`）及开放 PR 的实际状态为准；与上方 2026-11-23 快照冲突时，以本节为较新状态。PR 分支上的改动在合并和验收前不计为主分支已交付。
+> 本节最初记录的 main 快照已过期；请以 GitHub 当前 main HEAD 与 PR 状态为准；与上方 2026-11-23 快照冲突时，以本节为较新状态。PR 分支上的改动在合并和验收前不计为主分支已交付。
 
 ### 已交付
 
@@ -212,7 +212,7 @@
 - [x] PR Review 线程已逐项回复并全部解决。
 - [ ] 正式 GitHub/GitLab/Gitea Logo、实体 Android/iOS 验收、真实大型订阅数据验收和历史目录/404 专项仍为后续任务。
 
-当前 PR #40 已 Ready for review、仍 Open 且未合并；分支验收通过不代表 main 已交付。合并后仍需检查自动部署与只读 Smoke Test。
+PR #40 后续已合并至 main（merge commit `09ed25c4409035183e7f465b76b8aefd3c2ac3a1`）。但合并不代表该节未勾选的正式平台 Logo、真实大型订阅、历史目录/404 专项和实体设备验收已完成。
 
 ### 已确认但尚未实施：R2 统一分块存储
 
@@ -240,3 +240,45 @@
 - [ ] GitHub App 统一 Webhook 授权 + 自适应轮询回退：已纳入最终方案方向，尚未实施；保持主动轮询可靠性，Webhook 作为及时触发加速，通知后仍需拉取上游验证。
 - [ ] 通用 JSON / JSON5 阅读器与 TreeDoc Viewer PoC：PR #39 的专用 GKD 订阅预览不等于通用阅读器完成。
 - [ ] 继续推进订阅详情、管理端配置表单、Explorer 可解释性、真实设备与移动端验收；按需求拆分独立 PR。
+
+## 历史订阅读取 500 与管理端遗留问题（2026-11-26）
+
+> 本节追踪本轮追加的生产问题与 PR #40 合并后仍未完成的用户反馈。状态只依据源码、测试和可观察证据更新；生产 D1/R2 只读核查不等于端到端请求验收。
+
+### 历史订阅 HTTP 500
+
+- [x] 核对生产 D1：当前可见的 6 条历史版本记录均为 `ready`，具备 SHA-256、对象 Key 和压缩大小元数据。
+- [x] 核对生产 R2：上述 6 个对象均存在，实际对象大小、`sha256` 与 `originalSize` 自定义元数据均与 D1 对应记录一致；只读检查，未写入或删除对象。
+- [x] 生产日志定位根因：Cloudflare Worker Observability 记录到历史文件请求返回 500，异常栈为 Hono `get executionCtx`；对应代码在 `subscription.ts` 调用 `c.executionCtx.waitUntil()`，而顶层 Worker 将请求转发到子 Hono App 时漏传第三个 `ExecutionContext` 参数。
+- [x] 修复分支将 `ctx` 显式传入 subscription、public API 和 admin 子 Hono App；历史订阅路由可以安全访问 `c.executionCtx`。同时将历史文件缓存初始化、命中查询与写入设为 best-effort，缓存不可用时回源权威 R2。
+- [x] 增加历史归档路由回归测试，使用 Cache API 并断言 `waitUntil` 被执行，以防止再次遗漏 Hono ExecutionContext。
+- [x] CI 中 Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Worker dry-run bundle、Chromium Browser Acceptance 全部通过（PR #42 head `99e8ec3e`，GitHub Actions push/PR 两条运行均成功）。
+- [ ] Workers Preview / workerd 集成测试验证命名缓存命中、未命中、缓存异常和 R2 读取；不能只以 Node mock 代替 Worker runtime。
+- [ ] 通过生产只读 HTTP Smoke Test 验证 `/233/v16/gkd.json5?raw=1`、`/667/v643/gkd.json5?raw=1` 等已知历史路径，确认状态码、Content-Type、版本 Header、原始长度与 SHA-256；不得写入或迁移生产数据。已更新 `.github/workflows/smoke-test.yml` 覆盖两条历史路径和内容协商，但尚未在 GitHub runner 上执行；当前执行环境 DNS 无法解析生产域名。
+- [ ] 验证浏览器导航历史版本时获得预览 SPA，GKD/非 HTML 请求获得原始 JSON5 字节；验证目录页历史版本列表与 404/503 边界。
+
+### 三个页面及 PR #40 遗留问题
+
+- [x] 项目列表：将 GH/GL/GT 字母标记替换为 GitHub、GitLab、Gitea 品牌 Logo 本地资源；保留 alt 可访问名称和旧 Provider 默认 GitHub fallback，并更新 Chromium 资源加载断言。
+- [x] 项目列表：外链图标尺寸已缩小至 10px（需随本轮浏览器验收回归）。
+- [x] 项目列表：移动端操作按钮已有可见文字，不依赖 hover 才能理解操作。
+- [ ] 项目列表：逐项验证长按/Tooltip、桌面鼠标 hover、键盘焦点与屏幕阅读器可访问名称；不能把可见文字等同于长按 Tooltip。
+- [x] 移动端导航：抽屉手势限定左边缘，横向滚动区域不抢手势，清理 touchcancel 状态（PR #40）。
+- [ ] 项目列表：桌面/移动卡片顶部 ID、状态、文件数对齐与右侧操作布局进行真实浏览器视觉复核。
+- [ ] 历史订阅目录：验证历史版本查询、排序、可用状态及每条链接；修复生产读取错误后执行端到端回归。
+- [x] 历史订阅目录：已登记项目缺失文件、未登记 ID 的浏览器导航均返回友好 HTML 404；GKD/原始请求保留结构化 JSON 错误，并增加 Accept 场景回归测试。
+- [x] 目录文件表格：类型、大小列使用不换行样式，表格容器允许横向滚动；长路径仍允许换行。
+- [x] 订阅预览：返回按钮使用 canonical `/<id>/` 目录路径，不残留 `/dist`。
+- [x] 订阅详情：反馈入口已使用 Issues 图标；不再显示“版本检查”；原始内容使用独立标签与入口。
+- [x] 订阅预览：已有内部滚动容器及滚动链处理。
+- [ ] 使用真实大型订阅数据验证应用 → 规则组 → 规则详情的深层滚动、分页、搜索与错误恢复；固定小型 fixture 不能代替该验收。
+- [ ] 实体 Android/iOS 触摸、长按与滚动验收；当前 Chromium 模拟触摸不计为实体设备验收。
+
+### 本 PR 的交付门禁
+
+- [ ] 每一项用户反馈都有明确状态和验证证据；未修复项保留未勾选并注明原因。
+- [x] CI 全部通过；Codex/CodeRabbit 的 5 个 Review 线程逐项核实、修复或补证据后全部解决。CodeRabbit 最新自动复审因频率限制返回 neutral，不代表新增通过审查。
+- [x] PR #42 Provider Logo 已通过 Chromium 320/768/1024/1440px 验收，分别检查 GitHub/GitLab/Gitea Logo alt 和实际图片加载；截图及运行记录见 `docs/engineering/browser-acceptance.md`。
+- [ ] 后续页面整体专项仍需覆盖 320/640/641/768/1024/1440px 并记录截图；PR #42 的 Logo 专项验收不替代所有页面缺陷验收。
+- [ ] Preview Worker/workerd 历史归档链路通过；当前 Workers Builds preview 编译成功且 Wrangler dry-run 通过，但没有实际向 preview Worker 发起历史 R2 请求，不得将 build 视为运行时集成验收。
+- [ ] 文档与实际实现同步；不改动生产 D1/R2 数据，不部署生产环境。
