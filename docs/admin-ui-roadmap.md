@@ -247,14 +247,14 @@ PR #40 后续已合并至 main（merge commit `09ed25c4409035183e7f465b76b8aefd3
 
 ### 历史订阅 HTTP 500
 
-- [x] 核对生产 D1：当前可见的 5 条历史版本记录均为 `ready`，具备 SHA-256、对象 Key 和压缩大小元数据。
-- [x] 核对生产 R2：上述 5 个对象均存在，实际对象大小、`sha256` 与 `originalSize` 自定义元数据均与 D1 对应记录一致。
+- [x] 核对生产 D1：当前可见的 6 条历史版本记录均为 `ready`，具备 SHA-256、对象 Key 和压缩大小元数据。
+- [x] 核对生产 R2：上述 6 个对象均存在，实际对象大小、`sha256` 与 `originalSize` 自定义元数据均与 D1 对应记录一致；只读检查，未写入或删除对象。
 - [x] 生产日志定位根因：Cloudflare Worker Observability 记录到历史文件请求返回 500，异常栈为 Hono `get executionCtx`；对应代码在 `subscription.ts` 调用 `c.executionCtx.waitUntil()`，而顶层 Worker 将请求转发到子 Hono App 时漏传第三个 `ExecutionContext` 参数。
 - [x] 修复分支将 `ctx` 显式传入 subscription、public API 和 admin 子 Hono App；历史订阅路由可以安全访问 `c.executionCtx`。同时将历史文件缓存初始化、命中查询与写入设为 best-effort，缓存不可用时回源权威 R2。
 - [x] 增加历史归档路由回归测试，使用 Cache API 并断言 `waitUntil` 被执行，以防止再次遗漏 Hono ExecutionContext。
-- [ ] CI 中 Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build 全部通过。
+- [x] CI 中 Format、Lint、Worker/Admin TypeScript、Vitest、Admin Build、Worker dry-run bundle、Chromium Browser Acceptance 全部通过（PR #42 head `99e8ec3e`，GitHub Actions push/PR 两条运行均成功）。
 - [ ] Workers Preview / workerd 集成测试验证命名缓存命中、未命中、缓存异常和 R2 读取；不能只以 Node mock 代替 Worker runtime。
-- [ ] 通过生产只读 HTTP Smoke Test 验证 `/233/v16/gkd.json5?raw=1`、`/667/v643/gkd.json5?raw=1` 等已知历史路径，确认状态码、Content-Type、版本 Header、原始长度与 SHA-256；不得写入或迁移生产数据。
+- [ ] 通过生产只读 HTTP Smoke Test 验证 `/233/v16/gkd.json5?raw=1`、`/667/v643/gkd.json5?raw=1` 等已知历史路径，确认状态码、Content-Type、版本 Header、原始长度与 SHA-256；不得写入或迁移生产数据。已更新 `.github/workflows/smoke-test.yml` 覆盖两条历史路径和内容协商，但尚未在 GitHub runner 上执行；当前执行环境 DNS 无法解析生产域名。
 - [ ] 验证浏览器导航历史版本时获得预览 SPA，GKD/非 HTML 请求获得原始 JSON5 字节；验证目录页历史版本列表与 404/503 边界。
 
 ### 三个页面及 PR #40 遗留问题
@@ -277,8 +277,8 @@ PR #40 后续已合并至 main（merge commit `09ed25c4409035183e7f465b76b8aefd3
 ### 本 PR 的交付门禁
 
 - [ ] 每一项用户反馈都有明确状态和验证证据；未修复项保留未勾选并注明原因。
-- [ ] CI 全部通过，Review 评论逐条核实，无未解决的真实缺陷。
-- [x] PR #42 Provider Logo 已通过 Chromium 320/768/1024/1440px 验收，检查 GitHub Logo alt 和实际图片加载；截图及运行记录见 `docs/engineering/browser-acceptance.md`。
+- [x] CI 全部通过；Codex/CodeRabbit 的 5 个 Review 线程逐项核实、修复或补证据后全部解决。CodeRabbit 最新自动复审因频率限制返回 neutral，不代表新增通过审查。
+- [x] PR #42 Provider Logo 已通过 Chromium 320/768/1024/1440px 验收，分别检查 GitHub/GitLab/Gitea Logo alt 和实际图片加载；截图及运行记录见 `docs/engineering/browser-acceptance.md`。
 - [ ] 后续页面整体专项仍需覆盖 320/640/641/768/1024/1440px 并记录截图；PR #42 的 Logo 专项验收不替代所有页面缺陷验收。
-- [ ] Preview Worker/workerd 历史归档链路通过；不得用普通 Node 测试冒充生产 Worker Cache API。
+- [ ] Preview Worker/workerd 历史归档链路通过；当前 Workers Builds preview 编译成功且 Wrangler dry-run 通过，但没有实际向 preview Worker 发起历史 R2 请求，不得将 build 视为运行时集成验收。
 - [ ] 文档与实际实现同步；不改动生产 D1/R2 数据，不部署生产环境。
