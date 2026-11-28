@@ -175,6 +175,20 @@ describe('GKD subscription preview model', () => {
     expect(getRuleDetail(value, 'app', 0, 0, 0)).toMatchObject({ matches: fullSelector })
   })
 
+  it('preserves empty string rules accepted by the subscription schema', () => {
+    const value = makeSubscription()
+    const group = value.apps?.[0]?.groups[0]
+    if (!group) throw new Error('Expected an app rule group')
+    group.rules = ['', { key: 2, name: '有效规则', matches: 'TextView' }]
+
+    expect(isRawSubscription(value)).toBe(true)
+    expect(getGroupsPage(value, 'app', 0, 1, 50).items[0].ruleCount).toBe(2)
+    expect(getRulesPage(value, 'app', 0, 0, 1, 50)).toMatchObject({
+      total: 2,
+      items: [{ index: 0, name: '规则 1' }],
+    })
+  })
+
   it('supports global rules and categories through separate lazy requests', () => {
     const value = makeSubscription()
     expect(getGroupsPage(value, 'global', undefined, 1, 50).items[0]).toMatchObject({
