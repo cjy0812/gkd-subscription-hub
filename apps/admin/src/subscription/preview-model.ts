@@ -418,7 +418,7 @@ export function getRulesPage(
   const sourceRules = getRules(group)
   for (let index = 0; index < sourceRules.length; index += 1) {
     const rule = sourceRules[index]
-    if (!rule) continue
+    if (rule == null) continue
     const normalized = normalizeRule(rule) as unknown as Record<string, unknown>
     if (
       includesNormalizedQuery(
