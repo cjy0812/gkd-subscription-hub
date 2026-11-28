@@ -270,6 +270,7 @@ describe('Cloudflare R2 subscription version archive', () => {
     expect(bucket.puts).toBe(1)
     expect(await readVersionContent(env, first as VersionSnapshot)).toEqual(bytes)
 
+    const compressionSpy = vi.spyOn(globalThis, 'CompressionStream')
     const secondProject = makeProject(644)
     secondProject.distFiles[0] = {
       path: 'gkd.json5',
@@ -278,6 +279,8 @@ describe('Cloudflare R2 subscription version archive', () => {
     }
     const second = await recordSubscriptionVersion(env, secondProject)
     expect(second?.archiveStatus).toBe('r2')
+    expect(compressionSpy).not.toHaveBeenCalled()
+    compressionSpy.mockRestore()
     expect(second?.objectKey).toBe(first?.objectKey)
     expect(bucket.puts).toBe(1)
     expect(database.objects.size).toBe(1)

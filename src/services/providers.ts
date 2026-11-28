@@ -66,8 +66,16 @@ const PAGE_SIZE = 100
 const MAX_JOB_LOG_BYTES = 2 * 1024 * 1024
 
 async function readBoundedLog(response: Response): Promise<string> {
+  const sizeError = () => Error('单份日志超过 2 MB 上限，请前往托管平台查看')
   const declaredLength = Number(response.headers.get('content-length') || 0)
-  if (declaredLength > MAX_JOB_LOG_BYTES) throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
+  if (declaredLength > MAX_JOB_LOG_BYTES) {
+    try {
+      await response.body?.cancel()
+    } catch {
+      // Preserve the size-limit error if the source cannot be canceled.
+    }
+    throw sizeError()
+  }
   if (!response.body) return ''
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
@@ -77,16 +85,16 @@ async function readBoundedLog(response: Response): Promise<string> {
       const { done, value } = await reader.read()
       if (done) break
       total += value.byteLength
-      if (total > MAX_JOB_LOG_BYTES) {
-        try {
-          await reader.cancel()
-        } catch {
-          // Preserve the size-limit error if the upstream stream cannot be canceled.
-        }
-        throw Error('单份日志超过 2 MB 上限，请前往托管平台查看')
-      }
+      if (total > MAX_JOB_LOG_BYTES) throw sizeError()
       chunks.push(value)
     }
+  } catch (error) {
+    try {
+      await reader.cancel(error)
+    } catch {
+      // Preserve the original read or size-limit error.
+    }
+    throw error
   } finally {
     reader.releaseLock()
   }
