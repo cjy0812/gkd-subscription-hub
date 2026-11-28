@@ -183,10 +183,12 @@ describe('GKD subscription preview model', () => {
 
     expect(isRawSubscription(value)).toBe(true)
     expect(getGroupsPage(value, 'app', 0, 1, 50).items[0].ruleCount).toBe(2)
-    expect(getRulesPage(value, 'app', 0, 0, 1, 50)).toMatchObject({
-      total: 2,
-      items: [{ index: 0, name: '规则 1' }],
-    })
+    const rules = getRulesPage(value, 'app', 0, 0, 1, 50)
+    expect(rules.total).toBe(2)
+    expect(rules.items.map(({ index, name }) => ({ index, name }))).toEqual([
+      { index: 0, name: '规则 1' },
+      { index: 1, name: '有效规则' },
+    ])
   })
 
   it('supports global rules and categories through separate lazy requests', () => {
